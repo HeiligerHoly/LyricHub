@@ -2,12 +2,13 @@
   // Layout "Karaoke" (PLAN.md 9.2): small header with cover and title – artist, the current line
   // large with the fill, the next line small and dimmed below. Every row has a fixed height, so
   // the window keeps its size while lines change. Line change (PLAN.md 9.4): 220 ms, the new
-  // line fades in from 0.55 and rises a little; the fill itself never eases.
+  // line fades in from 0.55 and rises a little; the fill itself never eases. In romaji
+  // (docs/romaji.md) the preview row adds the original of the next line, small and dim.
   import { songId } from "$lib/shared/ipc";
   import type { Align, Line, TrackInfo } from "$lib/shared/types";
   import type { LocalClock } from "../clock";
   import KaraokeLine from "../KaraokeLine.svelte";
-  import { langOf } from "../lyricsTimeline";
+  import { langOf, shownText } from "../lyricsTimeline";
 
   interface Props {
     track: TrackInfo | null;
@@ -17,6 +18,8 @@
     /** Changes when the active line changes, for the enter transition. */
     activeKey: string;
     next: Line | null;
+    /** Japanese lines in romaji. */
+    romaji: boolean;
     /** What the active row shows when no line is active. */
     status: "loading" | "instrumental" | null;
     hint: string | null;
@@ -32,6 +35,7 @@
     active,
     activeKey,
     next,
+    romaji,
     status,
     hint,
     toast,
@@ -39,6 +43,8 @@
     clockVersion,
     staticFill = null,
   }: Props = $props();
+
+  const nextText = $derived(next ? shownText(next, romaji) : "");
 
   const title = $derived(track?.title ?? placeholder.title);
   const artist = $derived(track ? track.artist : placeholder.artist);
@@ -66,7 +72,7 @@
     {#key activeKey}
       <div class="slot enter">
         {#if active && active.text}
-          <KaraokeLine text={active.text} startMs={active.start_ms} fillEndMs={active.fill_end_ms} {clock} {clockVersion} {staticFill} />
+          <KaraokeLine text={shownText(active, romaji)} startMs={active.start_ms} fillEndMs={active.fill_end_ms} {clock} {clockVersion} {staticFill} />
         {:else if hint}
           <p class="hint">{hint}</p>
         {:else if status === "loading"}
@@ -81,7 +87,9 @@
   <div class="row upcoming">
     {#key next?.start_ms ?? -1}
       {#if next}
-        <p class="next enter-next" lang={langOf(next.text)}>{next.text}</p>
+        <p class="next enter-next" lang={langOf(nextText)}>
+          {nextText}{#if nextText !== next.text}<span class="original" lang="ja">{next.text}</span>{/if}
+        </p>
       {/if}
     {/key}
   </div>
@@ -197,6 +205,13 @@
   .hint {
     font-size: calc(16px * var(--s));
     color: rgba(255, 255, 255, 0.6);
+  }
+  /* After the romaji of the next line; the ellipsis cuts it first. */
+  .original {
+    margin-left: 0.7em;
+    font-size: 0.8em;
+    font-weight: 450;
+    color: rgba(255, 255, 255, 0.32);
   }
 
   .dots {

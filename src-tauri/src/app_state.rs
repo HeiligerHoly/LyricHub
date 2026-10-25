@@ -21,8 +21,9 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::ipc::events;
 use crate::lyrics::lrclib::{HttpTransport, Transport};
+use crate::lyrics::romaji;
 use crate::lyrics::service::{LyricsService, Request};
-use crate::lyrics::types::LyricsEvent;
+use crate::lyrics::types::{LyricsEvent, LyricsState};
 use crate::settings::SettingsState;
 use crate::sources::{PlaybackStatus, SourceEvent, TrackInfo};
 use crate::sync::clock::{self, PlaybackClock};
@@ -207,7 +208,10 @@ fn request_lyrics(app: &AppHandle, t: &TrackInfo, force: bool) {
     }
 }
 
-fn on_lyrics(app: &AppHandle, event: LyricsEvent) {
+fn on_lyrics(app: &AppHandle, mut event: LyricsEvent) {
+    if app.state::<SettingsState>().get().appearance.romaji {
+        add_romaji(&mut event);
+    }
     {
         let state = app.state::<NowPlayingState>();
         let mut inner = state.inner.lock().unwrap();
@@ -219,6 +223,40 @@ fn on_lyrics(app: &AppHandle, event: LyricsEvent) {
         inner.lyrics = Some(event.clone());
     }
     emit(app, events::LYRICS, &event);
+}
+
+/// Romaji for the Japanese lines of a song (docs/romaji.md). Runs once per song; the result
+/// stays with the lyrics of the current song. Returns how many lines got romaji.
+fn add_romaji(event: &mut LyricsEvent) -> usize {
+    if event.state != LyricsState::Synced {
+        return 0;
+    }
+    let started = Instant::now();
+    let count = romaji::annotate(&mut event.lines);
+    if count > 0 {
+        tracing::info!(key = %event.key, lines = count, took_ms = ms(started.elapsed()), "romaji ready");
+    }
+    count
+}
+
+/// The romaji setting changed. Turned on, the current song gets its romaji right away; the
+/// overlay switches with the `settings` event that follows. Turned off, the overlay shows the
+/// original lines again and the romaji just stay unused.
+pub fn romaji_changed(app: &AppHandle, on: bool) {
+    let state = app.state::<NowPlayingState>();
+    let Some(mut lyrics) = state.lyrics().filter(|_| on) else { return };
+    if add_romaji(&mut lyrics) == 0 {
+        return;
+    }
+    {
+        let mut inner = state.inner.lock().unwrap();
+        // The song may have changed meanwhile.
+        if inner.lyrics.as_ref().map(|l| l.key.as_str()) != Some(lyrics.key.as_str()) {
+            return;
+        }
+        inner.lyrics = Some(lyrics.clone());
+    }
+    emit(app, events::LYRICS, &lyrics);
 }
 
 fn handle(app: &AppHandle, event: SourceEvent) {

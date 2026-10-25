@@ -7,7 +7,7 @@
   // monitor no more frames are composed than needed. JavaScript only re-aligns the animations
   // when the clock changes speed or position. (An animated gradient with background-clip: text
   // repainted every frame and cost 55 % of a core in Spike B.)
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import type { LocalClock } from "./clock";
   import { langOf } from "./lyricsTimeline";
 
@@ -93,6 +93,14 @@
   $effect(() => {
     void clockVersion;
     sync();
+  });
+
+  // The text switches script while the line runs (romaji on or off): fit it again.
+  let fittedText = untrack(() => text);
+  $effect(() => {
+    if (text === fittedText) return;
+    fittedText = text;
+    measureFit();
   });
 </script>
 

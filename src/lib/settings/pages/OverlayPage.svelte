@@ -1,6 +1,7 @@
 <script lang="ts">
   // Settings → Overlay (PLAN.md 9.7): edit mode, layout, monitor, anchor, fine position, width,
-  // scale, pause fade-out. Every change applies live to the overlay; sliders send at most one
+  // scale, plate opacity, romaji for Japanese lines (docs/romaji.md), pause fade-out. Every
+  // change applies live to the overlay; sliders send at most one
   // patch per 60 ms. "Nur bei Vollbild-App zeigen" follows with the fullscreen detection
   // (Phase 5), the layouts Stack and Minimal with Phase 4.
   import { onMount, untrack } from "svelte";
@@ -194,6 +195,18 @@
     <span class="value">{plateOpacity} % · höher liest sich über hellen Spielszenen besser</span>
   </div>
 
+  <label class="label" for="romaji">Japanische Zeilen</label>
+  <div class="slider">
+    <input
+      id="romaji"
+      class="check"
+      type="checkbox"
+      checked={settings.appearance.romaji}
+      onchange={(e) => update({ appearance: { romaji: (e.currentTarget as HTMLInputElement).checked } })}
+    />
+    <span class="value">in Romaji (Hepburn) zeigen · Strg+Alt+R wechselt auch im Spiel</span>
+  </div>
+
   <label class="label" for="pause">Bei Pause ausblenden nach</label>
   <div class="slider">
     <input
@@ -280,8 +293,12 @@
   .unit {
     color: var(--muted);
   }
-  input[type="range"] {
+  input[type="range"],
+  .check {
     accent-color: var(--accent);
+  }
+  .check {
+    margin: 0;
   }
   .number,
   select {

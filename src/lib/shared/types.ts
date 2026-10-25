@@ -61,6 +61,8 @@ export interface BehaviorSettings {
 export interface AppearanceSettings {
   /** Opacity of the dark plate behind the text, 0..1. */
   plate_opacity: number;
+  /** Show lines with kana or kanji in romaji, modified Hepburn (docs/romaji.md). */
+  romaji: boolean;
 }
 
 export interface SyncSettings {
@@ -112,6 +114,8 @@ export interface Line {
   /** Empty for an instrumental marker. */
   text: string;
   words: Word[] | null;
+  /** Romaji of a line with kana or kanji, filled once per song while the setting is on. */
+  romaji: string | null;
 }
 
 export type LyricsState = "loading" | "synced" | "unsynced" | "instrumental" | "missing" | "error";

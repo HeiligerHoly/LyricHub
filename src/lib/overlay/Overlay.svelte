@@ -26,10 +26,12 @@
   import type { EditChange } from "./editMode";
   import Bar from "./layouts/Bar.svelte";
   import Karaoke from "./layouts/Karaoke.svelte";
-  import { langOf, lineIndexAt, nextTextLine } from "./lyricsTimeline";
+  import { langOf, lineIndexAt, nextTextLine, shownText } from "./lyricsTimeline";
 
   const SAMPLE_LINE = "Dies ist eine Beispielzeile zum Ausrichten";
-  const SAMPLE_NEXT = "次の行はここに少し小さく表示されます";
+  const SAMPLE_NEXT = "次の歌詞はここに少し小さく表示されます";
+  /** What the backend makes of SAMPLE_NEXT (test `overlay_sample_line` in lyrics/romaji.rs). */
+  const SAMPLE_NEXT_ROMAJI = "tsugi no kashi wa koko ni sukoshi chiisaku hyōji saremasu";
   const SAMPLE_TRACK = { title: "Titel des Songs", artist: "Artist" };
   const IDLE_TRACK = { title: "LyricHub", artist: "wartet auf Spotify" };
   const DIM_AFTER_MS = 2000;
@@ -49,6 +51,8 @@
   let layout = $state<OverlayLayout | null>(null);
   let hideAfterPauseS = $state(10);
   let plateOpacity = $state(0.55);
+  /** Japanese lines in romaji; the backend sends the romaji with the lyrics. */
+  let romaji = $state(false);
   /** 0 = normal, 1 = dimmed (paused > 2 s), 2 = faded out (paused > hide_after_pause_s) */
   let pauseStage = $state(0);
   let hint = $state(false);
@@ -94,8 +98,15 @@
   );
   const activeLine = $derived(lines && lineIndex >= 0 ? lines[lineIndex] : null);
   const nextLine = $derived(lines ? nextTextLine(lines, lineIndex) : null);
-  const sampleActive: Line = { start_ms: 0, end_ms: 4000, fill_end_ms: 4000, text: SAMPLE_LINE, words: null };
-  const sampleNext: Line = { start_ms: 4000, end_ms: null, fill_end_ms: 8000, text: SAMPLE_NEXT, words: null };
+  const sampleActive: Line = { start_ms: 0, end_ms: 4000, fill_end_ms: 4000, text: SAMPLE_LINE, words: null, romaji: null };
+  const sampleNext: Line = {
+    start_ms: 4000,
+    end_ms: null,
+    fill_end_ms: 8000,
+    text: SAMPLE_NEXT,
+    words: null,
+    romaji: SAMPLE_NEXT_ROMAJI,
+  };
 
   // Pause (PLAN.md 9.4): dim after 2 s, fade out after hide_after_pause_s (0 = never).
   $effect(() => {
@@ -140,9 +151,11 @@
     scheduleLine();
   });
 
-  // Measures every line once per song (and when the size changes) in the active-line font.
+  // Measures every line once per song (and when the size or the script changes) in the
+  // active-line font.
   $effect(() => {
     const current = lines;
+    const inRomaji = romaji;
     void uiScale;
     if (!current || layout?.layout !== "karaoke" || !measurer) {
       songLineWidth = 0;
@@ -151,8 +164,9 @@
     let widest = 0;
     for (const l of current) {
       if (!l.text) continue;
-      measurer.lang = langOf(l.text) ?? "";
-      measurer.textContent = l.text;
+      const text = shownText(l, inRomaji);
+      measurer.lang = langOf(text) ?? "";
+      measurer.textContent = text;
       widest = Math.max(widest, measurer.getBoundingClientRect().width);
     }
     measurer.textContent = "";
@@ -209,18 +223,27 @@
     if (stateHint) hintStateTimer = setTimeout(() => (stateHint = null), STATE_HINT_MS);
   }
 
+  let settingsSeen = false;
   function applySettings(s: Settings) {
     hideAfterPauseS = s.overlay.hide_after_pause_s;
     plateOpacity = s.appearance.plate_opacity;
+    // Feedback for Ctrl+Alt+R, which changes nothing visible while a non-Japanese song plays.
+    if (settingsSeen && s.appearance.romaji !== romaji) showToast(s.appearance.romaji ? "Romaji an" : "Romaji aus");
+    romaji = s.appearance.romaji;
+    settingsSeen = true;
   }
 
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  function showToast(text: string) {
+    toast = text;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (toast = null), TOAST_MS);
+  }
+
   function showNudge(n: NudgeEvent) {
     const sign = n.offset_ms > 0 ? "+" : n.offset_ms < 0 ? "−" : "±";
     const direction = n.delta_ms > 0 ? "Lyrics später" : "Lyrics früher";
-    toast = `Offset ${sign}${Math.abs(n.offset_ms)} ms · ${direction}`;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => (toast = null), TOAST_MS);
+    showToast(`Offset ${sign}${Math.abs(n.offset_ms)} ms · ${direction}`);
   }
 
   // ---- Layout and edit mode ----
@@ -312,7 +335,7 @@
           <Bar
             {track}
             placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
-            lyric={sample ? SAMPLE_LINE : activeLine?.text || null}
+            lyric={sample ? SAMPLE_LINE : activeLine?.text ? shownText(activeLine, romaji) : null}
             {toast}
             align={layout?.align ?? "center"}
           />
@@ -324,6 +347,7 @@
             active={sample ? sampleActive : activeLine}
             activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
             next={sample ? sampleNext : nextLine}
+            {romaji}
             status={sample ? null : loadingVisible ? "loading" : activeLine && !activeLine.text ? "instrumental" : null}
             hint={sample ? null : stateHint}
             {toast}
