@@ -5,6 +5,7 @@ mod app_state;
 mod hotkeys;
 mod ipc;
 mod logging;
+mod lyrics;
 mod overlay;
 mod paths;
 mod settings;
