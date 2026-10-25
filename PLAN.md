@@ -649,6 +649,8 @@ Tasks:
 
 DoD: Akzeptanzkriterien Sync (Abschnitt 2) im manuellen Protokoll nachgewiesen und in `docs/sync-report.md` dokumentiert.
 
+**Ergebnis Phase 3 (2026-10-25)**: Tag `v0.3.0-phase3`, mit einer offenen Lücke. Sync-Protokoll per Leertaste über 115 Zeilenanfänge in 13 englischen und deutschen Songs, kabelgebunden, Geräte-Offset +100 ms: Median 96 ms (Ziel ≤ 100 ✓), p95 289 ms (Ziel ≤ 200 ✗). Seek bis zum gezeichneten Overlay 30 ms im Median. Nudge pro Song ist über einen echten Songwechsel nachgewiesen. Die Zeitkette liegt bei 8–25 ms; das p95 kommt vom unterschiedlichen Timing der LRC-Dateien (Versatz pro Song −140 bis +151 ms) und von der Streuung der Taps. Japanisch ist nicht gemessen, weil der Nutzer die Zeilen ohne Romaji nicht lesen kann. Eine Kalibrierung über nur einen Song misst dessen LRC-Timing mit. Phase 3b (Web API) entfällt. Details in `docs/phase3.md` und `docs/sync-report.md`.
+
 ### Phase 4 – Karaoke-Feinschliff und Design
 
 Tasks:
