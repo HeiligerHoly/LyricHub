@@ -4,6 +4,7 @@
 //! unsorted or duplicated lines, section labels and stray text without timestamps.
 
 use super::types::{Line, Word};
+use super::words;
 
 /// Fill duration per character when the line is followed by a long instrumental gap.
 const MS_PER_CHAR: u32 = 70;
@@ -95,7 +96,8 @@ pub fn parse(input: &str) -> ParsedLrc {
                     })
                     .collect()
             });
-            Line { start_ms, end_ms, fill_end_ms, text: l.text, words, romaji: None }
+            let words = words.or_else(|| Some(words::estimate(&l.text, start_ms, fill_end_ms)).filter(|w| !w.is_empty()));
+            Line { start_ms, end_ms, fill_end_ms, text: l.text, words, romaji: None, romaji_words: None }
         })
         .collect();
     out
@@ -269,7 +271,8 @@ mod tests {
         let w = l.words.as_ref().unwrap();
         assert_eq!(w.iter().map(|w| (w.start_ms, w.end_ms)).collect::<Vec<_>>(), [(12_000, 12_400), (12_400, 12_900), (12_900, 14_000)]);
         assert!(w.iter().all(|w| !w.estimated));
-        assert!(p.lines[1].words.is_none());
+        // Lines without marks get estimated words.
+        assert!(p.lines[1].words.as_ref().unwrap().iter().all(|w| w.estimated));
     }
 
     #[test]

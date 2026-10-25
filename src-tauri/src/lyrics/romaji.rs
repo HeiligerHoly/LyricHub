@@ -14,6 +14,7 @@ use lindera::segmenter::Segmenter;
 use unicode_normalization::UnicodeNormalization;
 
 use super::types::Line;
+use super::words;
 
 /// Kana or kanji in the text; the same test as `langOf` in the overlay (lyricsTimeline.ts).
 pub fn is_japanese(text: &str) -> bool {
@@ -34,6 +35,7 @@ pub fn annotate(lines: &mut [Line]) -> usize {
     for line in lines.iter_mut().filter(|l| l.romaji.is_none() && is_japanese(&l.text)) {
         let romaji = memo.entry(line.text.clone()).or_insert_with(|| romanizer.line(&line.text)).clone();
         count += usize::from(romaji.is_some());
+        line.romaji_words = romaji.as_deref().map(|r| words::estimate(r, line.start_ms, line.fill_end_ms)).filter(|w| !w.is_empty());
         line.romaji = romaji;
     }
     count
@@ -575,7 +577,7 @@ mod tests {
 
     #[test]
     fn annotate_fills_japanese_lines_once() {
-        let line = |text: &str| Line { start_ms: 0, end_ms: None, fill_end_ms: 0, text: text.into(), words: None, romaji: None };
+        let line = |text: &str| Line { start_ms: 0, end_ms: None, fill_end_ms: 0, text: text.into(), words: None, romaji: None, romaji_words: None };
         let mut lines = vec![line("夢を見た"), line("Plain text"), line(""), line("夢を見た")];
         assert_eq!(annotate(&mut lines), 2);
         let got: Vec<Option<&str>> = lines.iter().map(|l| l.romaji.as_deref()).collect();

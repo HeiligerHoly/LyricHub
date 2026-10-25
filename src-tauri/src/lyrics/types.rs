@@ -8,7 +8,7 @@ pub struct Word {
     pub start_ms: u32,
     pub end_ms: u32,
     pub text: String,
-    /// False when the timing comes from Enhanced LRC, true when estimated (Phase 4).
+    /// False when the timing comes from Enhanced LRC, true when estimated (words.rs).
     pub estimated: bool,
 }
 
@@ -22,10 +22,13 @@ pub struct Line {
     pub fill_end_ms: u32,
     /// Empty for an instrumental marker.
     pub text: String,
+    /// Word times: from Enhanced LRC, else estimated (words.rs). `None` without letters.
     pub words: Option<Vec<Word>>,
     /// Romaji of a line with kana or kanji (docs/romaji.md). Filled once per song while the
     /// setting `appearance.romaji` is on, otherwise `None`.
     pub romaji: Option<String>,
+    /// Estimated word times of `romaji`, so the fill moves word by word in romaji too.
+    pub romaji_words: Option<Vec<Word>>,
 }
 
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
