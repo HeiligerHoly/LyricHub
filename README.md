@@ -2,7 +2,7 @@
 
 Windows-Overlay, das den laufenden Spotify-Song und karaoke-artig mitlaufende Lyrics über Spielen anzeigt, synchron zum hörbaren Ton. Der vollständige Plan steht in [PLAN.md](PLAN.md).
 
-Stand: Phase 1 abgeschlossen (`v0.1.0-phase1`), der dünne Durchstich „Now Playing“. Das Overlay zeigt Cover, Titel und Artist des laufenden Spotify-Songs und lässt sich im Edit-Modus direkt am Bildschirm verschieben und skalieren. Ergebnisse in [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md). Lyrics folgen mit Phase 2.
+Stand: Phase 2 abgeschlossen (`v0.2.0-phase2`), Lyrics und Clock. Das Overlay zeigt die synchronen Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit zeilengenauer Karaoke-Füllung, dazu Cover, Titel und Artist; Position und Größe lassen sich im Edit-Modus direkt am Bildschirm einstellen. Ergebnisse in [docs/phase2.md](docs/phase2.md) und [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md).
 
 ## Voraussetzungen
 
@@ -34,10 +34,12 @@ Die App startet im Tray. Linksklick auf das Tray-Icon blendet das Overlay ein un
 | Strg+Alt+L | Overlay ein/aus |
 | Strg+Alt+E | Edit-Modus: Overlay ziehen, an den Ecken skalieren, an den Seiten die Breite ändern |
 | Enter / Esc | im Edit-Modus speichern / abbrechen (nur dann registriert) |
+| Strg+Alt+K | Layout wechseln (Karaoke, Leiste) |
+| Strg+Alt+, / Strg+Alt+. | Lyrics 100 ms früher / später (mit Umschalt 25 ms) |
 
 Das Spiel behält im Edit-Modus den Fokus; das Overlay nimmt nie Tastatureingaben an.
 
-Einstellungen liegen in `%APPDATA%\LyricHub\settings.json`, Logs unter `%APPDATA%\LyricHub\logs`. Das Log-Level steuert `LYRICHUB_LOG` (z. B. `debug`).
+Einstellungen liegen in `%APPDATA%\LyricHub\settings.json`, der Lyrics-Cache in `%APPDATA%\LyricHub\lyrichub.db`, Logs unter `%APPDATA%\LyricHub\logs`. Das Log-Level steuert `LYRICHUB_LOG` (z. B. `debug`). Die Logs enthalten keine Liedtexte.
 
 ## Tests und Spikes
 
@@ -56,8 +58,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\measure-
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\edit-mode-test.ps1
 ```
 
-Rust-Unit-Tests (Geometrie, Settings-Store, SMTC-Songwechsel-Erkennung): `cargo test` in `src-tauri`.
+Rust-Unit-Tests (LRC-Parser, Playback-Clock, Matcher, LRCLIB-Client gegen aufgezeichnete Antworten, Cache, Geometrie, Settings-Store, SMTC-Songwechsel-Erkennung): `cargo test` in `src-tauri`. Live-Anfragen an LRCLIB machen die Tests nicht.
 
 ## Hinweise
 
-Lyrics sind urheberrechtlich geschützt. LyricHub zeigt sie nur an und verteilt sie nicht weiter. Quelle der Lyrics wird ab Phase 2 LRCLIB sein.
+Lyrics sind urheberrechtlich geschützt. LyricHub zeigt sie nur an und verteilt sie nicht weiter. Quelle der Lyrics ist [LRCLIB](https://lrclib.net), eine von der Community gepflegte Datenbank; LyricHub fragt sie mit eigenem User-Agent an und speichert Ergebnisse lokal, um sie nicht bei jeder Wiederholung erneut abzufragen. Die Test-Fixtures im Repository enthalten erfundenen Text.

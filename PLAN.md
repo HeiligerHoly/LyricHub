@@ -633,6 +633,8 @@ Tasks:
 
 DoD: Zehn Songs mit synchronen Lyrics laufen zeilengenau mit; Nudge korrigiert sichtbar; Parser-Tests grün.
 
+**Ergebnis Phase 2 (2026-10-25)**: abgeschlossen, Tag `v0.2.0-phase2`. Hörtest mit zehn Songs (Englisch, Deutsch, Japanisch, Französisch): Die Zeilen wechseln synchron, ohne Offset. Die zeilengenaue Füllung trifft das gesungene Wort erwartungsgemäß meist nicht; das ist Phase 4 (5.6). CPU bei laufender Füllung 0,59 % aller Kerne. Wichtige Befunde: Die Formel in 5.2 hat das Vorzeichen vertauscht (umgesetzt ist der Satz: positiv = später); LRCLIB beantwortet unbekannte Titel und leere Suchen mit 503 und braucht unter Last ~1,1 s pro Antwort, deshalb laufen die Suchstufen gestaffelt parallel. Details in `docs/phase2.md`.
+
 ### Phase 3 – Sync-Härtung
 
 Tasks:
