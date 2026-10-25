@@ -194,6 +194,18 @@ pub async fn toggle_overlay(app: AppHandle) -> bool {
     overlay::toggle(&app)
 }
 
+/// Installed font families and whether a Japanese UI font is there (PLAN.md 9.5).
+#[tauri::command]
+pub async fn list_fonts() -> crate::fonts::FontList {
+    tauri::async_runtime::spawn_blocking(crate::fonts::list).await.unwrap_or_else(|_| crate::fonts::FontList { families: Vec::new(), japanese_ui_font: false })
+}
+
+/// Sample lines in the overlay while the appearance page is open (PLAN.md 9.5: live preview).
+#[tauri::command]
+pub async fn set_overlay_preview(app: AppHandle, on: bool) {
+    overlay::set_preview(&app, on);
+}
+
 #[tauri::command]
 pub async fn overlay_diagnostics(app: AppHandle) -> OverlayDiagnostics {
     overlay::diagnostics(&app)

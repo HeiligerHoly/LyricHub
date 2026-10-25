@@ -5,6 +5,7 @@
 mod app_state;
 mod audio_devices;
 mod calibration;
+mod fonts;
 mod hotkeys;
 mod ipc;
 mod logging;
@@ -78,6 +79,8 @@ pub fn run() {
             ipc::commands::save_overlay_geometry,
             ipc::commands::cancel_edit_mode,
             ipc::commands::toggle_overlay,
+            ipc::commands::set_overlay_preview,
+            ipc::commands::list_fonts,
             ipc::commands::overlay_diagnostics,
             ipc::commands::run_overlay_selftest,
             ipc::commands::app_info,
@@ -113,6 +116,11 @@ pub fn run() {
                     let app: AppHandle = window.app_handle().clone();
                     std::thread::spawn(move || overlay::force_relayout(&app));
                 }
+            }
+            // The appearance page may close with the window: end its preview.
+            if window.label() == settings_window::LABEL && matches!(event, WindowEvent::Destroyed) {
+                let app: AppHandle = window.app_handle().clone();
+                std::thread::spawn(move || overlay::set_preview(&app, false));
             }
         })
         .build(tauri::generate_context!())
