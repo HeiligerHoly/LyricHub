@@ -1,0 +1,168 @@
+//! Settings schema v1 (PLAN.md 6.4, 9.7). Every struct defaults missing fields, so later
+//! versions can add fields without a migration; renames and meaning changes need one in
+//! `store::migrate` (PLAN.md 15).
+
+use serde::{Deserialize, Serialize};
+
+pub const SCHEMA_VERSION: u32 = 1;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct Settings {
+    pub schema_version: u32,
+    pub overlay: OverlaySettings,
+    pub behavior: BehaviorSettings,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self { schema_version: SCHEMA_VERSION, overlay: OverlaySettings::default(), behavior: BehaviorSettings::default() }
+    }
+}
+
+/// One of nine reference points of a monitor, and the matching point of the overlay.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Anchor {
+    #[serde(rename = "tl")]
+    TopLeft,
+    #[default]
+    #[serde(rename = "tc")]
+    TopCenter,
+    #[serde(rename = "tr")]
+    TopRight,
+    #[serde(rename = "ml")]
+    MiddleLeft,
+    #[serde(rename = "mc")]
+    MiddleCenter,
+    #[serde(rename = "mr")]
+    MiddleRight,
+    #[serde(rename = "bl")]
+    BottomLeft,
+    #[serde(rename = "bc")]
+    BottomCenter,
+    #[serde(rename = "br")]
+    BottomRight,
+}
+
+impl Anchor {
+    const GRID: [[Anchor; 3]; 3] = [
+        [Anchor::TopLeft, Anchor::TopCenter, Anchor::TopRight],
+        [Anchor::MiddleLeft, Anchor::MiddleCenter, Anchor::MiddleRight],
+        [Anchor::BottomLeft, Anchor::BottomCenter, Anchor::BottomRight],
+    ];
+
+    /// Column and row in the 3×3 grid, each 0 (left/top), 1 (centre) or 2 (right/bottom).
+    pub fn cell(self) -> (usize, usize) {
+        for (row, cells) in Self::GRID.iter().enumerate() {
+            if let Some(col) = cells.iter().position(|&a| a == self) {
+                return (col, row);
+            }
+        }
+        unreachable!("every anchor is in the grid")
+    }
+
+    pub fn from_cell(col: usize, row: usize) -> Self {
+        Self::GRID[row.min(2)][col.min(2)]
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct OverlaySettings {
+    /// Windows device name of the monitor, e.g. `\\.\DISPLAY1`. `None` or an unknown name
+    /// means the primary monitor.
+    pub monitor_id: Option<String>,
+    pub anchor: Anchor,
+    /// Shift of the overlay's anchor point from the monitor's anchor point, in percent of the
+    /// monitor width or height. Relative values survive resolution changes (PLAN.md 6.4).
+    pub offset_x_pct: f64,
+    pub offset_y_pct: f64,
+    /// Overlay width in percent of the monitor width.
+    pub width_pct: f64,
+    /// Text and spacing size. 1.0 is the design size on a screen 1080 logical pixels high;
+    /// larger screens scale up by the same ratio.
+    pub scale: f64,
+    /// Fade the overlay out this many seconds into a pause; 0 keeps it visible.
+    pub hide_after_pause_s: u32,
+}
+
+pub const SCALE_MIN: f64 = 0.5;
+pub const SCALE_MAX: f64 = 3.0;
+pub const WIDTH_PCT_MIN: f64 = 10.0;
+pub const WIDTH_PCT_MAX: f64 = 100.0;
+pub const HIDE_AFTER_PAUSE_MAX_S: u32 = 3600;
+
+impl Default for OverlaySettings {
+    fn default() -> Self {
+        Self {
+            monitor_id: None,
+            anchor: Anchor::TopCenter,
+            offset_x_pct: 0.0,
+            // About 24 px below the top edge on a 1080 px screen.
+            offset_y_pct: 2.2,
+            width_pct: 35.0,
+            scale: 1.0,
+            hide_after_pause_s: 10,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct BehaviorSettings {
+    /// Start with Windows (minimised to the tray, PLAN.md 2).
+    pub autostart: bool,
+    /// Do not open the settings window on a manual start either.
+    pub start_minimized: bool,
+}
+
+impl Settings {
+    /// Clamps every value into its valid range. Runs after loading and after each change.
+    pub fn sanitize(&mut self) {
+        self.schema_version = SCHEMA_VERSION;
+        let o = &mut self.overlay;
+        let finite_or = |v: f64, d: f64| if v.is_finite() { v } else { d };
+        let d = OverlaySettings::default();
+        o.offset_x_pct = finite_or(o.offset_x_pct, d.offset_x_pct).clamp(-100.0, 100.0);
+        o.offset_y_pct = finite_or(o.offset_y_pct, d.offset_y_pct).clamp(-100.0, 100.0);
+        o.width_pct = finite_or(o.width_pct, d.width_pct).clamp(WIDTH_PCT_MIN, WIDTH_PCT_MAX);
+        o.scale = finite_or(o.scale, d.scale).clamp(SCALE_MIN, SCALE_MAX);
+        o.hide_after_pause_s = o.hide_after_pause_s.min(HIDE_AFTER_PAUSE_MAX_S);
+        if o.monitor_id.as_deref().is_some_and(|m| m.trim().is_empty()) {
+            o.monitor_id = None;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn anchor_cells_roundtrip() {
+        for row in 0..3 {
+            for col in 0..3 {
+                assert_eq!(Anchor::from_cell(col, row).cell(), (col, row));
+            }
+        }
+        assert_eq!(serde_json::to_string(&Anchor::BottomRight).unwrap(), "\"br\"");
+    }
+
+    #[test]
+    fn sanitize_clamps_out_of_range_values() {
+        let mut s = Settings::default();
+        s.schema_version = 0;
+        s.overlay.scale = 9.0;
+        s.overlay.width_pct = 1.0;
+        s.overlay.offset_x_pct = f64::NAN;
+        s.overlay.hide_after_pause_s = 99_999;
+        s.overlay.monitor_id = Some("  ".into());
+        s.sanitize();
+        assert_eq!(s.schema_version, SCHEMA_VERSION);
+        assert_eq!(s.overlay.scale, SCALE_MAX);
+        assert_eq!(s.overlay.width_pct, WIDTH_PCT_MIN);
+        assert_eq!(s.overlay.offset_x_pct, 0.0);
+        assert_eq!(s.overlay.hide_after_pause_s, HIDE_AFTER_PAUSE_MAX_S);
+        assert_eq!(s.overlay.monitor_id, None);
+    }
+}
