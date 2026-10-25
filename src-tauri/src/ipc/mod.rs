@@ -8,7 +8,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
-use crate::settings::{OFFSET_LIMIT_MS, Settings, SettingsState};
+use crate::settings::{Settings, SettingsState};
 
 /// Emits the new settings and applies what changed. Every settings change ends here.
 pub fn settings_changed(app: &AppHandle, before: &Settings, after: &Settings) {
@@ -25,7 +25,7 @@ pub fn settings_changed(app: &AppHandle, before: &Settings, after: &Settings) {
         crate::tray::sync_layout(app, after.overlay.layout);
     }
     if before.sync != after.sync {
-        crate::app_state::emit_clock(app);
+        crate::app_state::emit_clock(app, "offset");
     }
     if before.behavior.autostart != after.behavior.autostart {
         apply_autostart(app, after.behavior.autostart);
@@ -34,23 +34,20 @@ pub fn settings_changed(app: &AppHandle, before: &Settings, after: &Settings) {
 
 #[derive(Serialize, Clone, Copy)]
 struct NudgeEvent {
+    /// New offset of the current song.
     offset_ms: i32,
     delta_ms: i32,
 }
 
-/// Nudge hotkeys (PLAN.md 5.7): shifts the global offset; positive shows the lyrics later.
-/// The song offset as default target follows with Phase 3.
-pub fn nudge(app: &AppHandle, delta_ms: i32) -> Settings {
-    let (before, after) = app.state::<SettingsState>().update(|s| {
-        s.sync.global_offset_ms = (s.sync.global_offset_ms + delta_ms).clamp(-OFFSET_LIMIT_MS, OFFSET_LIMIT_MS);
-    });
-    tracing::info!(delta_ms, offset_ms = after.sync.global_offset_ms, "offset nudged");
-    settings_changed(app, &before, &after);
-    let event = NudgeEvent { offset_ms: after.sync.global_offset_ms, delta_ms };
-    if let Err(e) = app.emit(events::NUDGE, event) {
+/// Nudge hotkeys (PLAN.md 5.7, user decision 14.1): change the offset of the song that plays
+/// and store it for that song; positive shows the lyrics later. The global offset changes only
+/// in the settings. Returns the new song offset, `None` when nothing plays.
+pub fn nudge(app: &AppHandle, delta_ms: i32) -> Option<i32> {
+    let offset_ms = crate::app_state::nudge_song(app, delta_ms)?;
+    if let Err(e) = app.emit(events::NUDGE, NudgeEvent { offset_ms, delta_ms }) {
         tracing::warn!(error = %e, "could not emit nudge");
     }
-    after
+    Some(offset_ms)
 }
 
 /// Switches to the next overlay layout (Ctrl+Alt+K, tray).

@@ -20,12 +20,14 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::ipc::events;
+use crate::lyrics::cache::Cache;
 use crate::lyrics::lrclib::{HttpTransport, Transport};
 use crate::lyrics::service::{LyricsService, Request};
 use crate::lyrics::types::LyricsEvent;
 use crate::settings::SettingsState;
 use crate::sources::{PlaybackStatus, SourceEvent, TrackInfo};
-use crate::sync::clock::{self, PlaybackClock};
+use crate::sync::clock::{self, PlaybackClock, Update};
+use crate::sync::offsets::{self, Offsets};
 
 const LATENCY_HISTORY: usize = 50;
 const CHANGING_EXPIRY: Duration = Duration::from_secs(1);
@@ -52,8 +54,23 @@ pub struct ClockEvent {
     pub rate: f64,
     pub slew_ms: f64,
     pub seq: u64,
-    /// Sum of the user offsets; positive shows the lyrics later (PLAN.md 5.2).
+    /// Sum of the offsets; positive shows the lyrics later (PLAN.md 5.2).
     pub offset_ms: i32,
+    /// The parts of `offset_ms`, for the settings and the Sync Lab.
+    pub offsets: Offsets,
+    /// Why this anchor went out: status, seek, jump, slew, adopt, offset, heartbeat, query.
+    pub kind: &'static str,
+}
+
+fn update_kind(update: &Update) -> &'static str {
+    match update {
+        Update::None => "none",
+        Update::Status { .. } => "status",
+        Update::Adopt { .. } => "adopt",
+        Update::Seek { .. } => "seek",
+        Update::Jump { .. } => "jump",
+        Update::Slew { .. } => "slew",
+    }
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -78,6 +95,10 @@ pub struct NowPlayingState {
     inner: Mutex<Inner>,
     clock: Mutex<PlaybackClock>,
     lyrics_service: OnceLock<LyricsService>,
+    /// Device and song parts; the global part comes from the settings when an anchor is built.
+    offsets: Mutex<Offsets>,
+    /// Own connection to lyrichub.db for song and device offsets (the lyrics worker has one too).
+    db: Mutex<Option<Cache>>,
 }
 
 struct Inner {
@@ -103,6 +124,8 @@ impl Default for NowPlayingState {
             }),
             clock: Mutex::new(PlaybackClock::new(Instant::now())),
             lyrics_service: OnceLock::new(),
+            offsets: Mutex::new(Offsets::default()),
+            db: Mutex::new(None),
         }
     }
 }
@@ -119,6 +142,22 @@ impl NowPlayingState {
     pub fn lyrics(&self) -> Option<LyricsEvent> {
         self.inner.lock().unwrap().lyrics.clone()
     }
+
+    fn current_key(&self) -> Option<String> {
+        self.inner.lock().unwrap().now.track.as_ref().map(|t| t.key.clone())
+    }
+
+    fn with_db<T>(&self, f: impl FnOnce(&Cache) -> rusqlite::Result<T>) -> Option<T> {
+        let db = self.db.lock().unwrap();
+        match db.as_ref().map(f) {
+            Some(Ok(v)) => Some(v),
+            Some(Err(e)) => {
+                tracing::warn!(error = %e, "offset store failed");
+                None
+            }
+            None => None,
+        }
+    }
 }
 
 /// Starts the lyrics worker, the consumer of source events and the clock heartbeat.
@@ -130,10 +169,13 @@ pub fn start(app: AppHandle, rx: Receiver<SourceEvent>) {
             Arc::new(Unreachable(e))
         }
     };
+    let db_path = crate::paths::data_dir().join("lyrichub.db");
+    match Cache::open(&db_path) {
+        Ok(db) => *app.state::<NowPlayingState>().db.lock().unwrap() = Some(db),
+        Err(e) => tracing::error!(error = %e, "offset store unavailable, song and device offsets stay 0"),
+    }
     let emit_app = app.clone();
-    let service = LyricsService::spawn(crate::paths::data_dir().join("lyrichub.db"), transport, move |event| {
-        on_lyrics(&emit_app, event)
-    });
+    let service = LyricsService::spawn(db_path, transport, move |event| on_lyrics(&emit_app, event));
     let _ = app.state::<NowPlayingState>().lyrics_service.set(service);
 
     let consumer = app.clone();
@@ -153,7 +195,7 @@ pub fn start(app: AppHandle, rx: Receiver<SourceEvent>) {
                 std::thread::sleep(CLOCK_HEARTBEAT);
                 let playing = app.state::<NowPlayingState>().clock.lock().unwrap().anchor().playing;
                 if playing {
-                    emit_clock(&app);
+                    emit_clock(&app, "heartbeat");
                 }
             }
         })
@@ -168,21 +210,104 @@ impl Transport for Unreachable {
     }
 }
 
-/// Current clock anchor with the offsets from the settings.
-pub fn clock_event(app: &AppHandle) -> ClockEvent {
+pub fn current_offsets(app: &AppHandle) -> Offsets {
+    let mut o = *app.state::<NowPlayingState>().offsets.lock().unwrap();
+    o.global_ms = app.state::<SettingsState>().get().sync.global_offset_ms;
+    o
+}
+
+/// Current clock anchor with all offsets.
+pub fn clock_event(app: &AppHandle, kind: &'static str) -> ClockEvent {
     let snap = app.state::<NowPlayingState>().clock.lock().unwrap().snapshot(Instant::now());
+    let offsets = current_offsets(app);
     ClockEvent {
         pos_ms: snap.pos_ms,
         playing: snap.playing,
         rate: snap.rate,
         slew_ms: snap.slew_ms,
         seq: snap.seq,
-        offset_ms: app.state::<SettingsState>().get().sync.global_offset_ms,
+        offset_ms: offsets.total(),
+        offsets,
+        kind,
     }
 }
 
-pub fn emit_clock(app: &AppHandle) {
-    emit(app, events::CLOCK, &clock_event(app));
+pub fn emit_clock(app: &AppHandle, kind: &'static str) {
+    emit(app, events::CLOCK, &clock_event(app, kind));
+}
+
+/// Nudge (PLAN.md 5.7): changes and stores the offset of the song that plays. Returns the new
+/// song offset, or `None` when nothing plays.
+pub fn nudge_song(app: &AppHandle, delta_ms: i32) -> Option<i32> {
+    let state = app.state::<NowPlayingState>();
+    let key = state.current_key()?;
+    let ms = {
+        let mut o = state.offsets.lock().unwrap();
+        o.song_ms = offsets::nudged(o.song_ms, delta_ms);
+        o.song_ms
+    };
+    state.with_db(|db| db.set_song_offset(&key, ms));
+    tracing::info!(key = %key, delta_ms, song_offset_ms = ms, "song offset nudged");
+    emit_clock(app, "offset");
+    Some(ms)
+}
+
+/// Sets the song offset of the current song (settings page, e.g. reset to 0).
+pub fn set_song_offset(app: &AppHandle, ms: i32) -> Option<i32> {
+    let state = app.state::<NowPlayingState>();
+    let key = state.current_key()?;
+    let ms = ms.clamp(-offsets::LIMIT_MS, offsets::LIMIT_MS);
+    state.offsets.lock().unwrap().song_ms = ms;
+    state.with_db(|db| db.set_song_offset(&key, ms));
+    tracing::info!(key = %key, song_offset_ms = ms, "song offset set");
+    emit_clock(app, "offset");
+    Some(ms)
+}
+
+/// Loads the stored offset of a new song; it applies at once (0 if never corrected).
+fn apply_song_offset(app: &AppHandle, key: &str) {
+    let state = app.state::<NowPlayingState>();
+    let ms = state.with_db(|db| db.song_offset(key)).unwrap_or(0);
+    let changed = {
+        let mut o = state.offsets.lock().unwrap();
+        std::mem::replace(&mut o.song_ms, ms) != ms
+    };
+    tracing::info!(key = %key, song_offset_ms = ms, "song offset applied");
+    if changed {
+        emit_clock(app, "offset");
+    }
+}
+
+/// A song got a new key (its duration arrived late): its stored offset moves along.
+fn rekey_song_offset(app: &AppHandle, old: &str, new: &str) {
+    let state = app.state::<NowPlayingState>();
+    let moved = state.with_db(|db| {
+        if db.has_song_offset(old)? && !db.has_song_offset(new)? {
+            let ms = db.song_offset(old)?;
+            db.set_song_offset(new, ms)?;
+            return Ok(true);
+        }
+        Ok(false)
+    });
+    if moved == Some(true) {
+        tracing::debug!(old, new, "song offset follows the new key");
+    }
+}
+
+/// Sets the offset of the current audio device (audio_devices.rs, settings, calibration).
+pub fn set_device_offset_ms(app: &AppHandle, ms: i32) {
+    let changed = {
+        let state = app.state::<NowPlayingState>();
+        let mut o = state.offsets.lock().unwrap();
+        std::mem::replace(&mut o.device_ms, ms) != ms
+    };
+    if changed {
+        emit_clock(app, "offset");
+    }
+}
+
+pub fn with_offset_store<T>(app: &AppHandle, f: impl FnOnce(&Cache) -> rusqlite::Result<T>) -> Option<T> {
+    app.state::<NowPlayingState>().with_db(f)
 }
 
 /// Asks LRCLIB again for the current song, bypassing the cache.
@@ -226,6 +351,7 @@ fn handle(app: &AppHandle, event: SourceEvent) {
     match event {
         SourceEvent::Track { info, first_sign } => {
             let tooltip = info.as_ref().map(|t| format!("{} – {}", t.title, t.artist));
+            let mut rekeyed_offset: Option<(String, String)> = None;
             let (new_song, rekeyed) = {
                 let mut inner = state.inner.lock().unwrap();
                 let new_song = match (&inner.now.track, &info) {
@@ -241,6 +367,11 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                 }
                 // Same song with a new key (the duration arrived later): the lyrics stay its own.
                 let old_key = inner.now.track.as_ref().map(|t| t.key.clone());
+                if let (false, Some(old), Some(next)) = (new_song, old_key.as_deref(), &info) {
+                    if old != next.key {
+                        rekeyed_offset = Some((old.to_owned(), next.key.clone()));
+                    }
+                }
                 let mut rekeyed = None;
                 if let (false, Some(next), Some(lyrics)) = (new_song, &info, inner.lyrics.as_mut()) {
                     if old_key.as_deref() == Some(lyrics.key.as_str()) && lyrics.key != next.key {
@@ -259,9 +390,13 @@ fn handle(app: &AppHandle, event: SourceEvent) {
             if let Some(lyrics) = rekeyed {
                 emit(app, events::LYRICS, &lyrics);
             }
+            if let Some((old, new)) = rekeyed_offset {
+                rekey_song_offset(app, &old, &new);
+            }
             if new_song {
                 state.clock.lock().unwrap().on_track_change();
                 if let Some(t) = &info {
+                    apply_song_offset(app, &t.key);
                     request_lyrics(app, t, false);
                 }
             }
@@ -273,7 +408,7 @@ fn handle(app: &AppHandle, event: SourceEvent) {
             let update = state.clock.lock().unwrap().on_status(status == PlaybackStatus::Playing, Instant::now());
             if update.changed() {
                 tracing::debug!(?update, "clock status");
-                emit_clock(app);
+                emit_clock(app, update_kind(&update));
             }
         }
         SourceEvent::Observation(obs) => {
@@ -306,7 +441,7 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                 "clock observation"
             );
             if update.changed() {
-                emit_clock(app);
+                emit_clock(app, update_kind(&update));
             }
         }
     }

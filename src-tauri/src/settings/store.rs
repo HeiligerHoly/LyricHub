@@ -58,12 +58,22 @@ pub fn save(path: &Path, settings: &Settings) -> io::Result<()> {
     std::fs::rename(&tmp, path)
 }
 
-/// Brings older files up to the current schema. v1 is the first version; a file without
-/// `schema_version` predates it and is read as v1.
+/// Brings older files up to the current schema. A file without `schema_version` predates v1
+/// and is read as v1.
+///
+/// v1 → v2 (Phase 3): in Phase 2 the nudge hotkeys moved the global offset; from v2 on they
+/// only move the offset of the current song (PLAN.md 5.7). The global value of a v1 file
+/// therefore holds nudges of single songs, and the user decided to start again from 0.
 fn migrate(mut value: Value) -> Value {
-    let version = value.get("schema_version").and_then(Value::as_u64).unwrap_or(0);
+    let version = value.get("schema_version").and_then(Value::as_u64).unwrap_or(1);
     if version > SCHEMA_VERSION as u64 {
         tracing::warn!(version, supported = SCHEMA_VERSION, "settings come from a newer LyricHub, unknown fields are dropped");
+    }
+    if version < 2 {
+        if let Some(sync) = value.get_mut("sync").and_then(Value::as_object_mut) {
+            let old = sync.insert("global_offset_ms".into(), Value::from(0));
+            tracing::info!(old_global_offset_ms = ?old, "settings v1 → v2: global offset reset, nudges are per song now");
+        }
     }
     if let Value::Object(map) = &mut value {
         map.insert("schema_version".into(), Value::from(SCHEMA_VERSION));
@@ -141,6 +151,15 @@ mod tests {
         assert_eq!(s.overlay.width_pct, 35.0);
         // BOM written by some editors
         assert!(parse("\u{feff}{}").is_ok());
+    }
+
+    #[test]
+    fn v1_global_offset_from_nudges_is_reset() {
+        let s = parse(r#"{ "schema_version": 1, "sync": { "global_offset_ms": -500 }, "overlay": { "anchor": "mr" } }"#).unwrap();
+        assert_eq!((s.schema_version, s.sync.global_offset_ms, s.overlay.anchor), (SCHEMA_VERSION, 0, Anchor::MiddleRight));
+        // A v2 file keeps its global offset.
+        let s = parse(r#"{ "schema_version": 2, "sync": { "global_offset_ms": 40 } }"#).unwrap();
+        assert_eq!(s.sync.global_offset_ms, 40);
     }
 
     #[test]

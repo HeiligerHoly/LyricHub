@@ -73,13 +73,19 @@ pub fn get_lyrics(state: State<'_, NowPlayingState>) -> Option<LyricsEvent> {
 
 #[tauri::command]
 pub async fn get_clock(app: AppHandle) -> ClockEvent {
-    app_state::clock_event(&app)
+    app_state::clock_event(&app, "query")
 }
 
-/// Shifts the global offset by `delta_ms`; positive shows the lyrics later.
+/// Shifts the offset of the current song by `delta_ms`; positive shows the lyrics later.
 #[tauri::command]
-pub async fn nudge_offset(app: AppHandle, delta_ms: i32) -> Settings {
+pub async fn nudge_offset(app: AppHandle, delta_ms: i32) -> Option<i32> {
     super::nudge(&app, delta_ms)
+}
+
+/// Sets the offset of the current song, e.g. back to 0 from the settings.
+#[tauri::command]
+pub async fn set_song_offset(app: AppHandle, offset_ms: i32) -> Option<i32> {
+    app_state::set_song_offset(&app, offset_ms)
 }
 
 #[tauri::command]

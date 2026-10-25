@@ -150,6 +150,48 @@ impl Cache {
         Ok(())
     }
 
+    /// Stored song offset (Nudge, PLAN.md 5.7); 0 for a song never corrected.
+    pub fn song_offset(&self, key: &str) -> rusqlite::Result<i32> {
+        let ms: Option<i64> = self.conn.query_row("SELECT offset_ms FROM song_overrides WHERE key = ?1", [key], |r| r.get(0)).optional()?;
+        Ok(ms.unwrap_or(0) as i32)
+    }
+
+    pub fn has_song_offset(&self, key: &str) -> rusqlite::Result<bool> {
+        Ok(self.conn.query_row("SELECT 1 FROM song_overrides WHERE key = ?1", [key], |_| Ok(())).optional()?.is_some())
+    }
+
+    pub fn set_song_offset(&self, key: &str, ms: i32) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "INSERT INTO song_overrides (key, offset_ms) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET offset_ms = excluded.offset_ms",
+            params![key, ms],
+        )?;
+        Ok(())
+    }
+
+    /// Offset of an audio output device, if it was seen before.
+    pub fn device_offset(&self, device_id: &str) -> rusqlite::Result<Option<i32>> {
+        let ms: Option<i64> =
+            self.conn.query_row("SELECT offset_ms FROM device_offsets WHERE device_id = ?1", [device_id], |r| r.get(0)).optional()?;
+        Ok(ms.map(|m| m as i32))
+    }
+
+    pub fn set_device_offset(&self, device_id: &str, name: &str, ms: i32) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "INSERT INTO device_offsets (device_id, name, offset_ms) VALUES (?1, ?2, ?3)
+             ON CONFLICT(device_id) DO UPDATE SET name = excluded.name, offset_ms = excluded.offset_ms",
+            params![device_id, name, ms],
+        )?;
+        Ok(())
+    }
+
+    /// All known devices as (id, name, offset).
+    pub fn devices(&self) -> rusqlite::Result<Vec<(String, String, i32)>> {
+        let mut stmt = self.conn.prepare("SELECT device_id, COALESCE(name, ''), offset_ms FROM device_offsets ORDER BY name")?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? as i32)))?;
+        rows.collect()
+    }
+
     /// Drops what is known about a song, so the next lookup asks LRCLIB again.
     pub fn forget(&self, key: &str) -> rusqlite::Result<()> {
         self.conn.execute("DELETE FROM lyrics WHERE key = ?1", [key])?;
@@ -185,6 +227,22 @@ mod tests {
         assert!(matches!(c.get("k", 0).unwrap(), Lookup::Hit(Cached { format: Format::Lrc, .. })));
         c.forget("k").unwrap();
         assert_eq!(c.get("k", 0).unwrap(), Lookup::Miss);
+    }
+
+    #[test]
+    fn song_and_device_offsets() {
+        let c = Cache::in_memory().unwrap();
+        assert_eq!(c.song_offset("a").unwrap(), 0);
+        assert!(!c.has_song_offset("a").unwrap());
+        c.set_song_offset("a", 200).unwrap();
+        c.set_song_offset("a", -100).unwrap();
+        assert_eq!(c.song_offset("a").unwrap(), -100);
+        assert!(c.has_song_offset("a").unwrap());
+        assert_eq!(c.device_offset("dev").unwrap(), None);
+        c.set_device_offset("dev", "Kopfhörer", 150).unwrap();
+        c.set_device_offset("dev", "Kopfhörer (USB)", 120).unwrap();
+        assert_eq!(c.device_offset("dev").unwrap(), Some(120));
+        assert_eq!(c.devices().unwrap(), vec![("dev".to_owned(), "Kopfhörer (USB)".to_owned(), 120)]);
     }
 
     #[test]

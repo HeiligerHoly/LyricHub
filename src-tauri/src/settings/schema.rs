@@ -1,10 +1,10 @@
-//! Settings schema v1 (PLAN.md 6.4, 9.7). Every struct defaults missing fields, so later
+//! Settings schema v2 (PLAN.md 6.4, 9.7). Every struct defaults missing fields, so later
 //! versions can add fields without a migration; renames and meaning changes need one in
 //! `store::migrate` (PLAN.md 15).
 
 use serde::{Deserialize, Serialize};
 
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default)]

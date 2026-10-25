@@ -50,6 +50,7 @@ pub fn run() {
             ipc::commands::get_lyrics,
             ipc::commands::get_clock,
             ipc::commands::nudge_offset,
+            ipc::commands::set_song_offset,
             ipc::commands::reload_lyrics,
             ipc::commands::get_overlay_layout,
             ipc::commands::report_overlay_size,
