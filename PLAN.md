@@ -395,7 +395,7 @@ LRCLIB liefert fast immer nur Zeilen-Timestamps. Ein echtes Wort-für-Wort-Aufle
 
 ### 5.7 Offsets, Nudge und Kalibrier-Assistent
 
-- **Nudge-Hotkeys**: Standard `Ctrl+Alt+,` (−100 ms) / `Ctrl+Alt+.` (+100 ms), mit Shift ±25 ms. Ein kleines Toast im Overlay zeigt den neuen Wert 1,5 s lang. Die Änderung geht standardmäßig auf den **Song-Offset**; in den Einstellungen umschaltbar auf global.
+- **Nudge-Hotkeys**: Standard `Ctrl+Alt+,` (−100 ms) / `Ctrl+Alt+.` (+100 ms), mit Shift ±25 ms. Ein kleines Toast im Overlay zeigt den neuen Wert 1,5 s lang. Die Änderung geht auf den **Song-Offset** des laufenden Songs und wird pro Song gespeichert (Nutzerentscheidung, 14.1). Beim Songwechsel gilt sofort der Song-Offset des neuen Songs, 0 wenn er nie korrigiert wurde. Eine Korrektur wirkt also nie in den nächsten Song hinein. Läuft derselbe Song wieder, gilt seine gespeicherte Korrektur. Der globale Offset ändert sich nur in den Einstellungen (dauerhafte Ausgabelatenz), nie per Nudge. Die Einstellungsseite „Synchronisation“ zeigt den Song-Offset des aktuellen Songs und kann ihn zurücksetzen.
 - **Geräte-Offset**: `audio_devices.rs` überwacht das Default-Render-Gerät (`IMMNotificationClient::OnDefaultDeviceChanged`). Settings speichern `device_offsets: { "<device-id>": ms }`. Beim ersten Auftauchen eines neuen Geräts: Toast "Neues Audiogerät erkannt. Sync prüfen?" mit Link zum Assistenten. Bluetooth-Geräte bekommen einen Startwert von +150 ms als Vorschlag. Der Nutzer hört überwiegend über Kabel. Der Geräte-Offset ist deshalb kein kritischer Pfad und wird in Phase 3 schlicht umgesetzt (Tabelle + Toast, kein eigener Assistent pro Gerät).
 - **Kalibrier-Assistent** (Settings → Synchronisation): spielt nichts selbst ab, sondern nutzt den laufenden Song. Ablauf: Overlay zeigt die nächste Zeile groß mit Countdown-Balken; Nutzer drückt Leertaste genau beim hörbaren Einsatz; 3–5 Wiederholungen; Median der Differenzen wird als Geräte-Offset vorgeschlagen. Ausreißer (> 600 ms) verwerfen.
 - **Globaler Offset**: Reserve für Fälle, die weder Gerät noch Song zuzuordnen sind. Standard 0.
@@ -640,7 +640,7 @@ DoD: Zehn Songs mit synchronen Lyrics laufen zeilengenau mit; Nudge korrigiert s
 Tasks:
 - Quellen-Fusion (5.4), Residual-Filter, Slew-Rate-Reset, Seek- und Pause-Verhalten.
 - `audio_devices.rs` + Geräte-Offsets + Toast bei neuem Gerät.
-- Song-Offset-Persistenz; Nudge-Ziel umschaltbar.
+- Song-Offset pro Song speichern; Nudge wirkt nur noch auf den Song-Offset (5.7). In Phase 2 hat Nudge den globalen Offset verschoben. Beim Umstieg den gespeicherten globalen Offset des Nutzers prüfen: Er stammt vermutlich aus Phase-2-Nudges. Den Nutzer fragen, ob er auf 0 zurück soll.
 - Kalibrier-Assistent.
 - Sync Lab (5.9) inkl. Diagnose-Export.
 - Sonderzustände (5.5): Werbung, Podcast, Instrumental, keine Lyrics, Spotify geschlossen.
@@ -766,6 +766,8 @@ Mini-Editor: Zeilen per Tastendruck im Takt neu stempeln, einzelne Zeilen nudgen
 | Store oder Desktop für Spicetify? | Wechsel auf Desktop-Spotify nur bei Bedarf | Kein Wechsel vorab. Nur wenn Spike 0 die Sync-Anforderung verfehlt, wechselt der Nutzer auf die Desktop-Version. |
 | Framework bei Spike-Problemen? | Opus entscheidet | Tauri bleibt Standard. Ein Wechsel auf C#/WPF wird in `docs/spike-overlay.md` begründet, ohne Rückfrage. |
 | Edit-Modus per Maus? | Nein, nur Hotkey und Tray | Das Overlay bleibt außerhalb des Edit-Modus immer klickdurchlässig. |
+| Nudge beim Songwechsel? (2026-10-25, nach Phase 2) | Korrektur pro Song merken | Nudge ändert nur den Song-Offset des laufenden Songs. Der nächste Song startet mit seinem eigenen Wert, ein wiederkehrender Song mit seiner gespeicherten Korrektur (5.7). |
+| Code-Hosting? (2026-10-25) | Privates GitHub-Repo `HeiligerHoly/LyricsHub` | Alle Branches und Tags werden dorthin gepusht. Veröffentlichung bleibt eine eigene Entscheidung (14.2). |
 
 ### 14.2 Veröffentlichungsfähig bleiben
 
