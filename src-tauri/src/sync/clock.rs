@@ -5,15 +5,18 @@
 //! - A residual beyond 1.5 s is a seek or a track change: the model jumps there. Within
 //!   500 ms after that, the next observation is taken as it is, because Spotify's second update
 //!   after a seek corrects 100–216 ms backwards (docs/spike-smtc.md).
-//! - Otherwise residuals collect in a window; their median is the correction. Up to 300 ms it is
-//!   slewed in at most ±10 % speed, so the display never jumps backwards; larger corrections
-//!   jump. Corrections below 20 ms are ignored.
+//! - Otherwise residuals collect in one window per source; the confidence-weighted median over
+//!   all windows is the correction (PLAN.md 5.4). Up to 300 ms it is slewed in at most ±10 %
+//!   speed, so the display never jumps backwards; larger corrections jump. Corrections below
+//!   20 ms are ignored.
+//! - Sources that disagree lastingly (≥ 5 samples each, medians more than 400 ms apart): the
+//!   one with the larger spread leaves the fusion and is reported as deviating.
 //! - While paused, observations are adopted directly; nothing moves, so nothing can jitter.
 //!
 //! A slew is part of the anchor (`rate` until `slew_until`, then 1.0), so the frontend can run
 //! the same piecewise model without timers.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::time::{Duration, Instant};
 
 pub const SEEK_THRESHOLD_MS: f64 = 1500.0;
@@ -25,6 +28,10 @@ pub const SLEW_LIMIT_MS: f64 = 300.0;
 pub const MIN_SLEW_MS: f64 = 300.0;
 /// After a seek, the next observation within this time is taken as it is.
 pub const POST_SEEK_MS: u64 = 500;
+/// Two sources disagree when their median residuals differ by more than this ...
+pub const CONFLICT_MS: f64 = 400.0;
+/// ... over at least this many samples each.
+pub const CONFLICT_SAMPLES: usize = 5;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Anchor {
@@ -59,9 +66,13 @@ impl Anchor {
 /// One position report of a source.
 #[derive(Clone, Copy, Debug)]
 pub struct Observation {
+    /// Which source reported it (e.g. "smtc"); each source has its own residual window.
+    pub source: &'static str,
     pub pos_ms: f64,
     pub valid_at: Instant,
     pub playing: bool,
+    /// Weight in the fusion, 0..1 (SMTC 0.8, PLAN.md 5.4).
+    pub confidence: f64,
 }
 
 /// What an input changed, for logging and for deciding whether to emit a new anchor.
@@ -93,16 +104,51 @@ pub struct Snapshot {
     pub seq: u64,
 }
 
+struct SourceWindow {
+    residuals: VecDeque<f64>,
+    confidence: f64,
+}
+
 pub struct PlaybackClock {
     anchor: Anchor,
-    residuals: VecDeque<f64>,
+    windows: BTreeMap<&'static str, SourceWindow>,
     post_seek_until: Option<Instant>,
     seq: u64,
+    deviating: Vec<&'static str>,
 }
 
 impl PlaybackClock {
     pub fn new(now: Instant) -> Self {
-        Self { anchor: Anchor::fixed(0.0, now, false), residuals: VecDeque::new(), post_seek_until: None, seq: 0 }
+        Self {
+            anchor: Anchor::fixed(0.0, now, false),
+            windows: BTreeMap::new(),
+            post_seek_until: None,
+            seq: 0,
+            deviating: Vec::new(),
+        }
+    }
+
+    /// Sources currently left out of the fusion because they disagree with the others.
+    pub fn deviating(&self) -> &[&'static str] {
+        &self.deviating
+    }
+
+    fn clear_residuals(&mut self) {
+        for w in self.windows.values_mut() {
+            w.residuals.clear();
+        }
+    }
+
+    /// Confidence-weighted median over the windows of all sources that are not deviating.
+    fn fused_correction(&mut self) -> f64 {
+        self.deviating = conflicting_sources(&self.windows);
+        let mut weighted: Vec<(f64, f64)> = self
+            .windows
+            .iter()
+            .filter(|(name, _)| !self.deviating.contains(name))
+            .flat_map(|(_, w)| w.residuals.iter().map(move |r| (*r, w.confidence.max(0.01))))
+            .collect();
+        weighted_median(&mut weighted)
     }
 
     pub fn anchor(&self) -> Anchor {
@@ -130,7 +176,7 @@ impl PlaybackClock {
     /// New song: forget residuals of the old one. The anchor stays, because the jump to the
     /// start already came with the timeline before the title (docs/spike-smtc.md).
     pub fn on_track_change(&mut self) {
-        self.residuals.clear();
+        self.clear_residuals();
     }
 
     pub fn on_status(&mut self, playing: bool, now: Instant) -> Update {
@@ -138,7 +184,7 @@ impl PlaybackClock {
             return Update::None;
         }
         self.anchor = Anchor::fixed(self.position(now), now, playing);
-        self.residuals.clear();
+        self.clear_residuals();
         self.seq += 1;
         Update::Status { playing }
     }
@@ -149,7 +195,7 @@ impl PlaybackClock {
             let before = self.position(now);
             let at = if obs.playing { obs.valid_at } else { now };
             self.anchor = Anchor::fixed(obs.pos_ms, at, obs.playing);
-            self.residuals.clear();
+            self.clear_residuals();
             let by_ms = self.position(now) - before;
             if by_ms.abs() < 0.5 && !obs.playing {
                 return Update::None;
@@ -162,7 +208,7 @@ impl PlaybackClock {
         if residual.abs() > SEEK_THRESHOLD_MS {
             let from_ms = self.position(now);
             self.anchor = Anchor::fixed(obs.pos_ms, obs.valid_at, true);
-            self.residuals.clear();
+            self.clear_residuals();
             self.post_seek_until = Some(now + Duration::from_millis(POST_SEEK_MS));
             self.seq += 1;
             return Update::Seek { from_ms, to_ms: self.position(now) };
@@ -172,16 +218,21 @@ impl PlaybackClock {
                 return Update::None;
             }
             self.anchor = Anchor::fixed(obs.pos_ms, obs.valid_at, true);
-            self.residuals.clear();
+            self.clear_residuals();
             self.seq += 1;
             return Update::Adopt { by_ms: residual };
         }
 
-        self.residuals.push_back(residual);
-        if self.residuals.len() > WINDOW {
-            self.residuals.pop_front();
+        let window = self
+            .windows
+            .entry(obs.source)
+            .or_insert_with(|| SourceWindow { residuals: VecDeque::new(), confidence: obs.confidence });
+        window.confidence = obs.confidence;
+        window.residuals.push_back(residual);
+        if window.residuals.len() > WINDOW {
+            window.residuals.pop_front();
         }
-        let correction = median(&self.residuals);
+        let correction = self.fused_correction();
         if correction.abs() < DEADBAND_MS {
             return Update::None;
         }
@@ -189,7 +240,9 @@ impl PlaybackClock {
         self.seq += 1;
         if correction.abs() > SLEW_LIMIT_MS {
             self.anchor = Anchor::fixed(current + correction, now, true);
-            self.residuals.clear();
+            // Not cleared: the windows keep their history so lasting conflicts between sources
+            // still show (seeks, status and track changes clear them).
+            self.shift_residuals(correction);
             return Update::Jump { by_ms: correction };
         }
         let over_ms = (correction.abs() / SLEW_MAX_RATE_DELTA).max(MIN_SLEW_MS);
@@ -200,25 +253,72 @@ impl PlaybackClock {
             rate: 1.0 + correction / over_ms,
             slew_until: Some(now + Duration::from_secs_f64(over_ms / 1000.0)),
         };
-        // The stored residuals were measured against the old model, which now absorbs the correction.
-        for r in self.residuals.iter_mut() {
-            *r -= correction;
-        }
+        self.shift_residuals(correction);
         Update::Slew { by_ms: correction, over_ms }
+    }
+
+    /// The stored residuals were measured against the old model, which now absorbs `correction`.
+    fn shift_residuals(&mut self, correction: f64) {
+        for w in self.windows.values_mut() {
+            for r in w.residuals.iter_mut() {
+                *r -= correction;
+            }
+        }
     }
 }
 
-fn median(values: &VecDeque<f64>) -> f64 {
-    let mut v: Vec<f64> = values.iter().copied().collect();
-    v.sort_by(|a, b| a.total_cmp(b));
-    let n = v.len();
-    if n == 0 {
-        0.0
-    } else if n % 2 == 1 {
-        v[n / 2]
-    } else {
-        (v[n / 2 - 1] + v[n / 2]) / 2.0
+/// Median of (value, weight) pairs: the value where the cumulative weight reaches half.
+fn weighted_median(values: &mut [(f64, f64)]) -> f64 {
+    if values.is_empty() {
+        return 0.0;
     }
+    values.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let total: f64 = values.iter().map(|v| v.1).sum();
+    let mut acc = 0.0;
+    for (i, (value, weight)) in values.iter().enumerate() {
+        acc += weight;
+        if acc * 2.0 > total + 1e-9 {
+            return *value;
+        }
+        if (acc * 2.0 - total).abs() <= 1e-9 {
+            // Exactly half: average with the next value, like an even-length median.
+            return values.get(i + 1).map_or(*value, |next| (value + next.0) / 2.0);
+        }
+    }
+    values[values.len() - 1].0
+}
+
+fn plain_median(values: &VecDeque<f64>) -> f64 {
+    let mut v: Vec<(f64, f64)> = values.iter().map(|r| (*r, 1.0)).collect();
+    weighted_median(&mut v)
+}
+
+fn spread(values: &VecDeque<f64>) -> f64 {
+    let m = plain_median(values);
+    let mut dev: Vec<(f64, f64)> = values.iter().map(|r| ((r - m).abs(), 1.0)).collect();
+    weighted_median(&mut dev)
+}
+
+/// Sources whose median residual is more than `CONFLICT_MS` away from another source's, each
+/// with at least `CONFLICT_SAMPLES` samples; of each such pair the one with the larger spread.
+fn conflicting_sources(windows: &BTreeMap<&'static str, SourceWindow>) -> Vec<&'static str> {
+    let ready: Vec<(&'static str, f64, f64)> = windows
+        .iter()
+        .filter(|(_, w)| w.residuals.len() >= CONFLICT_SAMPLES)
+        .map(|(name, w)| (*name, plain_median(&w.residuals), spread(&w.residuals)))
+        .collect();
+    let mut out = Vec::new();
+    for (i, a) in ready.iter().enumerate() {
+        for b in &ready[i + 1..] {
+            if (a.1 - b.1).abs() > CONFLICT_MS {
+                let loser = if a.2 > b.2 { a.0 } else { b.0 };
+                if !out.contains(&loser) {
+                    out.push(loser);
+                }
+            }
+        }
+    }
+    out
 }
 
 /// Milliseconds from `from` to `to`, negative if `to` is earlier.
@@ -246,7 +346,11 @@ mod tests {
     }
 
     fn obs(pos_ms: f64, valid_at: Instant) -> Observation {
-        Observation { pos_ms, valid_at, playing: true }
+        Observation { source: "smtc", pos_ms, valid_at, playing: true, confidence: 0.8 }
+    }
+
+    fn paused(pos_ms: f64, valid_at: Instant) -> Observation {
+        Observation { playing: false, ..obs(pos_ms, valid_at) }
     }
 
     /// Deterministic pseudo-random noise in [-amp, amp].
@@ -373,11 +477,11 @@ mod tests {
         // Status arrives 300 ms after the command at t=1000; Spotify froze at 61_080.
         assert_eq!(c.on_status(false, sim.at(1300.0)), Update::Status { playing: false });
         assert!((c.position(sim.at(5000.0)) - 61_300.0).abs() < 1.0);
-        let u = c.on_observation(Observation { pos_ms: 61_080.0, valid_at: sim.at(1290.0), playing: false }, sim.at(1310.0));
+        let u = c.on_observation(paused(61_080.0, sim.at(1290.0)), sim.at(1310.0));
         assert!(matches!(u, Update::Adopt { .. }));
         assert_eq!(c.position(sim.at(9000.0)), 61_080.0);
         // Repeated paused reports with the same position change nothing (spike observation 6).
-        let u = c.on_observation(Observation { pos_ms: 61_080.0, valid_at: sim.at(5000.0), playing: false }, sim.at(5000.0));
+        let u = c.on_observation(paused(61_080.0, sim.at(5000.0)), sim.at(5000.0));
         assert_eq!(u, Update::None);
         // Resume at t=10 s.
         assert_eq!(c.on_status(true, sim.at(10_000.0)), Update::Status { playing: true });
@@ -400,6 +504,48 @@ mod tests {
         let mut c = playing_clock(&sim, 0.0);
         let u = c.on_observation(obs(5_800.0, sim.at(5000.0)), sim.at(5000.0));
         assert!(matches!(u, Update::Jump { by_ms } if (by_ms - 800.0).abs() < 1.0), "{u:?}");
+    }
+
+    #[test]
+    fn weighted_median_basics() {
+        assert_eq!(weighted_median(&mut [(3.0, 1.0), (1.0, 1.0), (2.0, 1.0)]), 2.0);
+        assert_eq!(weighted_median(&mut [(1.0, 1.0), (2.0, 1.0)]), 1.5);
+        assert_eq!(weighted_median(&mut [(0.0, 0.8), (150.0, 0.6)]), 0.0);
+        assert_eq!(weighted_median(&mut []), 0.0);
+    }
+
+    #[test]
+    fn second_source_with_lower_confidence_does_not_pull_the_model() {
+        // SMTC exact (0.8), a Web-API-like source 150 ms late with ±60 ms jitter (0.6).
+        let sim = Sim { t0: Instant::now(), start_pos: 0.0, rate: 1.0 };
+        let mut c = playing_clock(&sim, 0.0);
+        let mut max_err = 0.0f64;
+        for i in 0..60u64 {
+            let t = i as f64 * 1000.0;
+            c.on_observation(obs(sim.truth(t), sim.at(t)), sim.at(t));
+            let api = Observation { source: "api", confidence: 0.6, ..obs(sim.truth(t + 500.0) + 150.0 + noise(i, 60.0), sim.at(t + 500.0)) };
+            c.on_observation(api, sim.at(t + 500.0));
+            if t > 5000.0 {
+                max_err = max_err.max((c.position(sim.at(t + 600.0)) - sim.truth(t + 600.0)).abs());
+            }
+        }
+        assert!(max_err < 40.0, "error {max_err}");
+        assert!(c.deviating().is_empty());
+    }
+
+    #[test]
+    fn lastingly_disagreeing_source_is_left_out() {
+        let sim = Sim { t0: Instant::now(), start_pos: 0.0, rate: 1.0 };
+        let mut c = playing_clock(&sim, 0.0);
+        for i in 0..20u64 {
+            let t = i as f64 * 1000.0;
+            c.on_observation(obs(sim.truth(t) + noise(i, 5.0), sim.at(t)), sim.at(t));
+            // 700 ms off with a wide spread, but below the seek threshold.
+            let api = Observation { source: "api", confidence: 0.9, ..obs(sim.truth(t + 500.0) + 700.0 + noise(i + 99, 150.0), sim.at(t + 500.0)) };
+            c.on_observation(api, sim.at(t + 500.0));
+        }
+        assert_eq!(c.deviating(), &["api"]);
+        assert!((c.position(sim.at(20_000.0)) - sim.truth(20_000.0)).abs() < 50.0);
     }
 
     #[test]
