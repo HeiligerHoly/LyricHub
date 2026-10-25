@@ -438,6 +438,8 @@ window.set_ignore_cursor_events(true)?;   // setzt WS_EX_TRANSPARENT|WS_EX_LAYER
 
 **Bekannter Fallstrick** (aus Community-Berichten zu Tauri 2): `set_ignore_cursor_events` überschreibt die Ex-Styles und verliert dabei `WS_EX_TOOLWINDOW`; das Overlay taucht dann in Alt+Tab auf. Deshalb **nach jedem Toggle** die Ex-Styles erneut setzen (Hilfsfunktion `apply_overlay_exstyles(hwnd, click_through: bool)`).
 
+**Update nach Spike B (Quelltext-Analyse von tao 0.37, Details in `docs/spike-overlay.md`)**: tao ruft nach jeder Flag-Änderung an einem sichtbaren Fenster zusätzlich `ShowWindow(SW_SHOW)` auf, was den Fokus klauen kann. Regel deshalb: **Nach dem Erzeugen keine Tauri-Setter mit Flag-Änderung mehr auf dem Overlay** (`show`, `hide`, `set_ignore_cursor_events`, `set_always_on_top` …). Einblenden, Klickdurchlässigkeit und Topmost laufen direkt über Win32 in `overlay/win32.rs`. `set_size` und `set_position` bleiben erlaubt. `focusable: false` im Fenster-Config setzt `WS_EX_NOACTIVATE` innerhalb von tao und ist Pflicht.
+
 ### 6.2 Nie den Fokus klauen
 
 - `WS_EX_NOACTIVATE` auf dem Overlay. Alle `SetWindowPos`-Aufrufe mit `SWP_NOACTIVATE`.
