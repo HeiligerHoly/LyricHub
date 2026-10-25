@@ -5,9 +5,12 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   Anchor,
   AppInfo,
+  ClockEvent,
   EditDraft,
   LatencySample,
+  LyricsEvent,
   Monitor,
+  NudgeEvent,
   NowPlaying,
   OverlayDiagnostics,
   OverlayLayout,
@@ -26,6 +29,10 @@ export const ipc = {
   listMonitors: () => invoke<Monitor[]>("list_monitors"),
   getNowPlaying: () => invoke<NowPlaying>("get_now_playing"),
   trackLatencies: () => invoke<LatencySample[]>("track_latencies"),
+  getLyrics: () => invoke<LyricsEvent | null>("get_lyrics"),
+  getClock: () => invoke<ClockEvent>("get_clock"),
+  nudgeOffset: (deltaMs: number) => invoke<Settings>("nudge_offset", { deltaMs }),
+  reloadLyrics: () => invoke<void>("reload_lyrics"),
   getOverlayLayout: () => invoke<OverlayLayout | null>("get_overlay_layout"),
   reportOverlaySize: (width: number, height: number, uiScale: number) =>
     invoke<void>("report_overlay_size", { width, height, uiScale }),
@@ -47,6 +54,9 @@ interface EventPayloads {
   track: TrackInfo | null;
   "track-changing": null;
   playback: PlaybackEvent;
+  clock: ClockEvent;
+  lyrics: LyricsEvent;
+  nudge: NudgeEvent;
   settings: Settings;
   "overlay-layout": OverlayLayout;
 }

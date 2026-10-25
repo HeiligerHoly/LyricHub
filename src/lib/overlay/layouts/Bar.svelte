@@ -10,9 +10,11 @@
     /** Shown when there is no track: sample text in the edit mode, a hint when idle. */
     placeholder: { title: string; artist: string };
     lyric?: string | null;
+    /** Nudge feedback; replaces title and artist for a moment. */
+    toast?: string | null;
     align: Align;
   }
-  let { track, placeholder, lyric = null, align }: Props = $props();
+  let { track, placeholder, lyric = null, toast = null, align }: Props = $props();
 
   const title = $derived(track?.title ?? placeholder.title);
   const artist = $derived(track ? track.artist : placeholder.artist);
@@ -28,10 +30,14 @@
         <span class="placeholder">♪</span>
       {/if}
     </span>
-    <span class="title" class:with-lyric={!!lyric}>{title}</span>
-    {#if artist}
-      <span class="sep" aria-hidden="true">–</span>
-      <span class="artist" class:with-lyric={!!lyric}>{artist}</span>
+    {#if toast}
+      <span class="toast">{toast}</span>
+    {:else}
+      <span class="title" class:with-lyric={!!lyric}>{title}</span>
+      {#if artist}
+        <span class="sep" aria-hidden="true">–</span>
+        <span class="artist" class:with-lyric={!!lyric}>{artist}</span>
+      {/if}
     {/if}
     {#if lyric}
       <span class="divider" aria-hidden="true"></span>
@@ -112,6 +118,17 @@
   .artist.with-lyric {
     flex-shrink: 1;
     max-width: 18%;
+  }
+  .toast {
+    flex: none;
+    padding: 0 calc(10px * var(--s));
+    border-radius: 999px;
+    background: rgba(255, 211, 110, 0.18);
+    color: #ffd36e;
+    font-size: calc(15px * var(--s));
+    line-height: calc(26px * var(--s));
+    font-weight: 600;
+    white-space: nowrap;
   }
   .divider {
     flex: none;

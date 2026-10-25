@@ -36,7 +36,14 @@ export const ANCHORS: Anchor[][] = [
   ["bl", "bc", "br"],
 ];
 
+export type Layout = "karaoke" | "bar";
+export const LAYOUTS: { id: Layout; label: string }[] = [
+  { id: "karaoke", label: "Karaoke" },
+  { id: "bar", label: "Leiste" },
+];
+
 export interface OverlaySettings {
+  layout: Layout;
   monitor_id: string | null;
   anchor: Anchor;
   offset_x_pct: number;
@@ -51,17 +58,70 @@ export interface BehaviorSettings {
   start_minimized: boolean;
 }
 
+export interface SyncSettings {
+  /** Positive shows the lyrics later ("lyrics too early → increase"). */
+  global_offset_ms: number;
+}
+export const OFFSET_LIMIT_MS = 5000;
+
 export interface Settings {
   schema_version: number;
   overlay: OverlaySettings;
+  sync: SyncSettings;
   behavior: BehaviorSettings;
 }
 
 /** JSON Merge Patch for `set_settings`: `null` resets a field to its default. */
 export type SettingsPatch = {
   overlay?: { [K in keyof OverlaySettings]?: OverlaySettings[K] | null };
+  sync?: { [K in keyof SyncSettings]?: SyncSettings[K] | null };
   behavior?: { [K in keyof BehaviorSettings]?: BehaviorSettings[K] | null };
 };
+
+/** Payload of `clock` (app_state.rs). Display position = pos + elapsed × rate − offset. */
+export interface ClockEvent {
+  pos_ms: number;
+  playing: boolean;
+  rate: number;
+  /** How long `rate` still applies before the speed returns to 1. */
+  slew_ms: number;
+  seq: number;
+  /** Positive shows the lyrics later. */
+  offset_ms: number;
+}
+
+export interface Word {
+  start_ms: number;
+  end_ms: number;
+  text: string;
+  estimated: boolean;
+}
+
+export interface Line {
+  start_ms: number;
+  end_ms: number | null;
+  /** When the karaoke fill is complete; before a long pause earlier than end_ms. */
+  fill_end_ms: number;
+  /** Empty for an instrumental marker. */
+  text: string;
+  words: Word[] | null;
+}
+
+export type LyricsState = "loading" | "synced" | "unsynced" | "instrumental" | "missing" | "error";
+
+/** Payload of `lyrics` (lyrics/types.rs). */
+export interface LyricsEvent {
+  key: string;
+  state: LyricsState;
+  source: string;
+  lines: Line[];
+  lrc_offset_ms: number;
+}
+
+export interface NudgeEvent {
+  offset_ms: number;
+  delta_ms: number;
+}
 
 export const SCALE_MIN = 0.5;
 export const SCALE_MAX = 3;
@@ -99,6 +159,7 @@ export interface EditLayout {
 /** Payload of `overlay-layout`. */
 export interface OverlayLayout {
   seq: number;
+  layout: Layout;
   width_css: number;
   ui_scale: number;
   align: Align;
