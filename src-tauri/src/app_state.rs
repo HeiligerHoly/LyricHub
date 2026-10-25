@@ -25,7 +25,7 @@ use crate::lyrics::lrclib::{HttpTransport, Transport};
 use crate::lyrics::service::{LyricsService, Request};
 use crate::lyrics::types::LyricsEvent;
 use crate::settings::SettingsState;
-use crate::sources::{PlaybackStatus, SourceEvent, TrackInfo};
+use crate::sources::{PlaybackStatus, SourceEvent, TrackInfo, TrackKind};
 use crate::sync::clock::{self, PlaybackClock, Update};
 use crate::sync::offsets::{self, Offsets};
 use crate::sync_lab;
@@ -412,10 +412,15 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                 state.clock.lock().unwrap().on_track_change();
                 if let Some(t) = &info {
                     apply_song_offset(app, &t.key);
-                    request_lyrics(app, t, false);
+                    // Ads and podcast episodes have no lyrics to look for (PLAN.md 5.5).
+                    match t.kind {
+                        TrackKind::Ad | TrackKind::Podcast => tracing::info!(kind = ?t.kind, "no lyrics lookup for this kind"),
+                        _ => request_lyrics(app, t, false),
+                    }
                 }
             }
             crate::tray::set_tooltip(app, tooltip.as_deref());
+            crate::tray::set_player_present(app, info.is_some());
         }
         SourceEvent::Status(status) => {
             state.inner.lock().unwrap().now.status = status;

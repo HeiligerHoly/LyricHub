@@ -2,6 +2,7 @@
 //! the edit mode, nudge −/+100 ms, the layout, the settings, the self-test and quit. The
 //! tooltip names the current song.
 
+use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Wry};
@@ -16,6 +17,23 @@ pub struct TrayItems {
     overlay_visible: CheckMenuItem<Wry>,
     edit: MenuItem<Wry>,
     layouts: Vec<(Layout, CheckMenuItem<Wry>)>,
+    /// Coloured and grey icon; grey while Spotify is not running (PLAN.md 5.5).
+    icons: Option<(Image<'static>, Image<'static>)>,
+    player_present: std::sync::atomic::AtomicBool,
+}
+
+/// Grey copy of an RGBA icon (luminance, alpha kept, a little dimmed).
+fn greyscale(icon: &Image<'_>) -> Image<'static> {
+    let rgba: Vec<u8> = icon
+        .rgba()
+        .chunks_exact(4)
+        .flat_map(|p| {
+            let l = (0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32) * 0.8;
+            let l = l.round().clamp(0.0, 255.0) as u8;
+            [l, l, l, p[3]]
+        })
+        .collect();
+    Image::new_owned(rgba, icon.width(), icon.height())
 }
 
 fn layout_label(l: Layout) -> &'static str {
@@ -117,8 +135,20 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         builder = builder.icon(icon.clone());
     }
     builder.build(app)?;
-    app.manage(TrayItems { overlay_visible: visible, edit, layouts });
+    let icons = app.default_window_icon().map(|i| (i.clone().to_owned(), greyscale(i)));
+    app.manage(TrayItems { overlay_visible: visible, edit, layouts, icons, player_present: true.into() });
     Ok(())
+}
+
+/// Grey tray icon while no Spotify session exists, coloured otherwise.
+pub fn set_player_present(app: &AppHandle, present: bool) {
+    let Some(items) = app.try_state::<TrayItems>() else { return };
+    if items.player_present.swap(present, std::sync::atomic::Ordering::SeqCst) == present {
+        return;
+    }
+    if let (Some((colour, grey)), Some(tray)) = (&items.icons, app.tray_by_id(TRAY_ID)) {
+        let _ = tray.set_icon(Some(if present { colour.clone() } else { grey.clone() }));
+    }
 }
 
 /// Keeps the layout check marks in line with the settings.

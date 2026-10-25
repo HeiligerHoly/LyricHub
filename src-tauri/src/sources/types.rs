@@ -15,7 +15,30 @@ pub enum SourceId {
 #[serde(rename_all = "snake_case")]
 pub enum TrackKind {
     Music,
+    /// Spotify Free advertisement: the overlay hides (PLAN.md 5.5).
+    Ad,
+    /// Podcast episode: title only, no lyrics search.
+    Podcast,
     Unknown,
+}
+
+const AD_MAX_MS: u32 = 40_000;
+const PODCAST_MIN_MS: u32 = 20 * 60_000;
+
+/// Heuristics without the Web API (PLAN.md 5.5): an ad is titled "Advertisement" or "Spotify"
+/// with no artist and lasts at most 40 s; a podcast episode is longer than 20 min and has no
+/// album. Premium (the user's account) plays no ads, so a simple rule suffices.
+pub fn classify(title: &str, artist: &str, album: Option<&str>, duration_ms: Option<u32>, music_type: bool) -> TrackKind {
+    let title_l = title.trim().to_lowercase();
+    let artist_l = artist.trim().to_lowercase();
+    let ad_title = matches!(title_l.as_str(), "advertisement" | "spotify" | "spotify free" | "werbung");
+    if ad_title && (artist_l.is_empty() || artist_l == "spotify") && duration_ms.is_none_or(|d| d <= AD_MAX_MS) {
+        return TrackKind::Ad;
+    }
+    if album.is_none_or(|a| a.trim().is_empty()) && duration_ms.is_some_and(|d| d > PODCAST_MIN_MS) {
+        return TrackKind::Podcast;
+    }
+    if music_type { TrackKind::Music } else { TrackKind::Unknown }
 }
 
 /// Cover art the frontend can put into `<img src>`: a `data:` URL built from the SMTC
@@ -98,6 +121,18 @@ pub enum SourceEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn special_kinds() {
+        assert_eq!(classify("Advertisement", "", None, Some(30_000), true), TrackKind::Ad);
+        assert_eq!(classify("Spotify", "Spotify", None, None, true), TrackKind::Ad);
+        // A real song called "Spotify" with an artist is music.
+        assert_eq!(classify("Spotify", "Some Band", Some("Album"), Some(200_000), true), TrackKind::Music);
+        assert_eq!(classify("Episode 12: Long Talk", "Some Show", None, Some(55 * 60_000), true), TrackKind::Podcast);
+        // A long album track is no podcast.
+        assert_eq!(classify("Echoes", "Band", Some("Meddle"), Some(23 * 60_000), true), TrackKind::Music);
+        assert_eq!(classify("Song", "Band", Some("Album"), Some(180_000), false), TrackKind::Unknown);
+    }
 
     #[test]
     fn key_normalises_case_and_whitespace() {

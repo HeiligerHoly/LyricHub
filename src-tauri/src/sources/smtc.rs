@@ -26,7 +26,7 @@ use windows::Media::MediaPlaybackType;
 use windows::Storage::Streams::{Buffer, DataReader, InputStreamOptions};
 
 use super::{
-    ArtRef, Observation, PlaybackSource, PlaybackStatus, SourceEvent, SourceId, TrackInfo, TrackKind, track_key,
+    ArtRef, Observation, PlaybackSource, PlaybackStatus, SourceEvent, SourceId, TrackInfo, TrackKind, classify, track_key,
 };
 
 const POLL: Duration = Duration::from_millis(250);
@@ -346,6 +346,8 @@ impl Worker {
                     let mut t = track.clone();
                     t.duration_ms = duration;
                     t.key = track_key(&t.artist, &t.title, duration);
+                    let music_type = t.kind != TrackKind::Unknown;
+                    t.kind = classify(&t.title, &t.artist, t.album.as_deref(), duration, music_type);
                     tracing::debug!(key = %t.key, "track duration updated");
                     self.track = Some(t.clone());
                     self.emit(SourceEvent::Track { info: Some(t), first_sign: now });
@@ -371,10 +373,8 @@ impl Worker {
         let artist = props.Artist()?.to_string();
         let album = Some(props.AlbumTitle()?.to_string()).filter(|a| !a.is_empty());
         let duration_ms = self.timeline.map(|t| t.end_ms).filter(|&e| e > 0).map(|e| e as u32);
-        let kind = match props.PlaybackType().and_then(|r| r.Value()) {
-            Ok(MediaPlaybackType::Music) => TrackKind::Music,
-            _ => TrackKind::Unknown,
-        };
+        let music_type = matches!(props.PlaybackType().and_then(|r| r.Value()), Ok(MediaPlaybackType::Music));
+        let kind = classify(&title, &artist, album.as_deref(), duration_ms, music_type);
         let mut info = TrackInfo {
             key: track_key(&artist, &title, duration_ms),
             title,
