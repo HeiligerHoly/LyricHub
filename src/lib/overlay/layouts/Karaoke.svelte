@@ -2,8 +2,8 @@
   // Layout "Karaoke" (PLAN.md 9.2): small header with cover and title – artist, the current line
   // large with the fill, the next line small and dimmed below. Every row has a fixed height, so
   // the window keeps its size while lines change. Line change (PLAN.md 9.4): 220 ms, the new
-  // line fades in from 0.55 and rises a little; the fill itself never eases. In romaji
-  // (docs/romaji.md) the preview row adds the original of the next line, small and dim.
+  // line fades in from 0.55 and rises a little; the fill itself never eases. With romaji on
+  // (docs/romaji.md) both rows show the romaji of Japanese lines.
   import { songId } from "$lib/shared/ipc";
   import type { Align, Line, TrackInfo } from "$lib/shared/types";
   import type { LocalClock } from "../clock";
@@ -87,9 +87,7 @@
   <div class="row upcoming">
     {#key next?.start_ms ?? -1}
       {#if next}
-        <p class="next enter-next" lang={langOf(nextText)}>
-          {nextText}{#if nextText !== next.text}<span class="original" lang="ja">{next.text}</span>{/if}
-        </p>
+        <p class="next enter-next" lang={langOf(nextText)}>{nextText}</p>
       {/if}
     {/key}
   </div>
@@ -206,14 +204,6 @@
     font-size: calc(16px * var(--s));
     color: rgba(255, 255, 255, 0.6);
   }
-  /* After the romaji of the next line; the ellipsis cuts it first. */
-  .original {
-    margin-left: 0.7em;
-    font-size: 0.8em;
-    font-weight: 450;
-    color: rgba(255, 255, 255, 0.32);
-  }
-
   .dots {
     display: flex;
     gap: calc(6px * var(--s));
