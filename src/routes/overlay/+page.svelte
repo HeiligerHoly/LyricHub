@@ -5,6 +5,7 @@
   import { ipc, type OverlayDiagnostics } from "$lib/ipc";
 
   let diag = $state<OverlayDiagnostics | null>(null);
+  const sampleLine = "Dies ist eine Beispielzeile zum Ausrichten";
 
   onMount(() => {
     const refresh = async () => {
@@ -27,7 +28,10 @@
       <span class="cover" aria-hidden="true"></span>
       <span class="track">LyricHub · Overlay-Test</span>
     </header>
-    <p class="line active" lang="de">Dies ist eine Beispielzeile zum Ausrichten</p>
+    <p class="line active" lang="de">
+      <span class="base">{sampleLine}</span>
+      <span class="reveal" aria-hidden="true"><span class="fill">{sampleLine}</span></span>
+    </p>
     <p class="line next" lang="ja">次の行はここに少し小さく表示されます</p>
     <footer class="diag">
       {#if diag}
@@ -50,12 +54,6 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-  }
-
-  @property --p {
-    syntax: "<percentage>";
-    inherits: false;
-    initial-value: 0%;
   }
 
   .overlay {
@@ -104,20 +102,54 @@
     text-overflow: ellipsis;
   }
 
+  /* Karaoke fill without repaints: the accent copy sits in a clipping layer. The layer slides
+     in from the left while its content slides the opposite way, so the text stays still and
+     only the visible part grows. Both moves are transforms the compositor handles alone.
+     (An animated gradient with background-clip: text repainted every frame: ~55 % of a core.) */
   .active {
+    position: relative;
+    width: fit-content; /* the fill must span the text, not the whole panel */
+    max-width: 100%;
     font-size: 28px;
     font-weight: 650;
     line-height: 1.25;
-    /* Karaoke fill: accent up to --p, soft 3 % edge, then the dimmed base colour. */
-    background: linear-gradient(
-      90deg,
-      var(--accent) 0 calc(var(--p) - 1.5%),
-      var(--base) calc(var(--p) + 1.5%)
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: fill 5s linear infinite;
+  }
+  .base {
+    color: var(--base);
+  }
+  .reveal {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* soft leading edge that travels with the fill */
+    mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+    will-change: transform;
+    /* steps(150) over 5 s = 30 updates/s: on a 164 Hz monitor the compositor otherwise
+       produces 164 frames/s for a fill nobody can tell apart at 30. */
+    animation: reveal-outer 5s steps(150, jump-none) infinite;
+  }
+  .fill {
+    display: block;
+    color: var(--accent);
+    white-space: nowrap;
+    will-change: transform;
+    animation: reveal-inner 5s steps(150, jump-none) infinite;
+  }
+  @keyframes reveal-outer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes reveal-inner {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
   }
 
   .next {
@@ -133,19 +165,11 @@
     color: rgba(255, 255, 255, 0.45);
   }
 
-  @keyframes fill {
-    from {
-      --p: 0%;
-    }
-    to {
-      --p: 100%;
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .active {
+    .reveal,
+    .fill {
       animation: none;
-      --p: 60%;
+      transform: none;
     }
   }
 </style>
