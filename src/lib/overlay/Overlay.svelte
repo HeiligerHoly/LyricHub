@@ -11,6 +11,7 @@
   import { onMount, tick } from "svelte";
   import { ipc, on, songId, subscribe } from "$lib/shared/ipc";
   import type {
+    CalibrationView,
     ClockEvent,
     EditDraft,
     Line,
@@ -41,6 +42,7 @@
   const LOADING_MAX_MS = 1500;
   const STATE_HINT_MS = 4000;
   const TOAST_MS = 1500;
+  const NOTICE_MS = 5000;
   /** Room for the soft edge of the fill and a little air next to the longest line. */
   const LINE_EXTRA_PX = 24;
 
@@ -69,6 +71,9 @@
   let loadingVisible = $state(false);
   let stateHint = $state<string | null>(null);
   let toast = $state<string | null>(null);
+  let calibration = $state<CalibrationView | null>(null);
+  /** Countdown to the next line start while calibrating: restarts per line. */
+  let countdown = $state<{ key: number; ms: number } | null>(null);
 
   const edit = $derived(layout?.edit ?? null);
   const uiScale = $derived(edit && draft ? draft.scale * edit.res_factor : (layout?.ui_scale ?? 1));
@@ -86,7 +91,18 @@
   const opacity = $derived.by(() => {
     if (sample) return 1;
     if (!track) return hint ? 0.75 : 0;
+    // Spotify Free ads stay hidden (PLAN.md 5.5).
+    if (track.kind === "ad") return 0;
     return pauseStage === 0 ? 1 : pauseStage === 1 ? 0.6 : 0;
+  });
+  const measuring = $derived(calibration?.active ? calibration : null);
+  const headerNote = $derived.by(() => {
+    if (toast) return toast;
+    if (!measuring) return null;
+    const n = measuring.taps.length;
+    return measuring.mode === "calibrate"
+      ? `Kalibrierung ${n}/${measuring.needed} · Leertaste beim hörbaren Einsatz der nächsten Zeile · Esc beendet`
+      : `Sync-Messung · ${n} Taps · Leertaste bei jedem hörbaren Zeilenbeginn · Esc beendet`;
   });
 
   const lines = $derived<Line[] | null>(
@@ -133,7 +149,16 @@
       const wait = clock.timeUntil(next.start_ms, now);
       if (Number.isFinite(wait)) lineTimer = setTimeout(scheduleLine, wait + 2);
     }
+    const upcoming = nextTextLine(lines, index);
+    const until = upcoming ? clock.timeUntil(upcoming.start_ms, now) : Infinity;
+    countdown =
+      measuring?.mode === "calibrate" && upcoming && Number.isFinite(until) ? { key: upcoming.start_ms, ms: until } : null;
   }
+
+  $effect(() => {
+    void measuring;
+    scheduleLine();
+  });
 
   $effect(() => {
     void lines;
@@ -163,6 +188,8 @@
     clock.apply(e);
     clockVersion++;
     scheduleLine();
+    // Lets the backend log the time from Spotify's report to the corrected display.
+    if (e.kind === "seek") afterPaint(() => ipc.clockApplied(e.seq));
   }
 
   // ---- Track, lyrics, hints ----
@@ -215,12 +242,16 @@
   }
 
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  function showToast(text: string, ms: number) {
+    toast = text;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (toast = null), ms);
+  }
+
   function showNudge(n: NudgeEvent) {
     const sign = n.offset_ms > 0 ? "+" : n.offset_ms < 0 ? "−" : "±";
     const direction = n.delta_ms > 0 ? "Lyrics später" : "Lyrics früher";
-    toast = `Offset ${sign}${Math.abs(n.offset_ms)} ms · ${direction}`;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => (toast = null), TOAST_MS);
+    showToast(`Song-Offset ${sign}${Math.abs(n.offset_ms)} ms · ${direction}`, TOAST_MS);
   }
 
   // ---- Layout and edit mode ----
@@ -280,6 +311,7 @@
     ipc.getClock().then(applyClock);
     ipc.getSettings().then(applySettings);
     ipc.getOverlayLayout().then((l) => l && applyLayout(l));
+    ipc.getCalibration().then((c) => (calibration = c));
 
     const unsubscribe = subscribe(
       on("track", applyTrack),
@@ -288,6 +320,8 @@
       on("clock", applyClock),
       on("lyrics", applyLyrics),
       on("nudge", showNudge),
+      on("notice", (n) => showToast(n.text, NOTICE_MS)),
+      on("calibration", (c) => (calibration = c)),
       on("settings", applySettings),
       on("overlay-layout", applyLayout),
     );
@@ -313,7 +347,7 @@
             {track}
             placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
             lyric={sample ? SAMPLE_LINE : activeLine?.text || null}
-            {toast}
+            toast={headerNote}
             align={layout?.align ?? "center"}
           />
         {:else}
@@ -326,7 +360,8 @@
             next={sample ? sampleNext : nextLine}
             status={sample ? null : loadingVisible ? "loading" : activeLine && !activeLine.text ? "instrumental" : null}
             hint={sample ? null : stateHint}
-            {toast}
+            toast={headerNote}
+            countdown={sample ? null : countdown}
             {clock}
             {clockVersion}
             staticFill={sample ? 0.45 : null}

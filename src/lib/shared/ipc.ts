@@ -5,6 +5,9 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   Anchor,
   AppInfo,
+  AudioDevice,
+  CalibrationMode,
+  CalibrationView,
   ClockEvent,
   EditDraft,
   LatencySample,
@@ -18,6 +21,7 @@ import type {
   SelfTestReport,
   Settings,
   SettingsPatch,
+  SyncLab,
   TrackInfo,
 } from "./types";
 
@@ -31,7 +35,17 @@ export const ipc = {
   trackLatencies: () => invoke<LatencySample[]>("track_latencies"),
   getLyrics: () => invoke<LyricsEvent | null>("get_lyrics"),
   getClock: () => invoke<ClockEvent>("get_clock"),
-  nudgeOffset: (deltaMs: number) => invoke<Settings>("nudge_offset", { deltaMs }),
+  nudgeOffset: (deltaMs: number) => invoke<number | null>("nudge_offset", { deltaMs }),
+  setSongOffset: (offsetMs: number) => invoke<number | null>("set_song_offset", { offsetMs }),
+  listAudioDevices: () => invoke<AudioDevice[]>("list_audio_devices"),
+  setDeviceOffset: (id: string, offsetMs: number) => invoke<AudioDevice[]>("set_device_offset", { id, offsetMs }),
+  startCalibration: (mode: CalibrationMode) => invoke<CalibrationView>("start_calibration", { mode }),
+  stopCalibration: () => invoke<CalibrationView | null>("stop_calibration"),
+  applyCalibration: () => invoke<number>("apply_calibration"),
+  getCalibration: () => invoke<CalibrationView | null>("get_calibration"),
+  clockApplied: (seq: number) => invoke<void>("clock_applied", { seq }),
+  syncLab: () => invoke<SyncLab>("sync_lab"),
+  exportDiagnostics: () => invoke<string>("export_diagnostics"),
   reloadLyrics: () => invoke<void>("reload_lyrics"),
   getOverlayLayout: () => invoke<OverlayLayout | null>("get_overlay_layout"),
   reportOverlaySize: (width: number, height: number, uiScale: number) =>
@@ -57,6 +71,8 @@ interface EventPayloads {
   clock: ClockEvent;
   lyrics: LyricsEvent;
   nudge: NudgeEvent;
+  notice: { text: string };
+  calibration: CalibrationView;
   settings: Settings;
   "overlay-layout": OverlayLayout;
 }

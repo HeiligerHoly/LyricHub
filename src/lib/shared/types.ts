@@ -16,7 +16,7 @@ export interface TrackInfo {
   album: string | null;
   duration_ms: number | null;
   art: ArtRef | null;
-  kind: "music" | "unknown";
+  kind: "music" | "ad" | "podcast" | "unknown";
   source: "smtc";
 }
 
@@ -85,6 +85,13 @@ export type SettingsPatch = {
   behavior?: { [K in keyof BehaviorSettings]?: BehaviorSettings[K] | null };
 };
 
+/** Offset parts (sync/offsets.rs); positive shows the lyrics later. */
+export interface Offsets {
+  global_ms: number;
+  device_ms: number;
+  song_ms: number;
+}
+
 /** Payload of `clock` (app_state.rs). Display position = pos + elapsed × rate − offset. */
 export interface ClockEvent {
   pos_ms: number;
@@ -93,8 +100,74 @@ export interface ClockEvent {
   /** How long `rate` still applies before the speed returns to 1. */
   slew_ms: number;
   seq: number;
-  /** Positive shows the lyrics later. */
+  /** Sum of the offsets; positive shows the lyrics later. */
   offset_ms: number;
+  offsets: Offsets;
+  /** Why the anchor went out: status, seek, jump, slew, adopt, offset, heartbeat, query. */
+  kind: string;
+}
+
+export interface AudioDevice {
+  id: string;
+  name: string;
+  offset_ms: number;
+  current: boolean;
+  bluetooth: boolean;
+}
+
+export interface TapStats {
+  count: number;
+  median_abs_ms: number;
+  p95_abs_ms: number;
+  bias_ms: number;
+  within_100: number;
+}
+
+export type CalibrationMode = "calibrate" | "protocol";
+
+export interface Tap {
+  key: string;
+  title: string;
+  line_index: number;
+  line_start_ms: number;
+  /** Overlay position at the tap minus the line start; positive = lyrics too early. */
+  error_ms: number;
+  unix_ms: number;
+}
+
+/** Payload of `calibration` (calibration.rs). */
+export interface CalibrationView {
+  active: boolean;
+  mode: CalibrationMode;
+  taps: Tap[];
+  missed: number;
+  needed: number;
+  total: TapStats | null;
+  per_song: { key: string; title: string; stats: TapStats }[];
+  suggestion_ms: number | null;
+  device_offset_ms: number;
+  report_path: string | null;
+  message: string | null;
+}
+
+export interface LabEntry {
+  t_ms: number;
+  kind: "obs" | "status" | "track" | "offset" | "tap";
+  source: string;
+  value_ms: number;
+  residual_ms: number | null;
+  age_ms: number | null;
+  update: string;
+}
+
+/** Sync Lab snapshot (sync_lab.rs). */
+export interface SyncLab {
+  now_ms: number;
+  entries: LabEntry[];
+  clock: ClockEvent;
+  cadence_ms: number | null;
+  deviating: string[];
+  track_key: string | null;
 }
 
 export interface Word {

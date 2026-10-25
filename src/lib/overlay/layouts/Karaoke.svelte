@@ -24,6 +24,8 @@
     clock: LocalClock;
     clockVersion: number;
     staticFill?: number | null;
+    /** Calibration: time left until the next line starts, drawn as a shrinking bar. */
+    countdown?: { key: number; ms: number } | null;
   }
   let {
     track,
@@ -38,6 +40,7 @@
     clock,
     clockVersion,
     staticFill = null,
+    countdown = null,
   }: Props = $props();
 
   const title = $derived(track?.title ?? placeholder.title);
@@ -61,6 +64,12 @@
       {/key}
     {/if}
   </header>
+
+  {#if countdown}
+    {#key countdown.key}
+      <div class="countdown" aria-hidden="true"><span style="animation-duration: {Math.max(1, countdown.ms)}ms"></span></div>
+    {/key}
+  {/if}
 
   <div class="row current">
     {#key activeKey}
@@ -89,9 +98,38 @@
 
 <style>
   .karaoke {
+    position: relative;
     display: grid;
     gap: calc(4px * var(--s));
     --line-size: calc(28px * var(--s));
+  }
+  /* Sits on the gap below the header, so the layout height does not change. */
+  .countdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(25px * var(--s));
+    height: calc(3px * var(--s));
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+  }
+  .countdown span {
+    display: block;
+    height: 100%;
+    background: #ffd36e;
+    transform-origin: left center;
+    animation-name: shrink;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+  }
+  @keyframes shrink {
+    from {
+      transform: scaleX(1);
+    }
+    to {
+      transform: scaleX(0);
+    }
   }
   .row {
     display: flex;
