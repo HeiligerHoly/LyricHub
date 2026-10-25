@@ -1,18 +1,18 @@
 # Sync-Bericht (Phase 3)
 
 > Datum: 2026-10-25 · Bezug: PLAN.md 2 (Akzeptanzkriterien Sync), 5.7, 11.3
-> Aufbau: Spotify aus dem Microsoft Store, nur SMTC als Quelle, kabelgebundener Kopfhörer „Headphones (High Definition Audio Device)“, globaler Offset 0. Gemessen mit dem Phase-3-Stand vor der Versionsnummer 0.3.0, deshalb steht in den Protokolldateien noch `0.2.0`.
+> Aufbau: Spotify aus dem Microsoft Store, nur SMTC als Quelle, kabelgebundener Kopfhörer „Headphones (High Definition Audio Device)“, globaler Offset 0. Lauf 1 und 2 sind mit dem Phase-3-Stand vor der Versionsnummer 0.3.0 gemessen, deshalb steht in diesen Protokolldateien noch `0.2.0`. Lauf 3 (Japanisch) lief mit 0.3.0 nach dem Romaji-Merge.
 
 ## Ergebnis
 
 | Kriterium (PLAN.md 2) | Ziel | Ergebnis | |
 |---|---|---|---|
-| Median-Fehler nach Kalibrierung, Kabel | ≤ 100 ms | **96 ms** (Geräte-Offset +100 ms, 115 Taps, 13 Songs) | erfüllt |
-| p95-Fehler | ≤ 200 ms | **289 ms** | **nicht erfüllt** |
+| Median-Fehler nach Kalibrierung, Kabel | ≤ 100 ms | **96 ms** über 13 englische und deutsche Songs (115 Taps); **108 ms** mit den zwei japanischen (15 Songs, 155 Taps), alles bei Geräte-Offset +100 ms | Englisch und Deutsch erfüllt, mit Japanisch knapp **nicht erfüllt** |
+| p95-Fehler | ≤ 200 ms | **289 ms**, mit Japanisch 309 ms | **nicht erfüllt** |
 | Seek wieder korrekt | ≤ 300 ms | Median **30 ms**, höchstens 34 ms (5 Sprünge) | erfüllt |
 | Nudge wirkt nur auf den laufenden Song | Songwechsel zeigt eigenen Wert | 4 von 4 Prüfungen, zusätzlich im Log des ersten Laufs | erfüllt |
 
-Die Zeitkette selbst ist genau: Vom SMTC-Bericht bis zum gezeichneten Anker vergehen 8 bis 25 ms. Das p95 kommt von zwei anderen Quellen. Erstens setzen die LRC-Dateien ihre Zeilen je Song unterschiedlich früh oder spät, im Median eines Songs zwischen −140 und +151 ms. Zweitens streuen die einzelnen Taps innerhalb eines Songs: Rechnet man den Versatz jedes Songs heraus, bleibt ein p95 von 267 ms. Diese Streuung enthält die Reaktionszeit beim Tippen und ungenau gesetzte einzelne Zeilen; beides lässt sich mit dieser Methode nicht trennen. Kein Offset kann sie beheben. Der Nutzer hat entschieden, keine zweite Messrunde zu machen.
+Die Zeitkette selbst ist genau: Vom SMTC-Bericht bis zum gezeichneten Anker vergehen 8 bis 25 ms. Das p95 kommt von zwei anderen Quellen. Erstens setzen die LRC-Dateien ihre Zeilen je Song unterschiedlich früh oder spät, im Median eines Songs zwischen −140 und +151 ms. Zweitens streuen die einzelnen Taps innerhalb eines Songs: Rechnet man den Versatz jedes Songs heraus, bleibt ein p95 von 267 ms. Diese Streuung enthält die Reaktionszeit beim Tippen und ungenau gesetzte einzelne Zeilen; beides lässt sich mit dieser Methode nicht trennen. Kein Offset kann sie beheben. Die japanischen Songs bestätigen das Bild: „Oddloop“ liegt durchgehend 144 ms zu früh und hebt den Median über 100 ms; ohne den Versatz pro Song liegt das p95 aller 15 Songs bei 264 ms. Der Nutzer hat entschieden, keine zweite Messrunde zu machen.
 
 ## Methode
 
@@ -67,10 +67,29 @@ Drei Taps liegen über 400 ms daneben (−539, −452, −432 ms), vermutlich ei
 
 Lauf 2 (`sync-protocol-1792962744.json`, 14 Taps, 2 verpasst): „Alien Boy“ (Oliver Tree, 11 Taps, Tendenz −106 ms, Streuung 39 ms) und drei Taps auf „Only Wonder“ (Frederic, Japanisch). Der Nutzer kann Kana und Kanji nicht lesen und deshalb keinen Zeilenbeginn erkennen; der japanische Teil ist nicht ausgewertet.
 
+### Lauf 3: Japanisch mit Romaji
+
+`sync-protocol-1792965126.json`: 40 Taps, kein verpasster Tap, Geräte-Offset 100, Version 0.3.0 nach dem Romaji-Merge. Das Overlay zeigte die Zeilen in Romaji; die Zeilenzeiten sind dieselben wie in der Originalschrift.
+
+| Auswertung | Taps | Median \|e\| | p95 \|e\| | Tendenz | ≤ 100 ms | ≤ 200 ms |
+|---|---|---|---|---|---|---|
+| Japanisch | 40 | 144 ms | 312 ms | +106 ms | 35 % | 65 % |
+| Japanisch, Versatz jedes Songs herausgerechnet | 40 | 75 ms | 225 ms | 0 ms | 57 % | 88 % |
+| **Alle 15 Songs** (Lauf 1 umgerechnet und Lauf 3) | 155 | **108 ms** | **309 ms** | +28 ms | 48 % | 77 % |
+| Alle 15 Songs, Versatz jedes Songs herausgerechnet | 155 | 81 ms | 264 ms | 0 ms | 57 % | 87 % |
+
+| Song | Artist | Taps | Tendenz | Median \|e\| | Streuung |
+|---|---|---|---|---|---|
+| Only Wonder | frederic | 14 | −42 ms | 128 ms | 112 ms |
+| Oddloop | frederic | 26 | +144 ms | 144 ms | 69 ms |
+
+- **Oddloop:** Alle 26 Fehler liegen zwischen 0 und +366 ms; die LRC-Datei setzt die Zeilen durchgehend zu früh. Ein Song-Offset von etwa +150 ms behebt das (einmal Strg+Alt+. und zweimal Strg+Alt+Umschalt+., während der Song läuft).
+- **Only Wonder:** Die Fehler schwanken innerhalb der ersten Minute von +222 über −317 zurück auf +151 ms. Einen festen Versatz gibt es nicht; einzelne Zeilen der LRC-Datei sitzen ungleichmäßig, oder das Tippen nach Romaji war hier schwerer. Beides lässt sich nicht trennen.
+
 ### Abweichungen von 11.3
 
-- **Kein japanischer Titel ausgewertet** (verlangt: mindestens zwei). Ohne lesbare Zeilen ist keine Messung möglich. Die Romaji-Anzeige ist nach dieser Messung in main gekommen (Merge von `claude/unruffled-dirac-66618b`); mit ihr lässt sich die Messung nachholen.
-- **13 statt 10 Songs** auf Englisch und Deutsch, von Rap über Pop und Punk bis Electronic, kein Live-Mitschnitt.
+- **Japanisch nach Romaji getippt:** Der Nutzer kann Kana und Kanji nicht lesen. Lauf 3 lief deshalb erst nach dem Romaji-Merge (`claude/unruffled-dirac-66618b`) mit zwei japanischen Songs.
+- **15 statt 10 Songs:** 13 auf Englisch und Deutsch, von Rap über Pop und Punk bis Electronic, dazu 2 japanische; kein Live-Mitschnitt.
 - **Tap-Messung statt Schätzung in 100-ms-Schritten**, siehe Methode.
 
 ## Seek-Test

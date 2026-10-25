@@ -1,7 +1,7 @@
 # Phase 3 – Sync-Härtung
 
 > Datum: 2026-10-25 · Bezug: PLAN.md 10 (Phase 3), 2, 5.4, 5.5, 5.7, 5.9, 11.3, 14.1
-> Ergebnis: **Phase 3 gebaut und gemessen** (Tag `v0.3.0-phase3`). Median-Fehler 96 ms, Seek 30 ms, Nudge pro Song nachgewiesen. Das p95 liegt mit 289 ms über dem Ziel von 200 ms, siehe [sync-report.md](sync-report.md).
+> Ergebnis: **Phase 3 gebaut und gemessen** (Tag `v0.3.0-phase3`). Median-Fehler 96 ms über englische und deutsche Songs, mit den nachgemessenen japanischen 108 ms. Seek 30 ms, Nudge pro Song nachgewiesen. Das p95 liegt mit 289 ms (mit Japanisch 309 ms) über dem Ziel von 200 ms, siehe [sync-report.md](sync-report.md).
 
 ## Was gebaut wurde
 
@@ -23,8 +23,8 @@
 
 | Kriterium | Ergebnis | Nachweis |
 |---|---|---|
-| Sync-Protokoll 11.3 mit Kabel: Median ≤ 100 ms | **erfüllt**: 96 ms (Geräte-Offset +100 ms, 115 Taps, 13 Songs) | [sync-report.md](sync-report.md) |
-| p95 ≤ 200 ms | **nicht erfüllt**: 289 ms. Ursache sind Versatz und Streuung der LRC-Dateien plus Tipp-Streuung, nicht die Zeitkette. Keine zweite Runde (Nutzerentscheidung) | [sync-report.md](sync-report.md) |
+| Sync-Protokoll 11.3 mit Kabel: Median ≤ 100 ms | **erfüllt für Englisch und Deutsch**: 96 ms (Geräte-Offset +100 ms, 115 Taps, 13 Songs). Mit den zwei japanischen Songs, nach dem Tag mit Romaji gemessen: 108 ms (155 Taps), weil „Oddloop“ 144 ms zu früh liegt | [sync-report.md](sync-report.md) |
+| p95 ≤ 200 ms | **nicht erfüllt**: 289 ms, mit Japanisch 309 ms. Ursache sind Versatz und Streuung der LRC-Dateien plus Tipp-Streuung, nicht die Zeitkette. Keine zweite Runde (Nutzerentscheidung) | [sync-report.md](sync-report.md) |
 | Seek-Test | **erfüllt**: Median 30 ms, höchstens 34 ms vom Seek bis zum gezeichneten Overlay (Ziel 300 ms) | `tools/sync/seek-test.ps1` |
 | Nudge pro Song greift beim Songwechsel | **erfüllt**: 4 von 4, Log-Auszug im Bericht | `tools/sync/nudge-test.ps1` |
 | `run-spike.ps1` grün | plain 13/13, game-once 15/15, game-aggressive 13/14 (der bekannte Worst-Case-Befund „Overlay wird gezeichnet“ aus Phase 0) | `docs/spike-overlay-*.json` |
@@ -37,7 +37,7 @@ Außerdem live geprüft: Der Wechsel von „Speakers“ auf „Headphones (High 
 ## Abweichungen vom Plan
 
 - **Tap-Messung statt Schätzung in 100-ms-Schritten** (11.3): Leertaste bei jedem hörbaren Zeilenbeginn, Fehler in Millisekunden. Die Reaktionszeit beim Tippen steckt mit in jedem Wert.
-- **Kein japanischer Titel im Protokoll** (verlangt: zwei). Der Nutzer kann die Zeilen nicht lesen; Romaji kam erst nach dem Tag mit dem Merge von `claude/unruffled-dirac-66618b` nach main.
+- **Japanisch erst nach dem Tag gemessen:** Der Nutzer kann Kana und Kanji nicht lesen. Die zwei japanischen Songs liefen nach dem Merge von `claude/unruffled-dirac-66618b` mit Romaji (Lauf 3 im Bericht).
 - **Kalibrierung über einen Song überschießt:** Sie misst das LRC-Timing dieses Songs mit. Der erste Vorschlag (151 ms, über „My Ordinary Life“) lag 51 ms zu hoch; der Nutzer hat den Geräte-Offset nach dem Protokoll auf +100 ms gesetzt.
 - **Geräteerkennung per Abfrage alle 2 s** statt `IMMNotificationClient::OnDefaultDeviceChanged`: kein COM-Callback-Objekt, gleiche Wirkung bei einem Gerätewechsel pro Sitzung.
 - **Geräte-Offsets in der Datenbank** (`device_offsets`, Schema aus 7.3) statt in `settings.json`, neben den Song-Offsets.
@@ -50,5 +50,5 @@ Außerdem live geprüft: Der Wechsel von „Speakers“ auf „Headphones (High 
 
 - **p95:** Mit Song-Offsets lässt sich der Versatz pro Song beheben (im Protokoll −140 bis +151 ms), die Streuung innerhalb eines Songs (p95 267 ms) nicht. Ob sie von den LRC-Dateien oder vom Tippen kommt, lässt sich mit dieser Methode nicht trennen. Eine Gegenprobe wäre ein Song mit Wortzeiten (Enhanced LRC) oder eine selbst gesetzte LRC-Datei.
 - **Geräte-Offset aus dem Protokoll vorschlagen:** Die Tendenz über mehrere Songs ist ein besserer Geräte-Offset als fünf Taps auf einem Song. Ein Knopf „Tendenz als Geräte-Offset übernehmen“ am Ende einer Messung wäre wenig Aufwand.
-- **Japanische Messung** mit Romaji nachholen (Strg+Alt+R, seit dem Merge nach `v0.3.0-phase3` in main).
+- **Song-Offset für „Oddloop“:** etwa +150 ms; die LRC-Datei liegt durchgehend 144 ms zu früh. Das setzt der Nutzer per Nudge, wenn der Song läuft.
 - **Fokus-Test mit Tippen** (11.3) ist nur über die Vordergrund-Prüfungen von `run-spike.ps1` und `edit-mode-test.ps1` abgedeckt. Während einer Messung fängt LyricHub die Leertaste absichtlich ab; Esc beendet die Messung.
