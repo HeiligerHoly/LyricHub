@@ -43,6 +43,8 @@ fn estimated_height(layout: Layout) -> f64 {
     match layout {
         Layout::Bar => 48.0,
         Layout::Karaoke => 112.0,
+        Layout::Stack => 168.0,
+        Layout::Minimal => 52.0,
     }
 }
 /// Bounds wait at most this long for the page to confirm an edit layout.

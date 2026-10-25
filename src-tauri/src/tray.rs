@@ -40,6 +40,8 @@ fn layout_label(l: Layout) -> &'static str {
     match l {
         Layout::Karaoke => "Karaoke",
         Layout::Bar => "Leiste",
+        Layout::Stack => "Stapel",
+        Layout::Minimal => "Minimal",
     }
 }
 
@@ -47,6 +49,8 @@ fn layout_id(l: Layout) -> &'static str {
     match l {
         Layout::Karaoke => "layout_karaoke",
         Layout::Bar => "layout_bar",
+        Layout::Stack => "layout_stack",
+        Layout::Minimal => "layout_minimal",
     }
 }
 

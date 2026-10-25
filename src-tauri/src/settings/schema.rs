@@ -34,7 +34,7 @@ impl Default for Settings {
     }
 }
 
-/// Overlay layouts (PLAN.md 9.2). Stack and Minimal follow in Phase 4.
+/// Overlay layouts (PLAN.md 9.2).
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum Layout {
@@ -43,10 +43,14 @@ pub enum Layout {
     Karaoke,
     /// One line: cover, title – artist, current lyric line.
     Bar,
+    /// Previous, current and next lines; the list scrolls softly.
+    Stack,
+    /// Only the active line, without a plate, with outline and shadow.
+    Minimal,
 }
 
 impl Layout {
-    pub const ALL: [Layout; 2] = [Layout::Karaoke, Layout::Bar];
+    pub const ALL: [Layout; 4] = [Layout::Karaoke, Layout::Bar, Layout::Stack, Layout::Minimal];
 
     pub fn next(self) -> Self {
         let i = Self::ALL.iter().position(|&l| l == self).unwrap_or(0);
@@ -147,12 +151,69 @@ impl Default for OverlaySettings {
     }
 }
 
-/// Look of the overlay (PLAN.md 9.5). Themes, font and accent follow in Phase 4.
+/// Themes (PLAN.md 9.5).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Theme {
+    /// Dark translucent plate, white text, accent from the cover.
+    #[default]
+    GlassDark,
+    /// Light translucent plate, dark text.
+    GlassLight,
+    /// No plate, outlined text, strong accent glow; for dark games.
+    Neon,
+    /// High contrast black and white, no accent.
+    Mono,
+    /// Plate, colours, outline and radius from `CustomTheme`.
+    Custom,
+}
+
+/// Where the fill colour comes from.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AccentMode {
+    /// Picked from the album cover, with a contrast check (overlay/accent.ts).
+    #[default]
+    Cover,
+    /// `accent_color`.
+    Fixed,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct CustomTheme {
+    pub plate: bool,
+    /// `#rrggbb`; the opacity is `plate_opacity`.
+    pub plate_color: String,
+    pub text_color: String,
+    pub outline: bool,
+    pub radius_px: u32,
+}
+
+impl Default for CustomTheme {
+    fn default() -> Self {
+        Self { plate: true, plate_color: "#0c0c10".into(), text_color: "#ffffff".into(), outline: false, radius_px: 14 }
+    }
+}
+
+pub const RADIUS_MAX_PX: u32 = 32;
+
+/// Look of the overlay (PLAN.md 9.5).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct AppearanceSettings {
-    /// Opacity of the dark plate behind the text, 0..1 (Glass Dark: 0.55).
+    pub theme: Theme,
+    /// Opacity of the plate behind the text, 0..1 (Glass Dark: 0.55).
     pub plate_opacity: f64,
+    pub accent: AccentMode,
+    /// `#rrggbb`, used with `AccentMode::Fixed` and as the custom theme's accent.
+    pub accent_color: String,
+    /// Font family for the lyrics; empty means the bundled Inter.
+    pub font: String,
+    /// All transitions at most 80 ms and no word glow (PLAN.md 9.4). The system setting
+    /// "show animations" off has the same effect.
+    pub reduced_motion: bool,
+    pub custom: CustomTheme,
     /// Show lines with kana or kanji in romaji, modified Hepburn (docs/romaji.md).
     pub romaji: bool,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
@@ -162,7 +223,17 @@ pub struct AppearanceSettings {
 
 impl Default for AppearanceSettings {
     fn default() -> Self {
-        Self { plate_opacity: 0.55, romaji: false, extra: Map::new() }
+        Self {
+            theme: Theme::GlassDark,
+            plate_opacity: 0.55,
+            accent: AccentMode::Cover,
+            accent_color: DEFAULT_ACCENT.into(),
+            font: String::new(),
+            reduced_motion: false,
+            custom: CustomTheme::default(),
+            romaji: false,
+            extra: Map::new(),
+        }
     }
 }
 
@@ -178,6 +249,15 @@ pub struct SyncSettings {
 }
 
 pub const OFFSET_LIMIT_MS: i32 = 5000;
+
+/// Warm yellow of the fill since Phase 2; also the fallback when a cover has no usable colour.
+pub const DEFAULT_ACCENT: &str = "#ffd36e";
+
+/// `#rrggbb` (lower case) or `None`.
+fn hex_color(s: &str) -> Option<String> {
+    let h = s.trim().strip_prefix('#')?;
+    (h.len() == 6 && h.chars().all(|c| c.is_ascii_hexdigit())).then(|| format!("#{}", h.to_ascii_lowercase()))
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
@@ -206,6 +286,13 @@ impl Settings {
         self.sync.global_offset_ms = self.sync.global_offset_ms.clamp(-OFFSET_LIMIT_MS, OFFSET_LIMIT_MS);
         let a = &mut self.appearance;
         a.plate_opacity = finite_or(a.plate_opacity, AppearanceSettings::default().plate_opacity).clamp(0.0, 1.0);
+        let dc = CustomTheme::default();
+        a.accent_color = hex_color(&a.accent_color).unwrap_or_else(|| DEFAULT_ACCENT.into());
+        a.custom.plate_color = hex_color(&a.custom.plate_color).unwrap_or(dc.plate_color);
+        a.custom.text_color = hex_color(&a.custom.text_color).unwrap_or(dc.text_color);
+        a.custom.radius_px = a.custom.radius_px.min(RADIUS_MAX_PX);
+        // The name goes into a CSS font-family string: no quotes, braces or statement ends.
+        a.font = a.font.trim().chars().filter(|c| !matches!(c, '"' | '\'' | ';' | '{' | '}' | '\\' | '<' | '>')).take(80).collect();
         if o.monitor_id.as_deref().is_some_and(|m| m.trim().is_empty()) {
             o.monitor_id = None;
         }
@@ -229,7 +316,8 @@ mod tests {
     #[test]
     fn layouts_cycle_and_v1_files_default_to_karaoke() {
         assert_eq!(Layout::Karaoke.next(), Layout::Bar);
-        assert_eq!(Layout::Bar.next(), Layout::Karaoke);
+        assert_eq!(Layout::Bar.next(), Layout::Stack);
+        assert_eq!(Layout::Minimal.next(), Layout::Karaoke);
         let s: Settings = serde_json::from_str(r#"{"schema_version":1,"overlay":{"anchor":"mr"}}"#).unwrap();
         assert_eq!((s.overlay.layout, s.overlay.anchor, s.sync.global_offset_ms), (Layout::Karaoke, Anchor::MiddleRight, 0));
     }
@@ -251,7 +339,15 @@ mod tests {
         s.overlay.monitor_id = Some("  ".into());
         s.sync.global_offset_ms = -99_999;
         s.appearance.plate_opacity = 1.7;
+        s.appearance.accent_color = "red".into();
+        s.appearance.custom.text_color = "#ABCDEF".into();
+        s.appearance.custom.radius_px = 99;
+        s.appearance.font = " Fira\"; color: red ".into();
         s.sanitize();
+        assert_eq!(s.appearance.accent_color, DEFAULT_ACCENT);
+        assert_eq!(s.appearance.custom.text_color, "#abcdef");
+        assert_eq!(s.appearance.custom.radius_px, RADIUS_MAX_PX);
+        assert_eq!(s.appearance.font, "Fira color: red");
         assert_eq!(s.sync.global_offset_ms, -OFFSET_LIMIT_MS);
         assert_eq!(s.appearance.plate_opacity, 1.0);
         assert_eq!(s.schema_version, SCHEMA_VERSION);
