@@ -1,4 +1,4 @@
-//! Spike B self-test (PLAN.md 10, Phase 0): checks the overlay window without a human.
+//! Overlay self-test from Spike B (PLAN.md 10): checks the overlay window without a human.
 //!
 //! Each step records what Windows reports: foreground window, extended styles,
 //! WindowFromPoint (click-through), a composed screen pixel (is anything drawn) and
@@ -101,10 +101,14 @@ const PIXEL_THRESHOLD: i32 = 40;
 pub fn run(app: &AppHandle) -> Report {
     let state = app.state::<OverlayState>();
     let overlay = state.hwnd();
+    // Sample content, so the drawing check works without a song; no edit mode during the test.
+    super::cancel_edit(app);
+    super::set_preview(app, true);
     state.pause_watchdog(true);
+    sleep(SETTLE);
 
     let fg0 = win32::foreground();
-    let main = app.get_webview_window("main").and_then(|w| w.hwnd().ok()).map(Hwnd::from_raw);
+    let main = app.get_webview_window(crate::settings_window::LABEL).and_then(|w| w.hwnd().ok()).map(Hwnd::from_raw);
     let fg_conclusive = !fg0.is_null() && fg0 != overlay && Some(fg0) != main;
     let fake_game = win32::find_window_by_title(FAKE_GAME_TITLE);
     let mut c = Ctx { steps: Vec::new(), group: "start", fg0, fg_conclusive, overlay };
@@ -252,6 +256,7 @@ pub fn run(app: &AppHandle) -> Report {
     }
 
     state.pause_watchdog(false);
+    super::set_preview(app, false);
 
     // The "tauri" group documents tao behaviour we avoid; its failures are expected findings,
     // not failures of the production path, and are counted separately.

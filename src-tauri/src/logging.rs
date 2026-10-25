@@ -7,11 +7,7 @@ use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 pub fn log_dir() -> PathBuf {
-    std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir)
-        .join("LyricHub")
-        .join("logs")
+    crate::paths::data_dir().join("logs")
 }
 
 pub fn init() {

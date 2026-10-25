@@ -1,108 +1,72 @@
-//! LyricHub backend. Phase 0: tray, two windows, overlay spike, logging, SMTC snapshot.
+//! LyricHub backend. Phase 1: SMTC source, `track` events, settings store, overlay geometry
+//! with edit mode, tray and hotkeys.
 
+mod app_state;
+mod hotkeys;
+mod ipc;
 mod logging;
 mod overlay;
-mod smtc;
+mod paths;
+mod settings;
+mod settings_window;
+mod sources;
 mod tray;
 
-use tauri::{AppHandle, Manager, WindowEvent};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 
-#[tauri::command]
-fn overlay_diagnostics(app: AppHandle) -> overlay::OverlayDiagnostics {
-    overlay::diagnostics(&app)
-}
+use sources::PlaybackSource;
 
-#[tauri::command]
-fn toggle_overlay(app: AppHandle) -> bool {
-    overlay::toggle(&app)
-}
-
-#[tauri::command]
-fn set_click_through(app: AppHandle, enabled: bool) -> overlay::OverlayDiagnostics {
-    overlay::set_click_through(&app, enabled);
-    overlay::diagnostics(&app)
-}
-
-#[tauri::command]
-async fn now_playing_snapshot() -> Result<Option<smtc::NowPlaying>, String> {
-    tauri::async_runtime::spawn_blocking(|| smtc::snapshot("Spotify"))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn run_overlay_selftest(app: AppHandle) -> Result<overlay::selftest::Report, String> {
-    tauri::async_runtime::spawn_blocking(move || overlay::selftest::run_and_record(&app))
-        .await
-        .map_err(|e| e.to_string())
-}
-
-/// Shows and focuses the settings window. The overlay never gets focus; this window may.
-pub fn open_settings(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.show();
-        let _ = w.unminimize();
-        let _ = w.set_focus();
-    }
-}
-
-fn register_shortcuts(app: &AppHandle) -> tauri::Result<()> {
-    let toggle = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyL);
-    let edit = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyE);
-    let (toggle_h, edit_h) = (toggle.clone(), edit.clone());
-    app.plugin(
-        tauri_plugin_global_shortcut::Builder::new()
-            .with_handler(move |app, shortcut, event| {
-                if event.state() != ShortcutState::Pressed {
-                    return;
-                }
-                if shortcut == &toggle_h {
-                    overlay::toggle(app);
-                } else if shortcut == &edit_h {
-                    // Phase 0: only toggles click-through. The real edit mode follows in Phase 1.
-                    overlay::toggle_click_through(app);
-                }
-            })
-            .build(),
-    )?;
-    for (name, s) in [("Ctrl+Alt+L", toggle), ("Ctrl+Alt+E", edit)] {
-        if let Err(e) = app.global_shortcut().register(s) {
-            // Another app may own the combination; the tray still works.
-            tracing::warn!(shortcut = name, error = %e, "could not register global shortcut");
-        }
-    }
-    Ok(())
-}
+/// Session filter for the Windows media session (PLAN.md 5.8).
+const PLAYER_FILTER: &str = "Spotify";
 
 pub fn run() {
     logging::init();
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "LyricHub starting");
 
-    let minimized = std::env::args().any(|a| a == "--minimized");
+    let autostarted = std::env::args().any(|a| a == "--minimized");
     let selftest_mode = std::env::var("LYRICHUB_SELFTEST").ok();
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| open_settings(app)))
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| settings_window::open(app)))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
         ))
+        .plugin(hotkeys::plugin())
         .manage(overlay::OverlayState::default())
+        .manage(settings::SettingsState::load())
+        .manage(app_state::NowPlayingState::default())
         .invoke_handler(tauri::generate_handler![
-            overlay_diagnostics,
-            toggle_overlay,
-            set_click_through,
-            now_playing_snapshot,
-            run_overlay_selftest
+            ipc::commands::get_settings,
+            ipc::commands::set_settings,
+            ipc::commands::set_overlay_anchor,
+            ipc::commands::reset_overlay_geometry,
+            ipc::commands::list_monitors,
+            ipc::commands::get_now_playing,
+            ipc::commands::track_latencies,
+            ipc::commands::get_overlay_layout,
+            ipc::commands::report_overlay_size,
+            ipc::commands::overlay_layout_ready,
+            ipc::commands::overlay_rendered,
+            ipc::commands::enter_edit_mode,
+            ipc::commands::overlay_edit_update,
+            ipc::commands::overlay_edit_monitor,
+            ipc::commands::save_overlay_geometry,
+            ipc::commands::cancel_edit_mode,
+            ipc::commands::toggle_overlay,
+            ipc::commands::overlay_diagnostics,
+            ipc::commands::run_overlay_selftest,
+            ipc::commands::app_info,
+            ipc::commands::open_logs_folder,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
-            register_shortcuts(&handle)?;
+            hotkeys::register_defaults(&handle);
             tray::create(&handle)?;
             overlay::setup(&handle)?;
+            ipc::apply_autostart(&handle, handle.state::<settings::SettingsState>().get().behavior.autostart);
+            app_state::spawn_consumer(handle.clone(), sources::smtc::SmtcSource::new(PLAYER_FILTER).spawn());
 
             if let Some(mode) = selftest_mode.clone() {
                 // Give the webview time to load and paint before measuring.
@@ -113,20 +77,28 @@ pub fn run() {
                         handle.exit(if report.failed == 0 { 0 } else { 1 });
                     }
                 });
-            } else if !minimized {
-                open_settings(&handle);
+            } else if !autostarted && !handle.state::<settings::SettingsState>().get().behavior.start_minimized {
+                settings_window::open(&handle);
             }
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Closing the settings window keeps the app running in the tray.
-            if window.label() == "main" {
-                if let WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-                    let _ = window.hide();
+            // Runs on the main thread: never lock overlay state here (see overlay/mod.rs).
+            if window.label() == overlay::LABEL {
+                if let WindowEvent::ScaleFactorChanged { .. } = event {
+                    let app: AppHandle = window.app_handle().clone();
+                    std::thread::spawn(move || overlay::force_relayout(&app));
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running LyricHub");
+        .build(tauri::generate_context!())
+        .expect("error while building LyricHub");
+
+    app.run(|_app, event| {
+        // Closing the settings window destroys it; the app lives on in the tray. Only an
+        // explicit exit (tray "Beenden", code set) ends the process.
+        if let RunEvent::ExitRequested { code: None, api, .. } = event {
+            api.prevent_exit();
+        }
+    });
 }
