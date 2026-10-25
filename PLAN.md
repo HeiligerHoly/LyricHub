@@ -97,6 +97,8 @@ Die drei harten Kernprobleme, in Reihenfolge ihrer Wichtigkeit:
 
 Die Web API kann unabhängig davon später für stabile Track-IDs ergänzt werden.
 
+**Ergebnis Spike A (2026-10-25)**: SMTC reicht. Spotify veröffentlicht die Timeline alle 4,5 s plus bei jedem Ereignis, und die Extrapolation weicht im Normalbetrieb im 95. Perzentil um 1 ms ab. Plan B und C entfallen vorerst. Details und Folgen für die Seek- und Songwechsel-Behandlung stehen in `docs/spike-smtc.md`.
+
 **Offene Unsicherheit, die Spike 0 klären muss**: Wie oft aktualisiert der Spotify-Client die SMTC-Timeline? Community-Berichte (z. B. ein Fix im Projekt Soggfy) zeigen, dass Spotify die Timeline refresht und Leser die Position aus `Position + (now - LastUpdatedTime)` extrapolieren müssen, wobei Refreshes die extrapolierte Position leicht rückwärts springen lassen können. Die genaue Kadenz und der Jitter müssen gemessen werden (Abschnitt 5.8).
 
 ### 3.3 Lyrics-Quelle: LRCLIB primär, Provider-Schnittstelle, lokaler Cache
