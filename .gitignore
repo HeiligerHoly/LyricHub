@@ -4,7 +4,8 @@
 
 # Node / Vite
 /node_modules/
-/dist/
+/build/
+/.svelte-kit/
 *.local
 
 # Spike raw data (large CSVs stay local, summaries go into docs/*.md)
