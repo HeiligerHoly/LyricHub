@@ -95,7 +95,7 @@ pub fn parse(input: &str) -> ParsedLrc {
                     })
                     .collect()
             });
-            Line { start_ms, end_ms, fill_end_ms, text: l.text, words }
+            Line { start_ms, end_ms, fill_end_ms, text: l.text, words, romaji: None }
         })
         .collect();
     out

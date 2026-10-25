@@ -153,6 +153,8 @@ impl Default for OverlaySettings {
 pub struct AppearanceSettings {
     /// Opacity of the dark plate behind the text, 0..1 (Glass Dark: 0.55).
     pub plate_opacity: f64,
+    /// Show lines with kana or kanji in romaji, modified Hepburn (docs/romaji.md).
+    pub romaji: bool,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -160,7 +162,7 @@ pub struct AppearanceSettings {
 
 impl Default for AppearanceSettings {
     fn default() -> Self {
-        Self { plate_opacity: 0.55, extra: Map::new() }
+        Self { plate_opacity: 0.55, romaji: false, extra: Map::new() }
     }
 }
 
@@ -230,6 +232,12 @@ mod tests {
         assert_eq!(Layout::Bar.next(), Layout::Karaoke);
         let s: Settings = serde_json::from_str(r#"{"schema_version":1,"overlay":{"anchor":"mr"}}"#).unwrap();
         assert_eq!((s.overlay.layout, s.overlay.anchor, s.sync.global_offset_ms), (Layout::Karaoke, Anchor::MiddleRight, 0));
+    }
+
+    #[test]
+    fn phase2_files_keep_their_values_and_default_romaji_off() {
+        let s: Settings = serde_json::from_str(r#"{"schema_version":1,"appearance":{"plate_opacity":0.8}}"#).unwrap();
+        assert_eq!((s.appearance.plate_opacity, s.appearance.romaji), (0.8, false));
     }
 
     #[test]

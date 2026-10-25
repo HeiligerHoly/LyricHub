@@ -23,6 +23,9 @@ pub struct Line {
     /// Empty for an instrumental marker.
     pub text: String,
     pub words: Option<Vec<Word>>,
+    /// Romaji of a line with kana or kanji (docs/romaji.md). Filled once per song while the
+    /// setting `appearance.romaji` is on, otherwise `None`.
+    pub romaji: Option<String>,
 }
 
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]

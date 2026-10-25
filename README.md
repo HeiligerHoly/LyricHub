@@ -35,6 +35,7 @@ Die App startet im Tray. Linksklick auf das Tray-Icon blendet das Overlay ein un
 | Strg+Alt+E | Edit-Modus: Overlay ziehen, an den Ecken skalieren, an den Seiten die Breite ändern |
 | Enter / Esc | im Edit-Modus speichern / abbrechen (nur dann registriert) |
 | Strg+Alt+K | Layout wechseln (Karaoke, Leiste) |
+| Strg+Alt+R | Japanische Zeilen in Romaji (Hepburn) und zurück |
 | Strg+Alt+, / Strg+Alt+. | Lyrics des laufenden Songs 100 ms früher / später (mit Umschalt 25 ms); LyricHub merkt sich den Wert pro Song |
 | Leertaste / Esc | während Kalibrierung oder Sync-Protokoll: Tap beim hörbaren Zeilenbeginn / Messung beenden (nur dann registriert) |
 

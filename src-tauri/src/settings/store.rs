@@ -174,12 +174,13 @@ mod tests {
     #[test]
     fn unknown_fields_survive_a_roundtrip() {
         let path = temp_path("extra");
-        std::fs::write(&path, r#"{ "schema_version": 2, "appearance": { "plate_opacity": 0.9, "romaji": true }, "future": { "x": 1 } }"#).unwrap();
+        std::fs::write(&path, r#"{ "schema_version": 2, "appearance": { "plate_opacity": 0.9, "romaji": true, "from_a_branch": "x" }, "future": { "x": 1 } }"#).unwrap();
         let (s, version) = load_versioned(&path);
         assert_eq!(version, Some(2));
         save(&path, &s).unwrap();
         let back: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(back["appearance"]["romaji"], Value::Bool(true));
+        assert_eq!(back["appearance"]["from_a_branch"], Value::from("x"));
         assert_eq!(back["future"]["x"], Value::from(1));
         assert_eq!(back["appearance"]["plate_opacity"], Value::from(0.9));
     }

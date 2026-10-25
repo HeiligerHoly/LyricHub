@@ -15,6 +15,10 @@ pub fn settings_changed(app: &AppHandle, before: &Settings, after: &Settings) {
     if before == after {
         return;
     }
+    if before.appearance.romaji != after.appearance.romaji {
+        // Before the settings event, so the overlay has the romaji when it switches.
+        crate::app_state::romaji_changed(app, after.appearance.romaji);
+    }
     if let Err(e) = app.emit(events::SETTINGS, after) {
         tracing::warn!(error = %e, "could not emit settings");
     }
@@ -54,6 +58,14 @@ pub fn nudge(app: &AppHandle, delta_ms: i32) -> Option<i32> {
 pub fn cycle_layout(app: &AppHandle) -> Settings {
     let (before, after) = app.state::<SettingsState>().update(|s| s.overlay.layout = s.overlay.layout.next());
     tracing::info!(layout = ?after.overlay.layout, "layout switched");
+    settings_changed(app, &before, &after);
+    after
+}
+
+/// Shows Japanese lines in romaji or in the original script (Ctrl+Alt+R).
+pub fn toggle_romaji(app: &AppHandle) -> Settings {
+    let (before, after) = app.state::<SettingsState>().update(|s| s.appearance.romaji = !s.appearance.romaji);
+    tracing::info!(on = after.appearance.romaji, "romaji toggled");
     settings_changed(app, &before, &after);
     after
 }

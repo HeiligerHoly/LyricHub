@@ -36,3 +36,8 @@ const JAPANESE = /[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]/;
 export function langOf(text: string): string | undefined {
   return JAPANESE.test(text) ? "ja" : undefined;
 }
+
+/** What a line shows: its romaji while the setting is on (docs/romaji.md), else the original. */
+export function shownText(line: Line, romaji: boolean): string {
+  return romaji && line.romaji ? line.romaji : line.text;
+}

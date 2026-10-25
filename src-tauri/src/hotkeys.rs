@@ -1,8 +1,9 @@
 //! Global shortcuts (PLAN.md 5.7, 9.7). Ctrl+Alt+L toggles the overlay, Ctrl+Alt+E starts the
-//! edit mode (pressed again it saves), Ctrl+Alt+K switches the layout, Ctrl+Alt+, and Ctrl+Alt+.
-//! nudge the song offset by −/+100 ms (with Shift ±25 ms). Enter and Esc are registered only
-//! while the edit mode runs, Space and Esc only while a calibration or sync protocol runs: the
-//! overlay never holds the keyboard focus, so it cannot receive them any other way.
+//! edit mode (pressed again it saves), Ctrl+Alt+K switches the layout, Ctrl+Alt+R switches
+//! Japanese lines to romaji and back, Ctrl+Alt+, and Ctrl+Alt+. nudge the song offset by
+//! −/+100 ms (with Shift ±25 ms). Enter and Esc are registered only while the edit mode runs,
+//! Space and Esc only while a calibration or sync protocol runs: the overlay never holds the
+//! keyboard focus, so it cannot receive them any other way.
 
 use std::time::Instant;
 
@@ -29,6 +30,9 @@ fn tap() -> Shortcut {
 }
 fn layout() -> Shortcut {
     Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyK)
+}
+fn romaji() -> Shortcut {
+    Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyR)
 }
 /// Nudge shortcuts with their offset change in ms.
 fn nudges() -> [(&'static str, Shortcut, i32); 4] {
@@ -78,13 +82,15 @@ fn dispatch(app: &AppHandle, shortcut: &Shortcut, at: Instant) {
         }
     } else if *shortcut == layout() {
         crate::ipc::cycle_layout(app);
+    } else if *shortcut == romaji() {
+        crate::ipc::toggle_romaji(app);
     } else if let Some((_, _, delta)) = nudges().into_iter().find(|(_, s, _)| s == shortcut) {
         crate::ipc::nudge(app, delta);
     }
 }
 
 pub fn register_defaults(app: &AppHandle) {
-    let fixed = [("Ctrl+Alt+L", toggle()), ("Ctrl+Alt+E", edit()), ("Ctrl+Alt+K", layout())];
+    let fixed = [("Ctrl+Alt+L", toggle()), ("Ctrl+Alt+E", edit()), ("Ctrl+Alt+K", layout()), ("Ctrl+Alt+R", romaji())];
     for (name, s) in fixed.into_iter().chain(nudges().into_iter().map(|(n, s, _)| (n, s))) {
         if let Err(e) = app.global_shortcut().register(s) {
             // Another app may own the combination; the tray still works.
