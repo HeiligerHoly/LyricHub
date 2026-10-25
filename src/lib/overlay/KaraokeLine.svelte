@@ -79,9 +79,12 @@
   }
 
   onMount(() => {
-    measureFit();
     build();
+    // The plate can widen after the line appeared (lyrics of a long song just arrived).
+    const observer = new ResizeObserver(measureFit);
+    if (line.parentElement) observer.observe(line.parentElement);
     return () => {
+      observer.disconnect();
       clearTimeout(resyncTimer);
       for (const a of anims) a.cancel();
     };

@@ -161,6 +161,8 @@ export interface OverlayLayout {
   seq: number;
   layout: Layout;
   width_css: number;
+  /** The page may widen the plate up to this for long lyric lines. */
+  max_width_css: number;
   ui_scale: number;
   align: Align;
   preview: boolean;

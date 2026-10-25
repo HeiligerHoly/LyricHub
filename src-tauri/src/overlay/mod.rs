@@ -7,8 +7,9 @@
 //! size and position included, go through `win32`.
 //!
 //! Size: the window is exactly as large as its content. The page lays the content out at the
-//! width from the settings, measures its height and reports it (`report_content_size`); the
-//! backend then places the window by anchor and offsets. In the edit mode the window covers
+//! width from the settings (wider for a song with long lines, up to `max_width_css`), measures
+//! it and reports it (`report_content_size`); the backend then places the window by anchor and
+//! offsets, so a wider plate grows around its anchor. In the edit mode the window covers
 //! the whole monitor instead, so the page can draw the snap points and handle dragging with
 //! pointer events (PLAN.md 6.2) while click-through is off.
 //!
@@ -116,6 +117,8 @@ pub struct EditDraft {
 pub struct OverlayLayout {
     pub layout: Layout,
     pub width_css: f64,
+    /// The page may widen the plate up to this for long lyric lines (monitor minus edge margins).
+    pub max_width_css: f64,
     pub ui_scale: f64,
     /// Content alignment from the anchor column: "start", "center" or "end".
     pub align: &'static str,
@@ -216,8 +219,14 @@ pub fn relayout(app: &AppHandle) {
         Some((_, h, rendered_scale)) if rendered_scale > 0.0 => h / rendered_scale * content.ui_scale,
         _ => estimated_height(geometry.layout) * content.ui_scale,
     };
-    let rect = window::place(&geometry, &m, (content.width_css, height));
     let (monitor_width, monitor_height) = m.css_size();
+    let max_width_css = (monitor_width - 2.0 * m.edge_margin_css()).max(content.width_css);
+    // The page widens the plate for songs with long lines; the window follows its report.
+    let width = match (&view.edit, view.content) {
+        (None, Some((w, _, _))) if w > content.width_css + 0.5 => w.min(max_width_css),
+        _ => content.width_css,
+    };
+    let rect = window::place(&geometry, &m, (width, height));
     let edit = view.edit.as_ref().map(|e| EditLayout {
         seq: e.seq,
         monitor_width,
@@ -234,6 +243,7 @@ pub fn relayout(app: &AppHandle) {
     let layout = OverlayLayout {
         layout: geometry.layout,
         width_css: content.width_css,
+        max_width_css,
         ui_scale: content.ui_scale,
         align: window::align(geometry.anchor),
         preview: view.preview,

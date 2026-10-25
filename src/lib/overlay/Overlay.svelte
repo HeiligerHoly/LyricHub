@@ -25,7 +25,7 @@
   import type { EditChange } from "./editMode";
   import Bar from "./layouts/Bar.svelte";
   import Karaoke from "./layouts/Karaoke.svelte";
-  import { lineIndexAt, nextTextLine } from "./lyricsTimeline";
+  import { langOf, lineIndexAt, nextTextLine } from "./lyricsTimeline";
 
   const SAMPLE_LINE = "Dies ist eine Beispielzeile zum Ausrichten";
   const SAMPLE_NEXT = "次の行はここに少し小さく表示されます";
@@ -40,6 +40,8 @@
   const LOADING_MAX_MS = 1500;
   const STATE_HINT_MS = 4000;
   const TOAST_MS = 1500;
+  /** Room for the soft edge of the fill and a little air next to the longest line. */
+  const LINE_EXTRA_PX = 24;
 
   let track = $state<TrackInfo | null>(null);
   let status = $state<PlaybackStatus>("closed");
@@ -54,6 +56,10 @@
   let measured = $state({ w: 0, h: 0 });
   let plate: HTMLElement;
 
+  /** Width the longest line of the current song needs at the current size (Karaoke only). */
+  let songLineWidth = $state(0);
+  let measurer: HTMLElement;
+
   let lyrics = $state<LyricsEvent | null>(null);
   const clock = new LocalClock();
   let clockVersion = $state(0);
@@ -63,8 +69,17 @@
   let toast = $state<string | null>(null);
 
   const edit = $derived(layout?.edit ?? null);
-  const widthCss = $derived(edit && draft ? draft.widthCss : (layout?.width_css ?? 600));
   const uiScale = $derived(edit && draft ? draft.scale * edit.res_factor : (layout?.ui_scale ?? 1));
+  // A song with long lines widens the plate once, for the whole song, so the box does not
+  // change size line by line; the window grows around its anchor. Lines that still do not fit
+  // shrink (KaraokeLine), and only beyond that they are cut.
+  const widthCss = $derived.by(() => {
+    if (edit && draft) return draft.widthCss;
+    const base = layout?.width_css ?? 600;
+    if (!layout || !songLineWidth) return base;
+    const needed = Math.ceil(songLineWidth + 2 * 14 * uiScale + LINE_EXTRA_PX);
+    return Math.min(layout.max_width_css, Math.max(base, needed));
+  });
   const sample = $derived(!!edit || !!layout?.preview);
   const opacity = $derived.by(() => {
     if (sample) return 1;
@@ -121,6 +136,25 @@
   $effect(() => {
     void lines;
     scheduleLine();
+  });
+
+  // Measures every line once per song (and when the size changes) in the active-line font.
+  $effect(() => {
+    const current = lines;
+    void uiScale;
+    if (!current || layout?.layout !== "karaoke" || !measurer) {
+      songLineWidth = 0;
+      return;
+    }
+    let widest = 0;
+    for (const l of current) {
+      if (!l.text) continue;
+      measurer.lang = langOf(l.text) ?? "";
+      measurer.textContent = l.text;
+      widest = Math.max(widest, measurer.getBoundingClientRect().width);
+    }
+    measurer.textContent = "";
+    songLineWidth = widest;
   });
 
   function applyClock(e: ClockEvent) {
@@ -295,6 +329,8 @@
     </section>
   </div>
 
+  <span class="measure" bind:this={measurer} aria-hidden="true" style="--s: {uiScale}"></span>
+
   {#if edit && draft}
     <EditFrame
       {edit}
@@ -351,5 +387,17 @@
   }
   .content.changing {
     opacity: 0.15;
+  }
+
+  /* Same font as the active karaoke line, off screen. */
+  .measure {
+    position: absolute;
+    left: -100000px;
+    top: 0;
+    visibility: hidden;
+    white-space: nowrap;
+    font-size: calc(28px * var(--s));
+    font-weight: 650;
+    line-height: 1.25;
   }
 </style>
