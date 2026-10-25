@@ -39,6 +39,14 @@ $logDir = Join-Path $env:APPDATA 'LyricHub\logs'
 $log = Get-ChildItem $logDir -Filter 'lyrichub*.log' | Sort-Object LastWriteTime | Select-Object -Last 1
 if (-not $log) { throw "No LyricHub log in $logDir" }
 
+# Seeks while paused are adopted directly and draw nothing to confirm: play during the test.
+$wasPaused = $session.GetPlaybackInfo().PlaybackStatus -ne 'Playing'
+if ($wasPaused) {
+  'Spotify was paused, starting playback for the test'
+  [void](Await ($session.TryPlayAsync()) ([bool]))
+  Start-Sleep -Seconds 2
+}
+
 function Position-Ms {
   $tl = $session.GetTimelineProperties()
   $pos = $tl.Position.TotalMilliseconds
@@ -70,6 +78,8 @@ for ($i = 1; $i -le $Count; $i++) {
     "{0}. seek to {1:N1} s: no 'seek shown in overlay' within {2} s" -f $i, ($target / 1000), $WaitSec
   }
 }
+
+if ($wasPaused) { [void](Await ($session.TryPauseAsync()) ([bool])) }
 
 if ($results.Count) {
   $sorted = $results | Sort-Object
