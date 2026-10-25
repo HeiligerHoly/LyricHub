@@ -1,11 +1,12 @@
 <script lang="ts">
-  // Settings → Overlay (PLAN.md 9.7): edit mode, monitor, anchor, fine position, width, scale,
-  // pause fade-out. Every change applies live to the overlay; sliders send at most one patch
-  // per 60 ms. "Nur bei Vollbild-App zeigen" follows with the fullscreen detection (Phase 5),
-  // the layout choice with further layouts (Phase 2 and 4).
+  // Settings → Overlay (PLAN.md 9.7): edit mode, layout, monitor, anchor, fine position, width,
+  // scale, pause fade-out. Every change applies live to the overlay; sliders send at most one
+  // patch per 60 ms. "Nur bei Vollbild-App zeigen" follows with the fullscreen detection
+  // (Phase 5), the layouts Stack and Minimal with Phase 4.
   import { onMount, untrack } from "svelte";
   import { ipc } from "$lib/shared/ipc";
   import {
+    LAYOUTS,
     SCALE_MAX,
     SCALE_MIN,
     WIDTH_PCT_MAX,
@@ -82,6 +83,24 @@
 </section>
 
 <section class="card grid">
+  <label class="label" for="layout">Layout</label>
+  <div>
+    <select
+      id="layout"
+      value={o.layout}
+      onchange={(e) => {
+        const value = (e.currentTarget as HTMLSelectElement).value as OverlaySettings["layout"];
+        o.layout = value;
+        update({ overlay: { layout: value } });
+      }}
+    >
+      {#each LAYOUTS as l (l.id)}
+        <option value={l.id}>{l.label}</option>
+      {/each}
+    </select>
+    <span class="value layout-hint">Strg+Alt+K wechselt auch im Spiel</span>
+  </div>
+
   <label class="label" for="monitor">Monitor</label>
   <div>
     <select
@@ -258,6 +277,9 @@
   }
   select {
     min-width: 320px;
+  }
+  .layout-hint {
+    margin-left: 12px;
   }
   .actions {
     display: flex;

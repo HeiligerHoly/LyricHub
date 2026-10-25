@@ -1,7 +1,7 @@
 <script lang="ts">
   // Settings window (PLAN.md 9.7): navigation left, page right, dark theme like the overlay.
-  // Phase 1 pages: Overlay and Verhalten, plus Diagnose with the overlay self-test. The
-  // window exists only while it is open (settings_window.rs).
+  // Pages so far: Overlay, Synchronisation, Verhalten, Diagnose. The window exists only while
+  // it is open (settings_window.rs).
   import { onMount } from "svelte";
   import { ipc, on, subscribe } from "$lib/shared/ipc";
   import type { NowPlaying, Settings, SettingsPatch } from "$lib/shared/types";
@@ -9,10 +9,12 @@
   import OverlayPage from "./pages/OverlayPage.svelte";
   import BehaviorPage from "./pages/BehaviorPage.svelte";
   import DiagnosticsPage from "./pages/DiagnosticsPage.svelte";
+  import SyncPage from "./pages/SyncPage.svelte";
 
-  type PageId = "overlay" | "behavior" | "diagnostics";
+  type PageId = "overlay" | "sync" | "behavior" | "diagnostics";
   const pages: { id: PageId; label: string }[] = [
     { id: "overlay", label: "Overlay" },
+    { id: "sync", label: "Synchronisation" },
     { id: "behavior", label: "Verhalten" },
     { id: "diagnostics", label: "Diagnose" },
   ];
@@ -59,7 +61,7 @@
         <button class="nav" class:active={page === p.id} onclick={() => (page = p.id)}>{p.label}</button>
       {/each}
     </nav>
-    <footer class="version">v{version} · Phase 1</footer>
+    <footer class="version">v{version} · Phase 2</footer>
   </aside>
 
   <main class="content">
@@ -69,6 +71,8 @@
     {#if settings}
       {#if page === "overlay"}
         <OverlayPage {settings} {update} {editing} />
+      {:else if page === "sync"}
+        <SyncPage {settings} {update} {now} />
       {:else if page === "behavior"}
         <BehaviorPage {settings} {update} />
       {:else}

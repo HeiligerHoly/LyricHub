@@ -1,10 +1,17 @@
 <script lang="ts">
-  // Settings → Diagnose (PLAN.md 9.7 #8, early part): player session, track-change latency
-  // (DoD Phase 1: ≤ 300 ms), overlay window state and the overlay self-test from Spike B.
-  // The Sync Lab follows in Phase 3.
+  // Settings → Diagnose (PLAN.md 9.7 #8, early part): player session, playback clock, lyrics,
+  // track-change latency (DoD Phase 1: ≤ 300 ms), overlay window state and the overlay
+  // self-test from Spike B. The Sync Lab follows in Phase 3.
   import { onMount } from "svelte";
   import { formatMs, ipc } from "$lib/shared/ipc";
-  import type { LatencySample, NowPlaying, OverlayDiagnostics, SelfTestReport } from "$lib/shared/types";
+  import type {
+    ClockEvent,
+    LatencySample,
+    LyricsEvent,
+    NowPlaying,
+    OverlayDiagnostics,
+    SelfTestReport,
+  } from "$lib/shared/types";
 
   let { now }: { now: NowPlaying } = $props();
 
@@ -12,11 +19,15 @@
   let latencies = $state<LatencySample[]>([]);
   let report = $state<SelfTestReport | null>(null);
   let running = $state(false);
+  let clock = $state<ClockEvent | null>(null);
+  let lyrics = $state<LyricsEvent | null>(null);
 
   async function refresh() {
     try {
       diag = await ipc.overlayDiagnostics();
       latencies = (await ipc.trackLatencies()).slice().reverse();
+      clock = await ipc.getClock();
+      lyrics = await ipc.getLyrics();
     } catch {
       diag = null;
     }
@@ -60,6 +71,32 @@
       <dd>{now.track.art ? `${Math.round((now.track.art.url.length * 3) / 4 / 1024)} KB` : "keins"}</dd>
     {/if}
   </dl>
+</section>
+
+<section class="card">
+  <h2>Clock und Lyrics</h2>
+  <dl class="kv">
+    <dt>Position (Modell)</dt>
+    <dd>
+      {clock ? `${formatMs(clock.pos_ms)} · ${clock.playing ? "läuft" : "steht"} · Tempo ${clock.rate.toFixed(3)}` : "–"}
+      {clock && clock.slew_ms > 0 ? ` · gleicht noch ${Math.round(clock.slew_ms)} ms an` : ""}
+    </dd>
+    <dt>Offset</dt>
+    <dd>{clock ? `${clock.offset_ms} ms` : "–"}</dd>
+    <dt>Anker-Nummer</dt>
+    <dd>{clock?.seq ?? "–"}</dd>
+    <dt>Lyrics</dt>
+    <dd>
+      {#if lyrics}
+        {lyrics.state} · {lyrics.source || "–"} · {lyrics.lines.filter((l) => l.text).length} Zeilen{lyrics.lrc_offset_ms
+          ? ` · LRC-Offset ${lyrics.lrc_offset_ms} ms`
+          : ""}
+      {:else}
+        –
+      {/if}
+    </dd>
+  </dl>
+  <p class="hint">Aktualisiert alle 2 s. Das Overlay rechnet die Position selbst weiter und braucht diese Abfrage nicht.</p>
 </section>
 
 <section class="card">
