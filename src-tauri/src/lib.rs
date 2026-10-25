@@ -11,6 +11,7 @@ mod paths;
 mod settings;
 mod settings_window;
 mod sources;
+mod sync;
 mod tray;
 
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
