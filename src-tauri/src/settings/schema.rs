@@ -1,8 +1,10 @@
-//! Settings schema v2 (PLAN.md 6.4, 9.7). Every struct defaults missing fields, so later
+//! Settings schema v2 (PLAN.md 6.4, 9.7). Every struct defaults missing fields and keeps
+//! unknown ones (`extra`), so a file can travel between versions and branches. Later
 //! versions can add fields without a migration; renames and meaning changes need one in
 //! `store::migrate` (PLAN.md 15).
 
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 
 pub const SCHEMA_VERSION: u32 = 2;
 
@@ -14,6 +16,9 @@ pub struct Settings {
     pub appearance: AppearanceSettings,
     pub sync: SyncSettings,
     pub behavior: BehaviorSettings,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 impl Default for Settings {
@@ -24,6 +29,7 @@ impl Default for Settings {
             appearance: AppearanceSettings::default(),
             sync: SyncSettings::default(),
             behavior: BehaviorSettings::default(),
+            extra: Map::new(),
         }
     }
 }
@@ -113,6 +119,9 @@ pub struct OverlaySettings {
     pub scale: f64,
     /// Fade the overlay out this many seconds into a pause; 0 keeps it visible.
     pub hide_after_pause_s: u32,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 pub const SCALE_MIN: f64 = 0.5;
@@ -133,6 +142,7 @@ impl Default for OverlaySettings {
             width_pct: 35.0,
             scale: 1.0,
             hide_after_pause_s: 10,
+            extra: Map::new(),
         }
     }
 }
@@ -143,11 +153,14 @@ impl Default for OverlaySettings {
 pub struct AppearanceSettings {
     /// Opacity of the dark plate behind the text, 0..1 (Glass Dark: 0.55).
     pub plate_opacity: f64,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 impl Default for AppearanceSettings {
     fn default() -> Self {
-        Self { plate_opacity: 0.55 }
+        Self { plate_opacity: 0.55, extra: Map::new() }
     }
 }
 
@@ -157,6 +170,9 @@ impl Default for AppearanceSettings {
 pub struct SyncSettings {
     /// Positive shows the lyrics later ("lyrics too early → increase").
     pub global_offset_ms: i32,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 pub const OFFSET_LIMIT_MS: i32 = 5000;
@@ -168,6 +184,9 @@ pub struct BehaviorSettings {
     pub autostart: bool,
     /// Do not open the settings window on a manual start either.
     pub start_minimized: bool,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 impl Settings {

@@ -20,7 +20,14 @@ pub struct SettingsState {
 impl SettingsState {
     pub fn load() -> Self {
         let path = store::default_path();
-        let settings = store::load(&path);
+        let (settings, file_version) = store::load_versioned(&path);
+        // A migrated file is written back at once, so it is migrated only once.
+        if file_version.is_some_and(|v| v != SCHEMA_VERSION as u64) {
+            match store::save(&path, &settings) {
+                Ok(()) => tracing::info!(from = file_version, to = SCHEMA_VERSION, "settings file migrated"),
+                Err(e) => tracing::warn!(error = %e, "could not write migrated settings"),
+            }
+        }
         tracing::info!(path = %path.display(), "settings loaded");
         Self { current: Mutex::new(settings), path }
     }

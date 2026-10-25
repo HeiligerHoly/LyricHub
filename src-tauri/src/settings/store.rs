@@ -17,25 +17,34 @@ pub fn default_path() -> PathBuf {
 }
 
 pub fn load(path: &Path) -> Settings {
+    load_versioned(path).0
+}
+
+/// Settings plus the schema version the file had (`None` without a readable file), so the
+/// caller can write a migrated file back at once.
+pub fn load_versioned(path: &Path) -> (Settings, Option<u64>) {
     let text = match std::fs::read_to_string(path) {
         Ok(t) => t,
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
             tracing::info!(path = %path.display(), "no settings file yet, using defaults");
-            return Settings::default();
+            return (Settings::default(), None);
         }
         Err(e) => {
             tracing::warn!(path = %path.display(), error = %e, "settings unreadable, using defaults");
-            return Settings::default();
+            return (Settings::default(), None);
         }
     };
+    let version = serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}'))
+        .ok()
+        .map(|v| v.get("schema_version").and_then(Value::as_u64).unwrap_or(1));
     match parse(&text) {
-        Ok(s) => s,
+        Ok(s) => (s, version),
         Err(e) => {
             let unix = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
             let backup = path.with_file_name(format!("settings.broken-{unix}.json"));
             let kept = std::fs::rename(path, &backup).is_ok();
             tracing::warn!(error = %e, backup = %backup.display(), kept, "settings file broken, using defaults");
-            Settings::default()
+            (Settings::default(), None)
         }
     }
 }
@@ -67,7 +76,7 @@ pub fn save(path: &Path, settings: &Settings) -> io::Result<()> {
 fn migrate(mut value: Value) -> Value {
     let version = value.get("schema_version").and_then(Value::as_u64).unwrap_or(1);
     if version > SCHEMA_VERSION as u64 {
-        tracing::warn!(version, supported = SCHEMA_VERSION, "settings come from a newer LyricHub, unknown fields are dropped");
+        tracing::warn!(version, supported = SCHEMA_VERSION, "settings come from a newer LyricHub, unknown fields are kept as they are");
     }
     if version < 2 {
         if let Some(sync) = value.get_mut("sync").and_then(Value::as_object_mut) {
@@ -160,6 +169,19 @@ mod tests {
         // A v2 file keeps its global offset.
         let s = parse(r#"{ "schema_version": 2, "sync": { "global_offset_ms": 40 } }"#).unwrap();
         assert_eq!(s.sync.global_offset_ms, 40);
+    }
+
+    #[test]
+    fn unknown_fields_survive_a_roundtrip() {
+        let path = temp_path("extra");
+        std::fs::write(&path, r#"{ "schema_version": 2, "appearance": { "plate_opacity": 0.9, "romaji": true }, "future": { "x": 1 } }"#).unwrap();
+        let (s, version) = load_versioned(&path);
+        assert_eq!(version, Some(2));
+        save(&path, &s).unwrap();
+        let back: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(back["appearance"]["romaji"], Value::Bool(true));
+        assert_eq!(back["future"]["x"], Value::from(1));
+        assert_eq!(back["appearance"]["plate_opacity"], Value::from(0.9));
     }
 
     #[test]
