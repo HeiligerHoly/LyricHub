@@ -1,6 +1,8 @@
-//! Global shortcuts (PLAN.md 9.7). Ctrl+Alt+L toggles the overlay, Ctrl+Alt+E starts the edit
-//! mode (pressed again it saves). Enter and Esc are registered only while the edit mode runs:
-//! the overlay never holds the keyboard focus, so it cannot receive them any other way.
+//! Global shortcuts (PLAN.md 5.7, 9.7). Ctrl+Alt+L toggles the overlay, Ctrl+Alt+E starts the
+//! edit mode (pressed again it saves), Ctrl+Alt+K switches the layout, Ctrl+Alt+, and Ctrl+Alt+.
+//! nudge the offset by −/+100 ms (with Shift ±25 ms). Enter and Esc are registered only while
+//! the edit mode runs: the overlay never holds the keyboard focus, so it cannot receive them
+//! any other way.
 
 use tauri::plugin::TauriPlugin;
 use tauri::{AppHandle, Manager, Wry};
@@ -19,6 +21,20 @@ fn save() -> Shortcut {
 }
 fn cancel() -> Shortcut {
     Shortcut::new(None, Code::Escape)
+}
+fn layout() -> Shortcut {
+    Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyK)
+}
+/// Nudge shortcuts with their offset change in ms.
+fn nudges() -> [(&'static str, Shortcut, i32); 4] {
+    let ca = Modifiers::CONTROL | Modifiers::ALT;
+    let cas = ca | Modifiers::SHIFT;
+    [
+        ("Ctrl+Alt+,", Shortcut::new(Some(ca), Code::Comma), -100),
+        ("Ctrl+Alt+.", Shortcut::new(Some(ca), Code::Period), 100),
+        ("Ctrl+Alt+Shift+,", Shortcut::new(Some(cas), Code::Comma), -25),
+        ("Ctrl+Alt+Shift+.", Shortcut::new(Some(cas), Code::Period), 25),
+    ]
 }
 
 pub fn plugin() -> TauriPlugin<Wry> {
@@ -47,11 +63,16 @@ fn dispatch(app: &AppHandle, shortcut: &Shortcut) {
         overlay::save_edit(app, None);
     } else if *shortcut == cancel() {
         overlay::cancel_edit(app);
+    } else if *shortcut == layout() {
+        crate::ipc::cycle_layout(app);
+    } else if let Some((_, _, delta)) = nudges().into_iter().find(|(_, s, _)| s == shortcut) {
+        crate::ipc::nudge(app, delta);
     }
 }
 
 pub fn register_defaults(app: &AppHandle) {
-    for (name, s) in [("Ctrl+Alt+L", toggle()), ("Ctrl+Alt+E", edit())] {
+    let fixed = [("Ctrl+Alt+L", toggle()), ("Ctrl+Alt+E", edit()), ("Ctrl+Alt+K", layout())];
+    for (name, s) in fixed.into_iter().chain(nudges().into_iter().map(|(n, s, _)| (n, s))) {
         if let Err(e) = app.global_shortcut().register(s) {
             // Another app may own the combination; the tray still works.
             tracing::warn!(shortcut = name, error = %e, "could not register global shortcut");

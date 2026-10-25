@@ -1,5 +1,5 @@
-//! LyricHub backend. Phase 1: SMTC source, `track` events, settings store, overlay geometry
-//! with edit mode, tray and hotkeys.
+//! LyricHub backend. Phase 2: SMTC source, playback clock, lyrics from LRCLIB with cache,
+//! settings store, overlay geometry with edit mode, tray and hotkeys.
 
 mod app_state;
 mod hotkeys;
@@ -47,6 +47,10 @@ pub fn run() {
             ipc::commands::list_monitors,
             ipc::commands::get_now_playing,
             ipc::commands::track_latencies,
+            ipc::commands::get_lyrics,
+            ipc::commands::get_clock,
+            ipc::commands::nudge_offset,
+            ipc::commands::reload_lyrics,
             ipc::commands::get_overlay_layout,
             ipc::commands::report_overlay_size,
             ipc::commands::overlay_layout_ready,
@@ -68,7 +72,7 @@ pub fn run() {
             tray::create(&handle)?;
             overlay::setup(&handle)?;
             ipc::apply_autostart(&handle, handle.state::<settings::SettingsState>().get().behavior.autostart);
-            app_state::spawn_consumer(handle.clone(), sources::smtc::SmtcSource::new(PLAYER_FILTER).spawn());
+            app_state::start(handle.clone(), sources::smtc::SmtcSource::new(PLAYER_FILTER).spawn());
 
             if let Some(mode) = selftest_mode.clone() {
                 // Give the webview time to load and paint before measuring.

@@ -30,7 +30,7 @@ use win32::Hwnd;
 use window::{Monitor, Rect};
 
 use crate::ipc::events;
-use crate::settings::{OverlaySettings, SettingsState};
+use crate::settings::{Layout, OverlaySettings, SettingsState};
 
 pub const LABEL: &str = "overlay";
 const WATCHDOG_TICK: Duration = Duration::from_millis(500);
@@ -38,7 +38,12 @@ const TOPMOST_EVERY_TICKS: u32 = 4; // 2 s
 /// Monitor changes are picked up by polling; stands in for WM_DISPLAYCHANGE (PLAN.md 6.4).
 const MONITORS_EVERY_TICKS: u32 = 4; // 2 s
 /// Content height at ui_scale 1 until the page reports a real one.
-const ESTIMATED_HEIGHT: f64 = 48.0;
+fn estimated_height(layout: Layout) -> f64 {
+    match layout {
+        Layout::Bar => 48.0,
+        Layout::Karaoke => 112.0,
+    }
+}
 /// Bounds wait at most this long for the page to confirm an edit layout.
 const LAYOUT_READY_TIMEOUT: Duration = Duration::from_millis(300);
 
@@ -83,6 +88,7 @@ struct View {
     layout_seq: u64,
     monitors: Vec<Monitor>,
     last_layout: Option<OverlayLayout>,
+    last_layout_kind: Option<Layout>,
     last_bounds: Option<Bounds>,
     /// Bounds waiting until the page has drawn the layout with this sequence number.
     pending_bounds: Option<(u64, Bounds)>,
@@ -108,6 +114,7 @@ pub struct EditDraft {
 /// Payload of the `overlay-layout` event.
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct OverlayLayout {
+    pub layout: Layout,
     pub width_css: f64,
     pub ui_scale: f64,
     /// Content alignment from the anchor column: "start", "center" or "end".
@@ -199,9 +206,15 @@ pub fn relayout(app: &AppHandle) {
         return;
     };
     let content = window::content_layout(&geometry, &m);
+    // A layout switch changes the height entirely; scaling the old height would be wrong.
+    let layout_changed = view.last_layout_kind.is_some_and(|l| l != geometry.layout);
+    view.last_layout_kind = Some(geometry.layout);
+    if layout_changed {
+        view.content = None;
+    }
     let height = match view.content {
         Some((_, h, rendered_scale)) if rendered_scale > 0.0 => h / rendered_scale * content.ui_scale,
-        _ => ESTIMATED_HEIGHT * content.ui_scale,
+        _ => estimated_height(geometry.layout) * content.ui_scale,
     };
     let rect = window::place(&geometry, &m, (content.width_css, height));
     let (monitor_width, monitor_height) = m.css_size();
@@ -219,6 +232,7 @@ pub fn relayout(app: &AppHandle) {
     });
     let bounds = if edit.is_some() { (m.x, m.y, m.width, m.height) } else { window::to_physical(&m, &rect) };
     let layout = OverlayLayout {
+        layout: geometry.layout,
         width_css: content.width_css,
         ui_scale: content.ui_scale,
         align: window::align(geometry.anchor),

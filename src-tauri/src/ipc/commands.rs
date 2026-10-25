@@ -7,7 +7,8 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_opener::OpenerExt;
 
-use crate::app_state::{self, LatencySample, NowPlaying, NowPlayingState};
+use crate::app_state::{self, ClockEvent, LatencySample, NowPlaying, NowPlayingState};
+use crate::lyrics::types::LyricsEvent;
 use crate::overlay::{self, EditDraft, LayoutEvent, OverlayDiagnostics, window::Monitor};
 use crate::settings::{Anchor, OverlaySettings, Settings, SettingsState};
 
@@ -63,6 +64,27 @@ pub fn get_now_playing(state: State<'_, NowPlayingState>) -> NowPlaying {
 #[tauri::command]
 pub fn track_latencies(state: State<'_, NowPlayingState>) -> Vec<LatencySample> {
     state.latencies()
+}
+
+#[tauri::command]
+pub fn get_lyrics(state: State<'_, NowPlayingState>) -> Option<LyricsEvent> {
+    state.lyrics()
+}
+
+#[tauri::command]
+pub async fn get_clock(app: AppHandle) -> ClockEvent {
+    app_state::clock_event(&app)
+}
+
+/// Shifts the global offset by `delta_ms`; positive shows the lyrics later.
+#[tauri::command]
+pub async fn nudge_offset(app: AppHandle, delta_ms: i32) -> Settings {
+    super::nudge(&app, delta_ms)
+}
+
+#[tauri::command]
+pub async fn reload_lyrics(app: AppHandle) {
+    app_state::reload_lyrics(&app);
 }
 
 #[tauri::command]

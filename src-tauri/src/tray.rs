@@ -1,12 +1,13 @@
 //! Tray icon (PLAN.md 9.8). Left click toggles the overlay; the menu has the overlay toggle,
-//! the edit mode, the settings, the self-test and quit. Nudge and layout entries follow with
-//! Phase 2. The tooltip names the current song.
+//! the edit mode, nudge −/+100 ms, the layout, the settings, the self-test and quit. The
+//! tooltip names the current song.
 
-use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Wry};
 
 use crate::overlay;
+use crate::settings::{Layout, SettingsState};
 
 const TRAY_ID: &str = "lyrichub";
 const TOOLTIP_MAX: usize = 120;
@@ -14,16 +15,55 @@ const TOOLTIP_MAX: usize = 120;
 pub struct TrayItems {
     overlay_visible: CheckMenuItem<Wry>,
     edit: MenuItem<Wry>,
+    layouts: Vec<(Layout, CheckMenuItem<Wry>)>,
+}
+
+fn layout_label(l: Layout) -> &'static str {
+    match l {
+        Layout::Karaoke => "Karaoke",
+        Layout::Bar => "Leiste",
+    }
+}
+
+fn layout_id(l: Layout) -> &'static str {
+    match l {
+        Layout::Karaoke => "layout_karaoke",
+        Layout::Bar => "layout_bar",
+    }
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let visible = CheckMenuItem::with_id(app, "overlay_visible", "Overlay anzeigen (Strg+Alt+L)", true, true, None::<&str>)?;
     let edit = MenuItem::with_id(app, "edit_mode", "Position und Größe ändern (Strg+Alt+E)", true, None::<&str>)?;
+    let nudge_back = MenuItem::with_id(app, "nudge_minus", "Lyrics früher: −100 ms (Strg+Alt+,)", true, None::<&str>)?;
+    let nudge_forward = MenuItem::with_id(app, "nudge_plus", "Lyrics später: +100 ms (Strg+Alt+.)", true, None::<&str>)?;
+    let current = app.state::<SettingsState>().get().overlay.layout;
+    let mut layouts = Vec::new();
+    for l in Layout::ALL {
+        layouts.push((l, CheckMenuItem::with_id(app, layout_id(l), layout_label(l), true, l == current, None::<&str>)?));
+    }
+    let layout_refs: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = layouts.iter().map(|(_, i)| i as &dyn tauri::menu::IsMenuItem<Wry>).collect();
+    let layout_menu = Submenu::with_items(app, "Layout (Strg+Alt+K)", true, &layout_refs)?;
     let settings = MenuItem::with_id(app, "open_settings", "Einstellungen …", true, None::<&str>)?;
     let selftest = MenuItem::with_id(app, "overlay_selftest", "Overlay-Selbsttest ausführen", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Beenden", true, None::<&str>)?;
     let separator = || PredefinedMenuItem::separator(app);
-    let menu = Menu::with_items(app, &[&visible, &edit, &separator()?, &settings, &selftest, &separator()?, &quit])?;
+    let menu = Menu::with_items(
+        app,
+        &[
+            &visible,
+            &edit,
+            &separator()?,
+            &nudge_back,
+            &nudge_forward,
+            &layout_menu,
+            &separator()?,
+            &settings,
+            &selftest,
+            &separator()?,
+            &quit,
+        ],
+    )?;
 
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .tooltip("LyricHub")
@@ -47,6 +87,19 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 "overlay_selftest" => {
                     overlay::selftest::run_and_record(&app);
                 }
+                "nudge_minus" => {
+                    crate::ipc::nudge(&app, -100);
+                }
+                "nudge_plus" => {
+                    crate::ipc::nudge(&app, 100);
+                }
+                id if id.starts_with("layout_") => {
+                    let pick = Layout::ALL.into_iter().find(|l| layout_id(*l) == id);
+                    if let Some(layout) = pick {
+                        let (before, after) = app.state::<SettingsState>().update(|s| s.overlay.layout = layout);
+                        crate::ipc::settings_changed(&app, &before, &after);
+                    }
+                }
                 "open_settings" => crate::settings_window::open(&app),
                 "quit" => app.exit(0),
                 _ => {}
@@ -64,8 +117,17 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         builder = builder.icon(icon.clone());
     }
     builder.build(app)?;
-    app.manage(TrayItems { overlay_visible: visible, edit });
+    app.manage(TrayItems { overlay_visible: visible, edit, layouts });
     Ok(())
+}
+
+/// Keeps the layout check marks in line with the settings.
+pub fn sync_layout(app: &AppHandle, current: Layout) {
+    if let Some(items) = app.try_state::<TrayItems>() {
+        for (l, item) in &items.layouts {
+            let _ = item.set_checked(*l == current);
+        }
+    }
 }
 
 pub fn sync_overlay_visible(app: &AppHandle, visible: bool) {

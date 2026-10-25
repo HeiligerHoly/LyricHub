@@ -11,12 +11,38 @@ pub const SCHEMA_VERSION: u32 = 1;
 pub struct Settings {
     pub schema_version: u32,
     pub overlay: OverlaySettings,
+    pub sync: SyncSettings,
     pub behavior: BehaviorSettings,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { schema_version: SCHEMA_VERSION, overlay: OverlaySettings::default(), behavior: BehaviorSettings::default() }
+        Self {
+            schema_version: SCHEMA_VERSION,
+            overlay: OverlaySettings::default(),
+            sync: SyncSettings::default(),
+            behavior: BehaviorSettings::default(),
+        }
+    }
+}
+
+/// Overlay layouts (PLAN.md 9.2). Stack and Minimal follow in Phase 4.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Layout {
+    /// Current line large with fill, next line below, small header.
+    #[default]
+    Karaoke,
+    /// One line: cover, title – artist, current lyric line.
+    Bar,
+}
+
+impl Layout {
+    pub const ALL: [Layout; 2] = [Layout::Karaoke, Layout::Bar];
+
+    pub fn next(self) -> Self {
+        let i = Self::ALL.iter().position(|&l| l == self).unwrap_or(0);
+        Self::ALL[(i + 1) % Self::ALL.len()]
     }
 }
 
@@ -69,6 +95,7 @@ impl Anchor {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct OverlaySettings {
+    pub layout: Layout,
     /// Windows device name of the monitor, e.g. `\\.\DISPLAY1`. `None` or an unknown name
     /// means the primary monitor.
     pub monitor_id: Option<String>,
@@ -95,6 +122,7 @@ pub const HIDE_AFTER_PAUSE_MAX_S: u32 = 3600;
 impl Default for OverlaySettings {
     fn default() -> Self {
         Self {
+            layout: Layout::Karaoke,
             monitor_id: None,
             anchor: Anchor::TopCenter,
             offset_x_pct: 0.0,
@@ -106,6 +134,16 @@ impl Default for OverlaySettings {
         }
     }
 }
+
+/// Sync offsets (PLAN.md 5.2, 5.7). Device and song offsets follow in Phase 3.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct SyncSettings {
+    /// Positive shows the lyrics later ("lyrics too early → increase").
+    pub global_offset_ms: i32,
+}
+
+pub const OFFSET_LIMIT_MS: i32 = 5000;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
@@ -128,6 +166,7 @@ impl Settings {
         o.width_pct = finite_or(o.width_pct, d.width_pct).clamp(WIDTH_PCT_MIN, WIDTH_PCT_MAX);
         o.scale = finite_or(o.scale, d.scale).clamp(SCALE_MIN, SCALE_MAX);
         o.hide_after_pause_s = o.hide_after_pause_s.min(HIDE_AFTER_PAUSE_MAX_S);
+        self.sync.global_offset_ms = self.sync.global_offset_ms.clamp(-OFFSET_LIMIT_MS, OFFSET_LIMIT_MS);
         if o.monitor_id.as_deref().is_some_and(|m| m.trim().is_empty()) {
             o.monitor_id = None;
         }
@@ -149,6 +188,14 @@ mod tests {
     }
 
     #[test]
+    fn layouts_cycle_and_v1_files_default_to_karaoke() {
+        assert_eq!(Layout::Karaoke.next(), Layout::Bar);
+        assert_eq!(Layout::Bar.next(), Layout::Karaoke);
+        let s: Settings = serde_json::from_str(r#"{"schema_version":1,"overlay":{"anchor":"mr"}}"#).unwrap();
+        assert_eq!((s.overlay.layout, s.overlay.anchor, s.sync.global_offset_ms), (Layout::Karaoke, Anchor::MiddleRight, 0));
+    }
+
+    #[test]
     fn sanitize_clamps_out_of_range_values() {
         let mut s = Settings::default();
         s.schema_version = 0;
@@ -157,7 +204,9 @@ mod tests {
         s.overlay.offset_x_pct = f64::NAN;
         s.overlay.hide_after_pause_s = 99_999;
         s.overlay.monitor_id = Some("  ".into());
+        s.sync.global_offset_ms = -99_999;
         s.sanitize();
+        assert_eq!(s.sync.global_offset_ms, -OFFSET_LIMIT_MS);
         assert_eq!(s.schema_version, SCHEMA_VERSION);
         assert_eq!(s.overlay.scale, SCALE_MAX);
         assert_eq!(s.overlay.width_pct, WIDTH_PCT_MIN);
