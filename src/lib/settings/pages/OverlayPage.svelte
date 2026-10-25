@@ -30,6 +30,20 @@
   const ECHO_GUARD_MS = 400;
 
   let monitors = $state<Monitor[]>([]);
+  // Plate opacity in percent, local while the slider moves (like `o` below).
+  let plateOpacity = $state(untrack(() => Math.round(settings.appearance.plate_opacity * 100)));
+  let opacityInput = 0;
+  $effect(() => {
+    const next = Math.round(settings.appearance.plate_opacity * 100);
+    if (performance.now() - opacityInput > ECHO_GUARD_MS) plateOpacity = next;
+  });
+  let opacityTimer: ReturnType<typeof setTimeout> | undefined;
+  function setOpacity(percent: number) {
+    plateOpacity = percent;
+    opacityInput = performance.now();
+    clearTimeout(opacityTimer);
+    opacityTimer = setTimeout(() => update({ appearance: { plate_opacity: percent / 100 } }), PATCH_DELAY_MS);
+  }
   // Local copy, so a slider does not jump back when the echo of an older patch arrives.
   let o = $state<OverlaySettings>(untrack(() => ({ ...settings.overlay })));
   let lastInput = 0;
@@ -173,6 +187,12 @@
     <span class="value">{o.scale.toFixed(2).replace(".", ",")}×</span>
   </div>
   <p class="hint wide">1,00 ist die Grundgröße auf einem 1080p-Bildschirm. Größere Bildschirme skalieren im selben Verhältnis mit.</p>
+
+  <label class="label" for="opacity">Deckkraft des Hintergrunds</label>
+  <div class="slider">
+    <input id="opacity" type="range" min="0" max="100" step="5" value={plateOpacity} oninput={(e) => setOpacity(num(e))} />
+    <span class="value">{plateOpacity} % · höher liest sich über hellen Spielszenen besser</span>
+  </div>
 
   <label class="label" for="pause">Bei Pause ausblenden nach</label>
   <div class="slider">

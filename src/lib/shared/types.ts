@@ -58,6 +58,11 @@ export interface BehaviorSettings {
   start_minimized: boolean;
 }
 
+export interface AppearanceSettings {
+  /** Opacity of the dark plate behind the text, 0..1. */
+  plate_opacity: number;
+}
+
 export interface SyncSettings {
   /** Positive shows the lyrics later ("lyrics too early → increase"). */
   global_offset_ms: number;
@@ -67,6 +72,7 @@ export const OFFSET_LIMIT_MS = 5000;
 export interface Settings {
   schema_version: number;
   overlay: OverlaySettings;
+  appearance: AppearanceSettings;
   sync: SyncSettings;
   behavior: BehaviorSettings;
 }
@@ -74,6 +80,7 @@ export interface Settings {
 /** JSON Merge Patch for `set_settings`: `null` resets a field to its default. */
 export type SettingsPatch = {
   overlay?: { [K in keyof OverlaySettings]?: OverlaySettings[K] | null };
+  appearance?: { [K in keyof AppearanceSettings]?: AppearanceSettings[K] | null };
   sync?: { [K in keyof SyncSettings]?: SyncSettings[K] | null };
   behavior?: { [K in keyof BehaviorSettings]?: BehaviorSettings[K] | null };
 };

@@ -11,6 +11,7 @@ pub const SCHEMA_VERSION: u32 = 1;
 pub struct Settings {
     pub schema_version: u32,
     pub overlay: OverlaySettings,
+    pub appearance: AppearanceSettings,
     pub sync: SyncSettings,
     pub behavior: BehaviorSettings,
 }
@@ -20,6 +21,7 @@ impl Default for Settings {
         Self {
             schema_version: SCHEMA_VERSION,
             overlay: OverlaySettings::default(),
+            appearance: AppearanceSettings::default(),
             sync: SyncSettings::default(),
             behavior: BehaviorSettings::default(),
         }
@@ -135,6 +137,20 @@ impl Default for OverlaySettings {
     }
 }
 
+/// Look of the overlay (PLAN.md 9.5). Themes, font and accent follow in Phase 4.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct AppearanceSettings {
+    /// Opacity of the dark plate behind the text, 0..1 (Glass Dark: 0.55).
+    pub plate_opacity: f64,
+}
+
+impl Default for AppearanceSettings {
+    fn default() -> Self {
+        Self { plate_opacity: 0.55 }
+    }
+}
+
 /// Sync offsets (PLAN.md 5.2, 5.7). Device and song offsets follow in Phase 3.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
@@ -167,6 +183,8 @@ impl Settings {
         o.scale = finite_or(o.scale, d.scale).clamp(SCALE_MIN, SCALE_MAX);
         o.hide_after_pause_s = o.hide_after_pause_s.min(HIDE_AFTER_PAUSE_MAX_S);
         self.sync.global_offset_ms = self.sync.global_offset_ms.clamp(-OFFSET_LIMIT_MS, OFFSET_LIMIT_MS);
+        let a = &mut self.appearance;
+        a.plate_opacity = finite_or(a.plate_opacity, AppearanceSettings::default().plate_opacity).clamp(0.0, 1.0);
         if o.monitor_id.as_deref().is_some_and(|m| m.trim().is_empty()) {
             o.monitor_id = None;
         }
@@ -205,8 +223,10 @@ mod tests {
         s.overlay.hide_after_pause_s = 99_999;
         s.overlay.monitor_id = Some("  ".into());
         s.sync.global_offset_ms = -99_999;
+        s.appearance.plate_opacity = 1.7;
         s.sanitize();
         assert_eq!(s.sync.global_offset_ms, -OFFSET_LIMIT_MS);
+        assert_eq!(s.appearance.plate_opacity, 1.0);
         assert_eq!(s.schema_version, SCHEMA_VERSION);
         assert_eq!(s.overlay.scale, SCALE_MAX);
         assert_eq!(s.overlay.width_pct, WIDTH_PCT_MIN);

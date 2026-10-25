@@ -18,6 +18,7 @@
     NudgeEvent,
     OverlayLayout,
     PlaybackStatus,
+    Settings,
     TrackInfo,
   } from "$lib/shared/types";
   import { LocalClock } from "./clock";
@@ -47,6 +48,7 @@
   let status = $state<PlaybackStatus>("closed");
   let layout = $state<OverlayLayout | null>(null);
   let hideAfterPauseS = $state(10);
+  let plateOpacity = $state(0.55);
   /** 0 = normal, 1 = dimmed (paused > 2 s), 2 = faded out (paused > hide_after_pause_s) */
   let pauseStage = $state(0);
   let hint = $state(false);
@@ -207,6 +209,11 @@
     if (stateHint) hintStateTimer = setTimeout(() => (stateHint = null), STATE_HINT_MS);
   }
 
+  function applySettings(s: Settings) {
+    hideAfterPauseS = s.overlay.hide_after_pause_s;
+    plateOpacity = s.appearance.plate_opacity;
+  }
+
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   function showNudge(n: NudgeEvent) {
     const sign = n.offset_ms > 0 ? "+" : n.offset_ms < 0 ? "−" : "±";
@@ -271,7 +278,7 @@
       ipc.getLyrics().then(applyLyrics);
     });
     ipc.getClock().then(applyClock);
-    ipc.getSettings().then((s) => (hideAfterPauseS = s.overlay.hide_after_pause_s));
+    ipc.getSettings().then(applySettings);
     ipc.getOverlayLayout().then((l) => l && applyLayout(l));
 
     const unsubscribe = subscribe(
@@ -281,7 +288,7 @@
       on("clock", applyClock),
       on("lyrics", applyLyrics),
       on("nudge", showNudge),
-      on("settings", (s) => (hideAfterPauseS = s.overlay.hide_after_pause_s)),
+      on("settings", applySettings),
       on("overlay-layout", applyLayout),
     );
     return () => {
@@ -299,7 +306,7 @@
     style:top="{edit && draft ? draft.y : 0}px"
     style:opacity
   >
-    <section class="plate" bind:this={plate} style:width="{widthCss}px" style="--s: {uiScale}">
+    <section class="plate" bind:this={plate} style:width="{widthCss}px" style="--s: {uiScale}; --plate-alpha: {plateOpacity}">
       <div class="content" class:changing={changing && !sample}>
         {#if layout?.layout === "bar"}
           <Bar
@@ -376,7 +383,7 @@
     box-sizing: border-box;
     padding: calc(8px * var(--s)) calc(14px * var(--s));
     border-radius: calc(14px * var(--s));
-    background: rgba(12, 12, 16, 0.55);
+    background: rgba(12, 12, 16, var(--plate-alpha, 0.55));
     text-rendering: optimizeLegibility;
   }
 
