@@ -2,7 +2,7 @@
 
 Windows-Overlay, das den laufenden Spotify-Song und karaoke-artig mitlaufende Lyrics über Spielen anzeigt, synchron zum hörbaren Ton. Der vollständige Plan steht in [PLAN.md](PLAN.md).
 
-Stand: Phase 3 (`v0.3.0-phase3`), Sync-Härtung. Das Overlay zeigt die synchronen Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit zeilengenauer Karaoke-Füllung, dazu Cover, Titel und Artist; Position und Größe lassen sich im Edit-Modus direkt am Bildschirm einstellen. Korrekturen gelten pro Song, Ausgabegeräte haben eigene Offsets, und ein Kalibrier-Assistent und das Sync Lab helfen beim Einstellen. Ergebnisse in [docs/phase3.md](docs/phase3.md) mit dem Messbericht [docs/sync-report.md](docs/sync-report.md), dazu [docs/phase2.md](docs/phase2.md) und [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md).
+Stand: Phase 3 (`v0.3.0-phase3`), Sync-Härtung. Das Overlay zeigt die synchronen Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit zeilengenauer Karaoke-Füllung, dazu Cover, Titel und Artist; Position und Größe lassen sich im Edit-Modus direkt am Bildschirm einstellen. Korrekturen gelten pro Song, Ausgabegeräte haben eigene Offsets, und ein Kalibrier-Assistent und das Sync Lab helfen beim Einstellen. Japanische Zeilen lassen sich in Romaji anzeigen ([docs/romaji.md](docs/romaji.md)). Ergebnisse in [docs/phase3.md](docs/phase3.md) mit dem Messbericht [docs/sync-report.md](docs/sync-report.md), dazu [docs/phase2.md](docs/phase2.md) und [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md).
 
 ## Voraussetzungen
 

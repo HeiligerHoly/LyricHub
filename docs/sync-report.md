@@ -69,7 +69,7 @@ Lauf 2 (`sync-protocol-1792962744.json`, 14 Taps, 2 verpasst): „Alien Boy“ (
 
 ### Abweichungen von 11.3
 
-- **Kein japanischer Titel ausgewertet** (verlangt: mindestens zwei). Ohne lesbare Zeilen ist keine Messung möglich. Die Romaji-Anzeige liegt auf dem noch nicht gemergten Branch `claude/unruffled-dirac-66618b`; mit ihr ließe sich die Messung nachholen.
+- **Kein japanischer Titel ausgewertet** (verlangt: mindestens zwei). Ohne lesbare Zeilen ist keine Messung möglich. Die Romaji-Anzeige ist nach dieser Messung in main gekommen (Merge von `claude/unruffled-dirac-66618b`); mit ihr lässt sich die Messung nachholen.
 - **13 statt 10 Songs** auf Englisch und Deutsch, von Rap über Pop und Punk bis Electronic, kein Live-Mitschnitt.
 - **Tap-Messung statt Schätzung in 100-ms-Schritten**, siehe Methode.
 
