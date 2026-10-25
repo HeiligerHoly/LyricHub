@@ -62,7 +62,7 @@
     height: calc(32px * var(--s));
     border-radius: calc(6px * var(--s));
     overflow: hidden;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));
+    background: linear-gradient(135deg, color-mix(in srgb, var(--text) 14%, transparent), color-mix(in srgb, var(--text) 4%, transparent));
     animation: cover-in 300ms ease-in-out;
   }
   .cover img {
@@ -77,7 +77,7 @@
     width: 100%;
     height: 100%;
     font-size: calc(17px * var(--s));
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-dim);
   }
 
   .title,
@@ -100,6 +100,7 @@
   .title {
     flex: 0 1 auto;
     font-weight: 650;
+    color: var(--text);
   }
   .title.with-lyric {
     max-width: 28%;
@@ -107,13 +108,13 @@
   .sep {
     flex: none;
     margin: 0 calc(-4px * var(--s));
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-dim);
   }
   .artist {
     flex: 0 0 auto;
     max-width: 35%;
     font-weight: 450;
-    color: rgba(255, 255, 255, 0.72);
+    color: var(--text-meta);
   }
   .artist.with-lyric {
     flex-shrink: 1;
@@ -123,8 +124,8 @@
     flex: none;
     padding: 0 calc(10px * var(--s));
     border-radius: 999px;
-    background: rgba(255, 211, 110, 0.18);
-    color: #ffd36e;
+    background: var(--accent-soft);
+    color: var(--accent);
     font-size: calc(15px * var(--s));
     line-height: calc(26px * var(--s));
     font-weight: 600;
@@ -134,11 +135,12 @@
     flex: none;
     width: max(1px, calc(1.5px * var(--s)));
     height: calc(18px * var(--s));
-    background: rgba(255, 255, 255, 0.3);
+    background: color-mix(in srgb, var(--text) 30%, transparent);
   }
   .lyric {
     flex: 0 1 auto;
     font-weight: 600;
+    color: var(--text);
   }
 
   @keyframes track-in {

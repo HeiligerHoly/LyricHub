@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Overlay page (PLAN.md 6, 9). Layouts "Karaoke" and "Bar", lyrics with a line-level fill
-  // driven by a local clock, pause dimming, nudge toast and the edit mode. The window is as large
+  // Overlay page (PLAN.md 6, 9). Layouts Karaoke, Bar, Stack and Minimal, themes (theme.ts),
+  // lyrics with a word-by-word fill driven by a local clock, pause dimming, toasts and the edit
+  // mode. The window is as large
   // as the plate; the page reports the plate size and the backend sizes and places the window
   // (overlay/mod.rs). In the edit mode the window covers the monitor and the plate sits at the
   // draft position.
@@ -11,6 +12,7 @@
   import { onMount, tick } from "svelte";
   import { ipc, on, songId, subscribe } from "$lib/shared/ipc";
   import type {
+    AppearanceSettings,
     CalibrationView,
     ClockEvent,
     EditDraft,
@@ -22,14 +24,22 @@
     Settings,
     TrackInfo,
   } from "$lib/shared/types";
+  import { coverAccent } from "./accent";
   import { LocalClock } from "./clock";
+  import type { Rgb } from "./color";
   import EditFrame from "./EditFrame.svelte";
   import type { EditChange } from "./editMode";
   import Bar from "./layouts/Bar.svelte";
   import Karaoke from "./layouts/Karaoke.svelte";
-  import { langOf, lineIndexAt, nextTextLine, shownText } from "./lyricsTimeline";
+  import Minimal from "./layouts/Minimal.svelte";
+  import Stack from "./layouts/Stack.svelte";
+  import { langOf, lineIndexAt, nextTextLine, nextTextLines, previousTextLine, shownText } from "./lyricsTimeline";
+  import { baseAccent, contrastGround, cssVars, look } from "./theme";
 
   const SAMPLE_LINE = "Dies ist eine Beispielzeile zum Ausrichten";
+  /** Stack preview: one line before, one more after (invented text). */
+  const SAMPLE_PREVIOUS = "Die Zeile davor wird gedimmt";
+  const SAMPLE_LATER = "und noch eine weitere Zeile";
   const SAMPLE_NEXT = "次の歌詞はここに少し小さく表示されます";
   /** What the backend makes of SAMPLE_NEXT (test `overlay_sample_line` in lyrics/romaji.rs). */
   const SAMPLE_NEXT_ROMAJI = "tsugi no kashi wa koko ni sukoshi chiisaku hyōji saremasu";
@@ -52,9 +62,13 @@
   let status = $state<PlaybackStatus>("closed");
   let layout = $state<OverlayLayout | null>(null);
   let hideAfterPauseS = $state(10);
-  let plateOpacity = $state(0.55);
+  let appearance = $state<AppearanceSettings | null>(null);
   /** Japanese lines in romaji; the backend sends the romaji with the lyrics. */
   let romaji = $state(false);
+  /** Windows "show animations" off. */
+  let osReducedMotion = $state(false);
+  /** Accent picked from the current cover; null until known or without a usable colour. */
+  let coverRgb = $state<Rgb | null>(null);
   /** 0 = normal, 1 = dimmed (paused > 2 s), 2 = faded out (paused > hide_after_pause_s) */
   let pauseStage = $state(0);
   let hint = $state(false);
@@ -64,7 +78,7 @@
   let measured = $state({ w: 0, h: 0 });
   let plate: HTMLElement;
 
-  /** Width the longest line of the current song needs at the current size (Karaoke only). */
+  /** Width the longest line of the current song needs at the current size (not for Bar). */
   let songLineWidth = $state(0);
   let measurer: HTMLElement;
 
@@ -99,6 +113,31 @@
     if (track.kind === "ad") return 0;
     return pauseStage === 0 ? 1 : pauseStage === 1 ? 0.6 : 0;
   });
+  const theme = $derived(appearance ? look(appearance, layout?.layout) : null);
+  const reduced = $derived(osReducedMotion || !!appearance?.reduced_motion);
+  const accentRgb = $derived.by<Rgb>(() => {
+    if (!appearance || !theme) return [255, 211, 110];
+    if (appearance.accent === "cover" && theme.accentAllowed && coverRgb) return coverRgb;
+    return baseAccent(appearance, theme);
+  });
+  const stageStyle = $derived(theme && appearance ? cssVars(theme, accentRgb, appearance.font) : "");
+  // Accent from the cover (PLAN.md 9.5), once per cover and plate colour.
+  $effect(() => {
+    const url = track?.art?.url;
+    const t = theme;
+    if (!url || !t || appearance?.accent !== "cover" || !t.accentAllowed) {
+      coverRgb = null;
+      return;
+    }
+    let current = true;
+    coverAccent(url, contrastGround(t)).then((c) => {
+      if (current) coverRgb = c;
+    });
+    return () => {
+      current = false;
+    };
+  });
+
   const measuring = $derived(calibration?.active ? calibration : null);
   const headerNote = $derived.by(() => {
     if (toast) return toast;
@@ -114,7 +153,16 @@
   );
   const activeLine = $derived(lines && lineIndex >= 0 ? lines[lineIndex] : null);
   const nextLine = $derived(lines ? nextTextLine(lines, lineIndex) : null);
+  // Stack: the line before and two after the active one.
+  const previousLine = $derived(lines && layout?.layout === "stack" ? previousTextLine(lines, lineIndex) : null);
+  const upcomingLines = $derived(lines && layout?.layout === "stack" ? nextTextLines(lines, lineIndex, 2) : []);
+  /** The lyrics service could not be reached (PLAN.md 9.6: a small mark, no text in the game). */
+  const offline = $derived(!!lyrics && !!track && lyrics.key === track.key && lyrics.state === "error");
+  const rowStatus = $derived(sample ? null : loadingVisible ? ("loading" as const) : activeLine && !activeLine.text ? ("instrumental" as const) : null);
   const sampleActive: Line = { start_ms: 0, end_ms: 4000, fill_end_ms: 4000, text: SAMPLE_LINE, words: null, romaji: null, romaji_words: null };
+  const sampleLine = (text: string, start_ms: number): Line => ({ start_ms, end_ms: null, fill_end_ms: start_ms + 3000, text, words: null, romaji: null, romaji_words: null });
+  const samplePrevious = sampleLine(SAMPLE_PREVIOUS, -4000);
+  const sampleLater = sampleLine(SAMPLE_LATER, 8000);
   const sampleNext: Line = {
     start_ms: 4000,
     end_ms: null,
@@ -183,7 +231,7 @@
     const current = lines;
     const inRomaji = romaji;
     void uiScale;
-    if (!current || layout?.layout !== "karaoke" || !measurer) {
+    if (!current || !layout || layout.layout === "bar" || !measurer) {
       songLineWidth = 0;
       return;
     }
@@ -254,7 +302,7 @@
   let settingsSeen = false;
   function applySettings(s: Settings) {
     hideAfterPauseS = s.overlay.hide_after_pause_s;
-    plateOpacity = s.appearance.plate_opacity;
+    appearance = s.appearance;
     // Feedback for Ctrl+Alt+R, which changes nothing visible while a non-Japanese song plays.
     if (settingsSeen && s.appearance.romaji !== romaji) showToast(s.appearance.romaji ? "Romaji an" : "Romaji aus");
     romaji = s.appearance.romaji;
@@ -322,6 +370,10 @@
   onMount(() => {
     const observer = new ResizeObserver(measure);
     observer.observe(plate);
+    const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
+    osReducedMotion = motionQuery.matches;
+    const onMotion = () => (osReducedMotion = motionQuery.matches);
+    motionQuery.addEventListener("change", onMotion);
 
     ipc.getNowPlaying().then((np) => {
       applyTrack(np.track);
@@ -347,20 +399,22 @@
     );
     return () => {
       observer.disconnect();
+      motionQuery.removeEventListener("change", onMotion);
       unsubscribe();
       clearTimeout(lineTimer);
     };
   });
 </script>
 
-<main class="stage" class:edit={!!edit}>
+<!-- --s also on the stage: the theme variables (outline, shadows) are computed here. -->
+<main class="stage" class:edit={!!edit} class:reduced style="{stageStyle}; --s: {uiScale}">
   <div
     class="box"
     style:left="{edit && draft ? draft.x : 0}px"
     style:top="{edit && draft ? draft.y : 0}px"
     style:opacity
   >
-    <section class="plate" bind:this={plate} style:width="{widthCss}px" style="--s: {uiScale}; --plate-alpha: {plateOpacity}">
+    <section class="plate" bind:this={plate} style:width="{widthCss}px" style="--s: {uiScale}">
       <div class="content" class:changing={changing && !sample}>
         {#if layout?.layout === "bar"}
           <Bar
@@ -369,6 +423,41 @@
             lyric={sample ? SAMPLE_LINE : activeLine?.text ? shownText(activeLine, romaji) : null}
             toast={headerNote}
             align={layout?.align ?? "center"}
+          />
+        {:else if layout?.layout === "stack"}
+          <Stack
+            {track}
+            placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
+            align={layout?.align ?? "center"}
+            previous={sample ? samplePrevious : previousLine}
+            active={sample ? sampleActive : activeLine}
+            activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
+            upcoming={sample ? [sampleNext, sampleLater] : upcomingLines}
+            {romaji}
+            glow={!reduced}
+            status={rowStatus}
+            hint={sample ? null : stateHint}
+            toast={headerNote}
+            {offline}
+            {clock}
+            {clockVersion}
+            staticFill={sample ? 0.45 : null}
+          />
+        {:else if layout?.layout === "minimal"}
+          <Minimal
+            {track}
+            placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
+            align={layout?.align ?? "center"}
+            active={sample ? sampleActive : activeLine}
+            activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
+            {romaji}
+            glow={!reduced}
+            status={rowStatus}
+            hint={sample ? null : stateHint}
+            toast={headerNote}
+            {clock}
+            {clockVersion}
+            staticFill={sample ? 0.45 : null}
           />
         {:else}
           <Karaoke
@@ -379,9 +468,11 @@
             activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
             next={sample ? sampleNext : nextLine}
             {romaji}
-            status={sample ? null : loadingVisible ? "loading" : activeLine && !activeLine.text ? "instrumental" : null}
+            glow={!reduced}
+            status={rowStatus}
             hint={sample ? null : stateHint}
             toast={headerNote}
+            {offline}
             countdown={sample ? null : countdown}
             {clock}
             {clockVersion}
@@ -421,9 +512,19 @@
   .stage {
     position: fixed;
     inset: 0;
-    /* Japanese is the user's third lyrics language (PLAN.md 9.5): JP fonts follow Segoe UI. */
-    font-family: "Inter Variable", "Segoe UI Variable", "Segoe UI", "Yu Gothic UI", "Meiryo UI", "Noto Sans JP", sans-serif;
-    color: #fff;
+    /* Japanese is the user's third lyrics language (PLAN.md 9.5): JP fonts follow Segoe UI.
+       --font is the font picked in the settings; Inter is bundled. */
+    font-family: var(--font, "Inter Variable"), "Inter Variable", "Segoe UI Variable", "Segoe UI", "Yu Gothic UI", "Meiryo UI", "Noto Sans JP", sans-serif;
+    color: var(--text, #fff);
+    /* Outline for plate-less themes and the Minimal layout (PLAN.md 9.3); 0 px otherwise. */
+    -webkit-text-stroke: var(--stroke, 0px) var(--stroke-color, transparent);
+    paint-order: stroke fill;
+    text-shadow: var(--text-shadow, none);
+  }
+  /* Reduced motion (PLAN.md 9.4): every transition and animation at most 80 ms, no pulsing. */
+  .stage.reduced :global(*) {
+    transition-duration: 80ms !important;
+    animation-duration: 80ms !important;
   }
   .stage.edit {
     background: rgba(6, 8, 12, 0.35);
@@ -434,12 +535,12 @@
     transition: opacity 400ms ease;
   }
 
-  /* Glass Dark (PLAN.md 9.5). The window is exactly this plate, so it has no outer margin. */
+  /* Theme plate (theme.ts). The window is exactly this plate, so it has no outer margin. */
   .plate {
     box-sizing: border-box;
     padding: calc(8px * var(--s)) calc(14px * var(--s));
-    border-radius: calc(14px * var(--s));
-    background: rgba(12, 12, 16, var(--plate-alpha, 0.55));
+    border-radius: calc(var(--plate-radius, 14px) * var(--s));
+    background: var(--plate-bg, rgba(12, 12, 16, 0.55));
     text-rendering: optimizeLegibility;
   }
 

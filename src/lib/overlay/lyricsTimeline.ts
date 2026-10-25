@@ -20,7 +20,21 @@ export function lineIndexAt(lines: Line[], ms: number): number {
 
 /** The next line with text after `index`, for the preview row. */
 export function nextTextLine(lines: Line[], index: number): Line | null {
-  for (let i = index + 1; i < lines.length; i++) {
+  return nextTextLines(lines, index, 1)[0] ?? null;
+}
+
+/** Up to `count` lines with text after `index`. */
+export function nextTextLines(lines: Line[], index: number, count: number): Line[] {
+  const out: Line[] = [];
+  for (let i = index + 1; i < lines.length && out.length < count; i++) {
+    if (lines[i].text) out.push(lines[i]);
+  }
+  return out;
+}
+
+/** The last line with text before `index`. */
+export function previousTextLine(lines: Line[], index: number): Line | null {
+  for (let i = Math.min(index, lines.length) - 1; i >= 0; i--) {
     if (lines[i].text) return lines[i];
   }
   return null;

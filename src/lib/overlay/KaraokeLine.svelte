@@ -209,6 +209,7 @@
     box-sizing: border-box;
     padding-right: 18px;
     color: var(--accent, #ffd36e);
+    text-shadow: var(--fill-shadow, none);
     will-change: transform;
   }
   .glow {

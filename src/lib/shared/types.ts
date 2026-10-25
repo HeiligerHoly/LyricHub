@@ -36,10 +36,12 @@ export const ANCHORS: Anchor[][] = [
   ["bl", "bc", "br"],
 ];
 
-export type Layout = "karaoke" | "bar";
+export type Layout = "karaoke" | "bar" | "stack" | "minimal";
 export const LAYOUTS: { id: Layout; label: string }[] = [
   { id: "karaoke", label: "Karaoke" },
   { id: "bar", label: "Leiste" },
+  { id: "stack", label: "Stapel" },
+  { id: "minimal", label: "Minimal" },
 ];
 
 export interface OverlaySettings {
@@ -58,11 +60,41 @@ export interface BehaviorSettings {
   start_minimized: boolean;
 }
 
+export type Theme = "glass_dark" | "glass_light" | "neon" | "mono" | "custom";
+export type AccentMode = "cover" | "fixed";
+
+export interface CustomTheme {
+  plate: boolean;
+  /** `#rrggbb`; the opacity is `plate_opacity`. */
+  plate_color: string;
+  text_color: string;
+  outline: boolean;
+  radius_px: number;
+}
+export const RADIUS_MAX_PX = 32;
+export const DEFAULT_ACCENT = "#ffd36e";
+
 export interface AppearanceSettings {
-  /** Opacity of the dark plate behind the text, 0..1. */
+  theme: Theme;
+  /** Opacity of the plate behind the text, 0..1. */
   plate_opacity: number;
+  accent: AccentMode;
+  /** `#rrggbb`, used with accent "fixed" and as the custom theme's accent. */
+  accent_color: string;
+  /** Font family for the lyrics; empty means the bundled Inter. */
+  font: string;
+  /** All transitions at most 80 ms and no word glow. */
+  reduced_motion: boolean;
+  custom: CustomTheme;
   /** Show lines with kana or kanji in romaji, modified Hepburn (docs/romaji.md). */
   romaji: boolean;
+}
+
+/** Installed font families (fonts.rs). */
+export interface FontList {
+  families: string[];
+  /** Yu Gothic UI or Meiryo UI is installed. */
+  japanese_ui_font: boolean;
 }
 
 export interface SyncSettings {
@@ -82,7 +114,7 @@ export interface Settings {
 /** JSON Merge Patch for `set_settings`: `null` resets a field to its default. */
 export type SettingsPatch = {
   overlay?: { [K in keyof OverlaySettings]?: OverlaySettings[K] | null };
-  appearance?: { [K in keyof AppearanceSettings]?: AppearanceSettings[K] | null };
+  appearance?: { [K in keyof AppearanceSettings]?: (K extends "custom" ? Partial<CustomTheme> : AppearanceSettings[K]) | null };
   sync?: { [K in keyof SyncSettings]?: SyncSettings[K] | null };
   behavior?: { [K in keyof BehaviorSettings]?: BehaviorSettings[K] | null };
 };
