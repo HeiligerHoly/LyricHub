@@ -1,11 +1,10 @@
 <script lang="ts">
-  // Settings → Diagnose (PLAN.md 9.7 #8, early part): player session, playback clock, lyrics,
-  // track-change latency (DoD Phase 1: ≤ 300 ms), overlay window state and the overlay
-  // self-test from Spike B. The Sync Lab follows in Phase 3.
+  // Settings → Diagnose (PLAN.md 9.7 #8): player session, Sync Lab (5.9), lyrics, track-change
+  // latency, overlay window state and the overlay self-test from Spike B.
   import { onMount } from "svelte";
+  import SyncLab from "../SyncLab.svelte";
   import { formatMs, ipc } from "$lib/shared/ipc";
   import type {
-    ClockEvent,
     LatencySample,
     LyricsEvent,
     NowPlaying,
@@ -19,14 +18,12 @@
   let latencies = $state<LatencySample[]>([]);
   let report = $state<SelfTestReport | null>(null);
   let running = $state(false);
-  let clock = $state<ClockEvent | null>(null);
   let lyrics = $state<LyricsEvent | null>(null);
 
   async function refresh() {
     try {
       diag = await ipc.overlayDiagnostics();
       latencies = (await ipc.trackLatencies()).slice().reverse();
-      clock = await ipc.getClock();
       lyrics = await ipc.getLyrics();
     } catch {
       diag = null;
@@ -73,18 +70,11 @@
   </dl>
 </section>
 
+<SyncLab />
+
 <section class="card">
-  <h2>Clock und Lyrics</h2>
+  <h2>Lyrics</h2>
   <dl class="kv">
-    <dt>Position (Modell)</dt>
-    <dd>
-      {clock ? `${formatMs(clock.pos_ms)} · ${clock.playing ? "läuft" : "steht"} · Tempo ${clock.rate.toFixed(3)}` : "–"}
-      {clock && clock.slew_ms > 0 ? ` · gleicht noch ${Math.round(clock.slew_ms)} ms an` : ""}
-    </dd>
-    <dt>Offset</dt>
-    <dd>{clock ? `${clock.offset_ms} ms` : "–"}</dd>
-    <dt>Anker-Nummer</dt>
-    <dd>{clock?.seq ?? "–"}</dd>
     <dt>Lyrics</dt>
     <dd>
       {#if lyrics}
@@ -96,7 +86,6 @@
       {/if}
     </dd>
   </dl>
-  <p class="hint">Aktualisiert alle 2 s. Das Overlay rechnet die Position selbst weiter und braucht diese Abfrage nicht.</p>
 </section>
 
 <section class="card">
