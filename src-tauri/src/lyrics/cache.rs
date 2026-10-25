@@ -142,10 +142,11 @@ impl Cache {
     }
 
     pub fn put_negative(&self, key: &str, now: i64) -> rusqlite::Result<()> {
-        self.conn.execute(
-            "INSERT OR REPLACE INTO negative_cache (key, until) VALUES (?1, ?2)",
-            params![key, now + NEGATIVE_TTL_S],
-        )?;
+        self.put_negative_for(key, now, NEGATIVE_TTL_S)
+    }
+
+    pub fn put_negative_for(&self, key: &str, now: i64, ttl_s: i64) -> rusqlite::Result<()> {
+        self.conn.execute("INSERT OR REPLACE INTO negative_cache (key, until) VALUES (?1, ?2)", params![key, now + ttl_s])?;
         Ok(())
     }
 

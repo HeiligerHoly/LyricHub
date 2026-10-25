@@ -15,6 +15,8 @@ use super::types::{LyricsEvent, LyricsState};
 
 /// Waits before retrying while LRCLIB is busy or unreachable.
 const RETRY_DELAYS: [Duration; 3] = [Duration::from_secs(5), Duration::from_secs(30), Duration::from_secs(120)];
+/// How long a song that stayed unavailable through all retries counts as missing.
+const GIVE_UP_TTL_S: i64 = 24 * 3600;
 
 #[derive(Clone, Debug)]
 pub struct Request {
@@ -73,7 +75,15 @@ impl LyricsService {
                                 tracing::info!(key = %req.key, retry_in_s = delay.as_secs(), "LRCLIB unavailable, retrying later");
                                 retry_at = Some(Instant::now() + *delay);
                             }
-                            None => tracing::warn!(key = %req.key, "LRCLIB unavailable, giving up for this song"),
+                            None => {
+                                // LRCLIB answers 503 for empty searches too, so "busy every time"
+                                // usually means "not there". Remember it for a day, not a week.
+                                tracing::warn!(key = %req.key, "LRCLIB unavailable, giving up for this song today");
+                                if let Some(cache) = cache.as_ref() {
+                                    let _ = cache.put_negative_for(&req.key, unix_now(), GIVE_UP_TTL_S);
+                                }
+                                emit(LyricsEvent::state(&req.key, LyricsState::Missing));
+                            }
                         }
                     }
                 }
