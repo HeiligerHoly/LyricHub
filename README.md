@@ -2,7 +2,7 @@
 
 Windows-Overlay, das den laufenden Spotify-Song und karaoke-artig mitlaufende Lyrics über Spielen anzeigt, synchron zum hörbaren Ton. Der vollständige Plan steht in [PLAN.md](PLAN.md).
 
-Stand: Phase 1, der dünne Durchstich „Now Playing“. Das Overlay zeigt Cover, Titel und Artist des laufenden Spotify-Songs und lässt sich im Edit-Modus direkt am Bildschirm verschieben und skalieren. Ergebnisse in [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md). Lyrics folgen mit Phase 2.
+Stand: Phase 1 abgeschlossen (`v0.1.0-phase1`), der dünne Durchstich „Now Playing“. Das Overlay zeigt Cover, Titel und Artist des laufenden Spotify-Songs und lässt sich im Edit-Modus direkt am Bildschirm verschieben und skalieren. Ergebnisse in [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md). Lyrics folgen mit Phase 2.
 
 ## Voraussetzungen
 

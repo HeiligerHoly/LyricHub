@@ -621,6 +621,8 @@ Tasks:
 
 DoD: Spotify-Titelwechsel erscheint ≤ 300 ms im Overlay über einem Spiel; Position/Größe lassen sich per Edit-Modus setzen und überleben Neustart.
 
+**Ergebnis Phase 1 (2026-10-25)**: abgeschlossen, Tag `v0.1.0-phase1`. LyricHub braucht vom SMTC-Event bis zum gezeichneten Titel 7–10 ms; Spotify liefert den Titel aber bis zu 299 ms nach der neuen Timeline, deshalb verblasst der alte Titel schon beim ersten Anzeichen. Edit-Modus, Neustart-Geometrie, Selbsttest und CPU sind geprüft, die Sichtprüfung im Spiel hat der Nutzer bestanden. Wichtigster Befund: Das Layered-Overlay braucht `SetLayeredWindowAttributes`, sonst fallen Klicks im Edit-Modus durch. Details und Abweichungen in `docs/phase1.md`.
+
 ### Phase 2 – Lyrics und Clock
 
 Tasks:
