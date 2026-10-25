@@ -8,7 +8,7 @@
   import type { Align, Line, TrackInfo } from "$lib/shared/types";
   import type { LocalClock } from "../clock";
   import KaraokeLine from "../KaraokeLine.svelte";
-  import { langOf, shownText } from "../lyricsTimeline";
+  import { langOf, shownText, shownWords } from "../lyricsTimeline";
 
   interface Props {
     track: TrackInfo | null;
@@ -81,7 +81,15 @@
     {#key activeKey}
       <div class="slot enter">
         {#if active && active.text}
-          <KaraokeLine text={shownText(active, romaji)} startMs={active.start_ms} fillEndMs={active.fill_end_ms} {clock} {clockVersion} {staticFill} />
+          <KaraokeLine
+            text={shownText(active, romaji)}
+            words={shownWords(active, romaji)}
+            startMs={active.start_ms}
+            fillEndMs={active.fill_end_ms}
+            {clock}
+            {clockVersion}
+            {staticFill}
+          />
         {:else if hint}
           <p class="hint">{hint}</p>
         {:else if status === "loading"}

@@ -114,7 +114,7 @@
   );
   const activeLine = $derived(lines && lineIndex >= 0 ? lines[lineIndex] : null);
   const nextLine = $derived(lines ? nextTextLine(lines, lineIndex) : null);
-  const sampleActive: Line = { start_ms: 0, end_ms: 4000, fill_end_ms: 4000, text: SAMPLE_LINE, words: null, romaji: null };
+  const sampleActive: Line = { start_ms: 0, end_ms: 4000, fill_end_ms: 4000, text: SAMPLE_LINE, words: null, romaji: null, romaji_words: null };
   const sampleNext: Line = {
     start_ms: 4000,
     end_ms: null,
@@ -122,6 +122,7 @@
     text: SAMPLE_NEXT,
     words: null,
     romaji: SAMPLE_NEXT_ROMAJI,
+    romaji_words: null,
   };
 
   // Pause (PLAN.md 9.4): dim after 2 s, fade out after hide_after_pause_s (0 = never).

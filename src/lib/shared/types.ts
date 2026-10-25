@@ -189,6 +189,8 @@ export interface Line {
   words: Word[] | null;
   /** Romaji of a line with kana or kanji, filled once per song while the setting is on. */
   romaji: string | null;
+  /** Estimated word times of `romaji`. */
+  romaji_words: Word[] | null;
 }
 
 export type LyricsState = "loading" | "synced" | "unsynced" | "instrumental" | "missing" | "error";

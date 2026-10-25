@@ -1,5 +1,5 @@
 // Helpers to find lines in time and to pick the script of a line.
-import type { Line } from "$lib/shared/types";
+import type { Line, Word } from "$lib/shared/types";
 
 /** Index of the line shown at `ms` (last line that has started), -1 before the first one. */
 export function lineIndexAt(lines: Line[], ms: number): number {
@@ -40,4 +40,9 @@ export function langOf(text: string): string | undefined {
 /** What a line shows: its romaji while the setting is on (docs/romaji.md), else the original. */
 export function shownText(line: Line, romaji: boolean): string {
   return romaji && line.romaji ? line.romaji : line.text;
+}
+
+/** Word times of what `shownText` returns. */
+export function shownWords(line: Line, romaji: boolean): Word[] | null {
+  return romaji && line.romaji ? line.romaji_words : line.words;
 }
