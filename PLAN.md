@@ -61,7 +61,7 @@ Die drei harten Kernprobleme, in Reihenfolge ihrer Wichtigkeit:
 | Track-Wechsel | Neuer Titel im Overlay ≤ 300 ms; Lyrics ≤ 1,5 s online, ≤ 100 ms aus Cache | Logging |
 | Fokus | Overlay nimmt **nie** den Eingabefokus. Tastatureingaben im Spiel laufen ungestört weiter, auch bei Track-Wechsel und Edit-Modus-Ende | Testspiel + Notepad-Test |
 | Overlay-Sichtbarkeit | Bleibt über Borderless-Fullscreen-Spielen sichtbar, auch wenn das Spiel topmost reasserted | 3 Testspiele + Browser-Vollbild-Video |
-| Performance | Pausiert: < 0,5 % CPU; spielend: < 2 % CPU auf Mittelklasse-CPU; RAM < 200 MB; keine spürbare FPS-Einbuße im Spiel | Task-Manager, 10 Minuten Messung |
+| Performance | Pausiert: < 0,5 % CPU; spielend: < 2 % CPU auf Mittelklasse-CPU (Anteil an allen Kernen, inklusive WebView2-Prozesse); RAM < 200 MB privat; keine spürbare FPS-Einbuße im Spiel | `tools/overlay-spike/measure-cpu.ps1`, 10 Minuten Messung |
 | Robustheit | Spotify-Neustart, Gerätewechsel (BT-Kopfhörer), Monitorwechsel, Schlafmodus: App erholt sich ohne Neustart | Manuell |
 | Kein Fokusklau beim Start | App startet minimiert in den Tray, öffnet kein Fenster, wenn Autostart aktiv | Manuell |
 
@@ -536,7 +536,8 @@ Nur bauen, wenn Spike 0 oder der Nutzer es verlangt. Feature-Flag `spotify-api` 
 
 ### 9.3 Karaoke-Highlight (Technik)
 
-- Textzeile als zwei übereinander liegende Ebenen: Basisfarbe (gedimmt, z. B. `rgba(255,255,255,0.55)`) und darüber die Akzentfarbe mit `background-clip: text` und `linear-gradient(90deg, accent 0 var(--p), transparent var(--p))`, wobei `--p` der Fortschritt in Prozent ist. Weicher Übergangsrand (2–3 % breit) statt harter Kante.
+- Textzeile als zwei übereinander liegende Ebenen: Basisfarbe (gedimmt, z. B. `rgba(255,255,255,0.55)`) und darüber eine Kopie in Akzentfarbe in einer Clip-Ebene. Die Clip-Ebene gleitet per `transform: translateX()` von links herein, ihr Inhalt gleitet gegenläufig, sodass der Text stillsteht und nur der sichtbare Teil wächst. Weicher Übergangsrand über `mask-image` an der Vorderkante. **Kein animierter Farbverlauf mit `background-clip: text`**: Der zeichnet jedes Frame neu und kostete im Spike B 55 % eines Kerns statt 13 % (siehe `docs/spike-overlay.md`).
+- Die Füllung auf 30 bis 60 Updates pro Sekunde drosseln, unabhängig von der Monitorfrequenz. Bei 164 Hz setzt WebView2 sonst 164 Bilder pro Sekunde zusammen.
 - Bei echten Wort-Timings: zusätzlich `span` pro Wort mit `text-shadow`-Glow, der 120 ms ein- und 300 ms ausblendet.
 - Font-Rendering: `text-rendering: optimizeLegibility`, Variable Font mit `font-variation-settings` für Gewichtswechsel ohne Layout-Sprung.
 - Kontur ohne Platte: `paint-order: stroke fill` + `-webkit-text-stroke` (2 px bei scale 1) plus `text-shadow 0 2px 8px rgba(0,0,0,.7)`.
@@ -615,6 +616,8 @@ Tasks:
 - Settings-Schema v1 + Store; Settings-Fenster mit Seiten Overlay und Verhalten.
 - Overlay-Geometrie (Monitor, Anker, Offsets, Skalierung) + Edit-Modus.
 - Tray mit Grundfunktionen; Hotkey Overlay ein/aus.
+- Einstellungsfenster erst beim Öffnen erzeugen und beim Schließen zerstören (spart etwa 30 MB, Spike B).
+- Das Phase-0-Gerüst ist die Basis: `overlay/win32.rs`, Wächter, Selbsttest, Tray und Logging existieren bereits. Die Regel aus 6.1 gilt: keine Tauri-Setter mit Flag-Änderung auf dem Overlay.
 
 DoD: Spotify-Titelwechsel erscheint ≤ 300 ms im Overlay über einem Spiel; Position/Größe lassen sich per Edit-Modus setzen und überleben Neustart.
 
@@ -656,6 +659,7 @@ DoD: Design-Review gegen 9.1–9.6; kein Layout pro Frame (DevTools Performance-
 
 Tasks:
 - Fullscreen-Erkennung, Topmost-Reassert, "nur bei Vollbild-App".
+- Topmost ereignisgesteuert verteidigen: `SetWinEventHook` mit `EVENT_OBJECT_REORDER` und `EVENT_SYSTEM_FOREGROUND` (`WINEVENT_OUTOFCONTEXT`, keine Injection). Takt-Abfragen reichen gegen Spiele, die sich laufend selbst nach oben setzen, nicht: Bei 100 ms lag das Overlay nur zu 82 % oben (Spike B).
 - `WM_DISPLAYCHANGE`, Monitor-Fallback, DPI-Tests mit 100/125/150 %.
 - Autostart minimiert, Single-Instance, Schlaf/Aufwachen (SMTC-Session neu aufbauen).
 - Fehler-UX, Logs, Diagnose-Export.

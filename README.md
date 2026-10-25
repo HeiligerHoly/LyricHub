@@ -2,7 +2,7 @@
 
 Windows-Overlay, das den laufenden Spotify-Song und karaoke-artig mitlaufende Lyrics über Spielen anzeigt, synchron zum hörbaren Ton. Der vollständige Plan steht in [PLAN.md](PLAN.md).
 
-Stand: Phase 0 (Spikes und Gerüst). Ergebnisse in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md).
+Stand: Phase 0 abgeschlossen (Spikes und Gerüst). Ergebnisse in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md). Nächster Schritt ist Phase 1, der dünne Durchstich „Now Playing“.
 
 ## Voraussetzungen
 
@@ -45,6 +45,9 @@ python tools\smtc-probe\analyze.py docs\spike-smtc.csv
 
 # Spike B: App bauen und Overlay-Selbsttest in drei Szenarien
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\run-spike.ps1
+
+# CPU und Speicher einer laufenden LyricHub-Instanz messen
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\measure-cpu.ps1 -Seconds 10
 ```
 
 ## Hinweise
