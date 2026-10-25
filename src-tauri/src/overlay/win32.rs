@@ -6,19 +6,22 @@
 //! flag change on a visible window, which can activate the overlay and steal focus from
 //! the game. Spike B compares both approaches (see `selftest.rs`).
 
-use windows::Win32::Foundation::{COLORREF, HWND, POINT, RECT};
+use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
     BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CAPTUREBLT, CreateCompatibleBitmap, CreateCompatibleDC,
-    DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC, GetDIBits, ReleaseDC, SRCCOPY, SelectObject,
+    DIB_RGB_COLORS, DeleteDC, DeleteObject, EnumDisplayMonitors, GetDC, GetDIBits, GetMonitorInfoW, HDC, HMONITOR,
+    MONITORINFO, MONITORINFOEXW, ReleaseDC, SRCCOPY, SelectObject,
 };
+use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, GA_ROOT, GW_HWNDNEXT, GWL_EXSTYLE, GetAncestor, GetForegroundWindow, GetWindow, GetWindowLongPtrW,
-    GetWindowRect, GetWindowTextW, HWND_TOPMOST, IsWindowVisible, LWA_ALPHA, SW_HIDE, SW_SHOWNOACTIVATE,
-    SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetForegroundWindow, SetLayeredWindowAttributes,
-    SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
-    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WindowFromPoint,
+    GetWindowRect, GetWindowTextW, HWND_TOPMOST, IsWindowVisible, LWA_ALPHA, MONITORINFOF_PRIMARY, SW_HIDE,
+    SW_SHOWNOACTIVATE, SWP_ASYNCWINDOWPOS, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER,
+    SetForegroundWindow, SetLayeredWindowAttributes, SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE,
+    WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
+    WindowFromPoint,
 };
-use windows::core::{HSTRING, PCWSTR};
+use windows::core::{BOOL, HSTRING, PCWSTR};
 
 /// `HWND` wraps a raw pointer and is not `Send`. This copyable handle can cross threads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -102,6 +105,59 @@ pub fn reassert_topmost(h: Hwnd, frame_changed: bool) {
 pub fn set_layered_alpha(h: Hwnd, alpha: u8) -> bool {
     // SAFETY: attribute change on our own layered window.
     unsafe { SetLayeredWindowAttributes(h.raw(), COLORREF(0), alpha, LWA_ALPHA).is_ok() }
+}
+
+/// Moves and resizes in one step, without activating and without touching the z-order.
+/// Replaces Tauri's `set_size`/`set_position`, which tao applies as two separate moves.
+/// Asynchronous when called off the window's thread: the caller may hold a lock that the
+/// main thread wants, and a synchronous cross-thread SetWindowPos would wait for it.
+pub fn set_bounds(h: Hwnd, x: i32, y: i32, width: i32, height: i32) {
+    let flags = SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_ASYNCWINDOWPOS;
+    // SAFETY: geometry change of our own window.
+    unsafe {
+        let _ = SetWindowPos(h.raw(), None, x, y, width, height, flags);
+    }
+}
+
+/// One display as Windows reports it, in physical pixels of the virtual screen.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RawMonitor {
+    /// GDI device name such as `\\.\DISPLAY1`; stable across restarts for the same port.
+    pub device: String,
+    pub rect: RECT,
+    pub primary: bool,
+    /// Effective DPI; 96 = 100 %.
+    pub dpi: u32,
+}
+
+/// All displays in enumeration order. Thread-agnostic, unlike Tauri's monitor getters.
+pub fn monitors() -> Vec<RawMonitor> {
+    unsafe extern "system" fn collect(monitor: HMONITOR, _: HDC, _: *mut RECT, data: LPARAM) -> BOOL {
+        // SAFETY: `data` is the Vec passed below and outlives the enumeration.
+        let list = unsafe { &mut *(data.0 as *mut Vec<RawMonitor>) };
+        let mut info = MONITORINFOEXW::default();
+        info.monitorInfo.cbSize = size_of::<MONITORINFOEXW>() as u32;
+        // SAFETY: MONITORINFOEXW starts with MONITORINFO; cbSize tells Windows the real size.
+        if unsafe { GetMonitorInfoW(monitor, &mut info as *mut MONITORINFOEXW as *mut MONITORINFO) }.as_bool() {
+            let (mut dpi_x, mut dpi_y) = (96u32, 96u32);
+            // SAFETY: valid out pointers; on failure the 96 DPI default stays.
+            let _ = unsafe { GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut dpi_x, &mut dpi_y) };
+            let len = info.szDevice.iter().position(|&c| c == 0).unwrap_or(info.szDevice.len());
+            list.push(RawMonitor {
+                device: String::from_utf16_lossy(&info.szDevice[..len]),
+                rect: info.monitorInfo.rcMonitor,
+                primary: info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY != 0,
+                dpi: dpi_x,
+            });
+        }
+        true.into()
+    }
+    let mut list: Vec<RawMonitor> = Vec::new();
+    // SAFETY: the callback only touches `list` during this call.
+    unsafe {
+        let _ = EnumDisplayMonitors(None, None, Some(collect), LPARAM(&mut list as *mut Vec<RawMonitor> as isize));
+    }
+    list
 }
 
 pub fn show_no_activate(h: Hwnd) {
