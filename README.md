@@ -35,6 +35,7 @@ Die App startet im Tray. Linksklick auf das Tray-Icon blendet das Overlay ein un
 | Strg+Alt+E | Edit-Modus: Overlay ziehen, an den Ecken skalieren, an den Seiten die Breite ändern |
 | Enter / Esc | im Edit-Modus speichern / abbrechen (nur dann registriert) |
 | Strg+Alt+K | Layout wechseln (Karaoke, Leiste) |
+| Strg+Alt+R | Japanische Zeilen in Romaji (Hepburn) und zurück |
 | Strg+Alt+, / Strg+Alt+. | Lyrics 100 ms früher / später (mit Umschalt 25 ms) |
 
 Das Spiel behält im Edit-Modus den Fokus; das Overlay nimmt nie Tastatureingaben an.
