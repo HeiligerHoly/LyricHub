@@ -34,6 +34,9 @@ pub fn settings_changed(app: &AppHandle, before: &Settings, after: &Settings) {
     if before.behavior.autostart != after.behavior.autostart {
         apply_autostart(app, after.behavior.autostart);
     }
+    if before.behavior.language != after.behavior.language {
+        crate::tray::apply_language(app);
+    }
 }
 
 #[derive(Serialize, Clone, Copy)]

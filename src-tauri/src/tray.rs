@@ -1,12 +1,13 @@
 //! Tray icon (PLAN.md 9.8). Left click toggles the overlay; the menu has the overlay toggle,
 //! the edit mode, nudge −/+100 ms, the layout, the settings, the self-test and quit. The
-//! tooltip names the current song.
+//! tooltip names the current song. Texts follow the interface language (i18n.rs).
 
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Wry};
 
+use crate::i18n::{self, pick, Lang};
 use crate::overlay;
 use crate::settings::{Layout, SettingsState};
 
@@ -16,6 +17,13 @@ const TOOLTIP_MAX: usize = 120;
 pub struct TrayItems {
     overlay_visible: CheckMenuItem<Wry>,
     edit: MenuItem<Wry>,
+    editing: std::sync::atomic::AtomicBool,
+    nudge_back: MenuItem<Wry>,
+    nudge_forward: MenuItem<Wry>,
+    layout_menu: Submenu<Wry>,
+    settings: MenuItem<Wry>,
+    selftest: MenuItem<Wry>,
+    quit: MenuItem<Wry>,
     layouts: Vec<(Layout, CheckMenuItem<Wry>)>,
     /// Coloured and grey icon; grey while Spotify is not running (PLAN.md 5.5).
     icons: Option<(Image<'static>, Image<'static>)>,
@@ -36,12 +44,42 @@ fn greyscale(icon: &Image<'_>) -> Image<'static> {
     Image::new_owned(rgba, icon.width(), icon.height())
 }
 
-fn layout_label(l: Layout) -> &'static str {
+fn layout_label(lang: Lang, l: Layout) -> &'static str {
     match l {
         Layout::Karaoke => "Karaoke",
-        Layout::Bar => "Leiste",
-        Layout::Stack => "Stapel",
+        Layout::Bar => pick(lang, "Leiste", "Bar"),
+        Layout::Stack => pick(lang, "Stapel", "Stack"),
         Layout::Minimal => "Minimal",
+    }
+}
+
+fn edit_label(lang: Lang, editing: bool) -> &'static str {
+    if editing {
+        pick(lang, "Edit-Modus speichern (Enter)", "Save edit mode (Enter)")
+    } else {
+        pick(lang, "Position und Größe ändern (Strg+Alt+E)", "Change position and size (Ctrl+Alt+E)")
+    }
+}
+
+struct Texts {
+    visible: &'static str,
+    nudge_back: &'static str,
+    nudge_forward: &'static str,
+    layout: &'static str,
+    settings: &'static str,
+    selftest: &'static str,
+    quit: &'static str,
+}
+
+fn texts(lang: Lang) -> Texts {
+    Texts {
+        visible: pick(lang, "Overlay anzeigen (Strg+Alt+L)", "Show overlay (Ctrl+Alt+L)"),
+        nudge_back: pick(lang, "Song: Lyrics früher, −100 ms (Strg+Alt+,)", "Song: lyrics earlier, −100 ms (Ctrl+Alt+,)"),
+        nudge_forward: pick(lang, "Song: Lyrics später, +100 ms (Strg+Alt+.)", "Song: lyrics later, +100 ms (Ctrl+Alt+.)"),
+        layout: pick(lang, "Layout (Strg+Alt+K)", "Layout (Ctrl+Alt+K)"),
+        settings: pick(lang, "Einstellungen …", "Settings …"),
+        selftest: pick(lang, "Overlay-Selbsttest ausführen", "Run overlay self-test"),
+        quit: pick(lang, "Beenden", "Quit"),
     }
 }
 
@@ -55,20 +93,22 @@ fn layout_id(l: Layout) -> &'static str {
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let visible = CheckMenuItem::with_id(app, "overlay_visible", "Overlay anzeigen (Strg+Alt+L)", true, true, None::<&str>)?;
-    let edit = MenuItem::with_id(app, "edit_mode", "Position und Größe ändern (Strg+Alt+E)", true, None::<&str>)?;
-    let nudge_back = MenuItem::with_id(app, "nudge_minus", "Lyrics früher: −100 ms (Strg+Alt+,)", true, None::<&str>)?;
-    let nudge_forward = MenuItem::with_id(app, "nudge_plus", "Lyrics später: +100 ms (Strg+Alt+.)", true, None::<&str>)?;
+    let lang = i18n::current(app);
+    let t = texts(lang);
+    let visible = CheckMenuItem::with_id(app, "overlay_visible", t.visible, true, true, None::<&str>)?;
+    let edit = MenuItem::with_id(app, "edit_mode", edit_label(lang, false), true, None::<&str>)?;
+    let nudge_back = MenuItem::with_id(app, "nudge_minus", t.nudge_back, true, None::<&str>)?;
+    let nudge_forward = MenuItem::with_id(app, "nudge_plus", t.nudge_forward, true, None::<&str>)?;
     let current = app.state::<SettingsState>().get().overlay.layout;
     let mut layouts = Vec::new();
     for l in Layout::ALL {
-        layouts.push((l, CheckMenuItem::with_id(app, layout_id(l), layout_label(l), true, l == current, None::<&str>)?));
+        layouts.push((l, CheckMenuItem::with_id(app, layout_id(l), layout_label(lang, l), true, l == current, None::<&str>)?));
     }
     let layout_refs: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = layouts.iter().map(|(_, i)| i as &dyn tauri::menu::IsMenuItem<Wry>).collect();
-    let layout_menu = Submenu::with_items(app, "Layout (Strg+Alt+K)", true, &layout_refs)?;
-    let settings = MenuItem::with_id(app, "open_settings", "Einstellungen …", true, None::<&str>)?;
-    let selftest = MenuItem::with_id(app, "overlay_selftest", "Overlay-Selbsttest ausführen", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Beenden", true, None::<&str>)?;
+    let layout_menu = Submenu::with_items(app, t.layout, true, &layout_refs)?;
+    let settings = MenuItem::with_id(app, "open_settings", t.settings, true, None::<&str>)?;
+    let selftest = MenuItem::with_id(app, "overlay_selftest", t.selftest, true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", t.quit, true, None::<&str>)?;
     let separator = || PredefinedMenuItem::separator(app);
     let menu = Menu::with_items(
         app,
@@ -140,7 +180,20 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     }
     builder.build(app)?;
     let icons = app.default_window_icon().map(|i| (i.clone().to_owned(), greyscale(i)));
-    app.manage(TrayItems { overlay_visible: visible, edit, layouts, icons, player_present: true.into() });
+    app.manage(TrayItems {
+        overlay_visible: visible,
+        edit,
+        editing: false.into(),
+        nudge_back,
+        nudge_forward,
+        layout_menu,
+        settings,
+        selftest,
+        quit,
+        layouts,
+        icons,
+        player_present: true.into(),
+    });
     Ok(())
 }
 
@@ -172,8 +225,26 @@ pub fn sync_overlay_visible(app: &AppHandle, visible: bool) {
 
 pub fn sync_edit_mode(app: &AppHandle, editing: bool) {
     if let Some(items) = app.try_state::<TrayItems>() {
-        let text = if editing { "Edit-Modus speichern (Enter)" } else { "Position und Größe ändern (Strg+Alt+E)" };
-        let _ = items.edit.set_text(text);
+        items.editing.store(editing, std::sync::atomic::Ordering::SeqCst);
+        let _ = items.edit.set_text(edit_label(i18n::current(app), editing));
+    }
+}
+
+/// Writes every menu text again in the current interface language.
+pub fn apply_language(app: &AppHandle) {
+    let Some(items) = app.try_state::<TrayItems>() else { return };
+    let lang = i18n::current(app);
+    let t = texts(lang);
+    let _ = items.overlay_visible.set_text(t.visible);
+    let _ = items.edit.set_text(edit_label(lang, items.editing.load(std::sync::atomic::Ordering::SeqCst)));
+    let _ = items.nudge_back.set_text(t.nudge_back);
+    let _ = items.nudge_forward.set_text(t.nudge_forward);
+    let _ = items.layout_menu.set_text(t.layout);
+    let _ = items.settings.set_text(t.settings);
+    let _ = items.selftest.set_text(t.selftest);
+    let _ = items.quit.set_text(t.quit);
+    for (l, item) in &items.layouts {
+        let _ = item.set_text(layout_label(lang, *l));
     }
 }
 
@@ -181,7 +252,7 @@ pub fn sync_edit_mode(app: &AppHandle, editing: bool) {
 pub fn set_tooltip(app: &AppHandle, line: Option<&str>) {
     let mut text = match line {
         Some(l) => format!("LyricHub – {l}"),
-        None => "LyricHub – Spotify spielt nichts".to_owned(),
+        None => format!("LyricHub – {}", pick(i18n::current(app), "Spotify spielt nichts", "Spotify is not playing")),
     };
     if text.chars().count() > TOOLTIP_MAX {
         text = text.chars().take(TOOLTIP_MAX - 1).collect::<String>() + "…";

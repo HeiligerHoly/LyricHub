@@ -259,6 +259,17 @@ fn hex_color(s: &str) -> Option<String> {
     (h.len() == 6 && h.chars().all(|c| c.is_ascii_hexdigit())).then(|| format!("#{}", h.to_ascii_lowercase()))
 }
 
+/// Interface language (PLAN.md 9.7).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    /// The Windows display language: German if it is German, else English.
+    #[default]
+    System,
+    De,
+    En,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct BehaviorSettings {
@@ -266,6 +277,7 @@ pub struct BehaviorSettings {
     pub autostart: bool,
     /// Do not open the settings window on a manual start either.
     pub start_minimized: bool,
+    pub language: Language,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,

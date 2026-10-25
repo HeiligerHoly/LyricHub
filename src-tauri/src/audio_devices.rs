@@ -117,7 +117,10 @@ fn on_change(app: &AppHandle, endpoint: Endpoint) {
             app_state::with_offset_store(app, |db| db.set_device_offset(&endpoint.id, &endpoint.name, start));
             // The very first device on a fresh install is the normal output, no reason to ask.
             if !first_device_ever {
-                let text = format!("Neues Audiogerät: {}. Sync prüfen unter Einstellungen → Synchronisation", endpoint.name);
+                let text = match crate::i18n::current(app) {
+                    crate::i18n::Lang::De => format!("Neues Audiogerät: {}. Sync prüfen unter Einstellungen → Synchronisation", endpoint.name),
+                    crate::i18n::Lang::En => format!("New audio device: {}. Check the sync under Settings → Sync", endpoint.name),
+                };
                 if let Err(e) = app.emit(events::NOTICE, Notice { text }) {
                     tracing::warn!(error = %e, "could not emit notice");
                 }

@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app_state::{self, NowPlayingState};
+use crate::i18n::{current, pick};
 use crate::ipc::events;
 use crate::lyrics::types::LyricsState;
 use crate::sync::offsets::calibration_median;
@@ -133,11 +134,11 @@ fn emit_view(app: &AppHandle) {
 /// Starts a session; fails without synced lyrics for the current song.
 pub fn start(app: &AppHandle, mode: Mode) -> Result<CalibrationView, String> {
     if app.state::<crate::overlay::OverlayState>().is_editing() {
-        return Err("Erst den Edit-Modus beenden.".into());
+        return Err(pick(current(app), "Erst den Edit-Modus beenden.", "Finish the edit mode first.").into());
     }
     let lyrics_ok = app.state::<NowPlayingState>().lyrics().is_some_and(|l| l.state == LyricsState::Synced);
     if !lyrics_ok {
-        return Err("Für die Messung braucht der laufende Song synchrone Lyrics.".into());
+        return Err(pick(current(app), "Für die Messung braucht der laufende Song synchrone Lyrics.", "The measurement needs synced lyrics for the current song.").into());
     }
     {
         let state = app.state::<CalibrationState>();
@@ -184,7 +185,7 @@ pub fn tap(app: &AppHandle, at: Instant) {
             }
             None => {
                 s.missed += 1;
-                s.message = Some("Kein Zeilenanfang in der Nähe, Tap nicht gezählt.".into());
+                s.message = Some(pick(current(app), "Kein Zeilenanfang in der Nähe, Tap nicht gezählt.", "No line start nearby, tap not counted.").into());
             }
         }
         s.mode == Mode::Calibrate && s.taps.len() >= CALIBRATION_TAPS
@@ -221,8 +222,9 @@ pub fn stop(app: &AppHandle) {
 
 /// Takes the calibration suggestion as the offset of the current audio device.
 pub fn apply_suggestion(app: &AppHandle) -> Result<i32, String> {
-    let suggestion = view(app).and_then(|v| v.suggestion_ms).ok_or("Kein Vorschlag vorhanden.")?;
-    let device = crate::audio_devices::current_id(app).ok_or("Kein Audiogerät erkannt.")?;
+    let lang = current(app);
+    let suggestion = view(app).and_then(|v| v.suggestion_ms).ok_or(pick(lang, "Kein Vorschlag vorhanden.", "No suggestion yet."))?;
+    let device = crate::audio_devices::current_id(app).ok_or(pick(lang, "Kein Audiogerät erkannt.", "No audio device found."))?;
     crate::audio_devices::set_offset(app, &device, suggestion);
     tracing::info!(device_offset_ms = suggestion, "calibration applied");
     emit_view(app);

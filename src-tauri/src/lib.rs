@@ -6,6 +6,7 @@ mod app_state;
 mod audio_devices;
 mod calibration;
 mod fonts;
+mod i18n;
 mod hotkeys;
 mod ipc;
 mod logging;
