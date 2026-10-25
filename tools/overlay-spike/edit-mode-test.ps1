@@ -36,6 +36,8 @@ public static class T {
   [DllImport("user32.dll")] public static extern IntPtr GetWindowLongPtrW(IntPtr h, int i);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowTextW(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT p);
+  [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
@@ -60,6 +62,7 @@ function RectOf([IntPtr]$h) { $r = New-Object T+RECT; [T]::GetWindowRect($h, [re
 function Fmt($r) { '{0},{1} {2}x{3}' -f $r.L, $r.T, ($r.R - $r.L), ($r.B - $r.T) }
 function ExStyle([IntPtr]$h) { [int64][T]::GetWindowLongPtrW($h, -20) }
 function Foreground { [T]::Title([T]::GetForegroundWindow()) }
+function HitAt([int]$X, [int]$Y) { $p = New-Object T+POINT; $p.X = $X; $p.Y = $Y; [T]::Title([T]::GetAncestor([T]::WindowFromPoint($p), 2)) }
 
 function Key([byte[]]$Vks) {
   foreach ($vk in $Vks) { [T]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 20 }
@@ -114,9 +117,11 @@ try {
   Check 'edit: overlay covers the monitor' ($r.L -eq $primary.X -and $r.T -eq $primary.Y -and ($r.R - $r.L) -eq $primary.Width -and ($r.B - $r.T) -eq $primary.Height) (Fmt $r)
   Check 'edit: catches clicks, stays no-activate' ((($ex -band $WS_EX_TRANSPARENT) -eq 0) -and (($ex -band $WS_EX_NOACTIVATE) -ne 0)) ('0x{0:X8}' -f $ex)
   FocusKept 'edit start'
+  $cx = [int](($r0.L + $r0.R) / 2); $cy = [int](($r0.T + $r0.B) / 2)
+  $hit = HitAt $cx $cy
+  Check 'edit: mouse hits the overlay' ($hit -eq 'LyricHub Overlay') "window at ($cx,$cy): '$hit'"
 
   # 2. Drag and save with Enter
-  $cx = [int](($r0.L + $r0.R) / 2); $cy = [int](($r0.T + $r0.B) / 2)
   Drag $cx $cy $DragX $DragY
   FocusKept 'drag'
   Enter; Start-Sleep -Milliseconds 900

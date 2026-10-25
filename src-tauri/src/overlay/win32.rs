@@ -15,7 +15,7 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, GA_ROOT, GW_HWNDNEXT, GWL_EXSTYLE, GetAncestor, GetForegroundWindow, GetWindow, GetWindowLongPtrW,
-    GetWindowRect, GetWindowTextW, HWND_TOPMOST, IsWindowVisible, LWA_ALPHA, MONITORINFOF_PRIMARY, SW_HIDE,
+    GetLayeredWindowAttributes, GetWindowRect, GetWindowTextW, HWND_TOPMOST, LAYERED_WINDOW_ATTRIBUTES_FLAGS, IsWindowVisible, LWA_ALPHA, MONITORINFOF_PRIMARY, SW_HIDE,
     SW_SHOWNOACTIVATE, SWP_ASYNCWINDOWPOS, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER,
     SetForegroundWindow, SetLayeredWindowAttributes, SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE,
     WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
@@ -78,6 +78,9 @@ pub fn apply_overlay_exstyles(h: Hwnd, click_through: bool) -> bool {
     if changed {
         set_ex_style(h, want);
     }
+    if !layered_alpha_set(h) {
+        set_layered_alpha(h, 255);
+    }
     reassert_topmost(h, changed);
     changed
 }
@@ -85,7 +88,18 @@ pub fn apply_overlay_exstyles(h: Hwnd, click_through: bool) -> bool {
 /// True if all bits the overlay needs for this click-through state are present.
 pub fn exstyles_ok(h: Hwnd, click_through: bool) -> bool {
     let cur = ex_style(h);
-    wanted_ex_style(cur, click_through) == cur
+    wanted_ex_style(cur, click_through) == cur && layered_alpha_set(h)
+}
+
+/// Whether the layered window has constant-alpha attributes. Without them Windows hit-tests
+/// the layered window as fully transparent, because WebView2 draws through DirectComposition
+/// and never into the surface Windows checks: clicks fall through even with
+/// WS_EX_TRANSPARENT off, so the edit mode could not be dragged (found in Phase 1). The
+/// attributes do not change what is drawn.
+pub fn layered_alpha_set(h: Hwnd) -> bool {
+    let mut flags = LAYERED_WINDOW_ATTRIBUTES_FLAGS(0);
+    // SAFETY: valid out pointer; fails for a layered window that never had attributes set.
+    unsafe { GetLayeredWindowAttributes(h.raw(), None, None, Some(&mut flags)).is_ok() && flags.0 & LWA_ALPHA.0 != 0 }
 }
 
 /// Moves the window to the top of the topmost band without activating it.
@@ -101,7 +115,8 @@ pub fn reassert_topmost(h: Hwnd, frame_changed: bool) {
 }
 
 /// Sets constant alpha on a layered window. Some layered windows stay invisible until
-/// SetLayeredWindowAttributes or UpdateLayeredWindow has been called once.
+/// SetLayeredWindowAttributes or UpdateLayeredWindow has been called once, and hit-testing
+/// needs it (see `layered_alpha_set`).
 pub fn set_layered_alpha(h: Hwnd, alpha: u8) -> bool {
     // SAFETY: attribute change on our own layered window.
     unsafe { SetLayeredWindowAttributes(h.raw(), COLORREF(0), alpha, LWA_ALPHA).is_ok() }
