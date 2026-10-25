@@ -20,3 +20,5 @@ pub const SETTINGS: &str = "settings";
 /// `LayoutEvent`: overlay content size, alignment and edit mode. Extends PLAN.md's
 /// `overlay-mode { edit }`, which a single event replaces so mode and geometry never disagree.
 pub const OVERLAY_LAYOUT: &str = "overlay-layout";
+/// `CalibrationView`: state of the calibration assistant or the sync protocol.
+pub const CALIBRATION: &str = "calibration";

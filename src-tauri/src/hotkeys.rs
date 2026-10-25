@@ -1,8 +1,10 @@
 //! Global shortcuts (PLAN.md 5.7, 9.7). Ctrl+Alt+L toggles the overlay, Ctrl+Alt+E starts the
 //! edit mode (pressed again it saves), Ctrl+Alt+K switches the layout, Ctrl+Alt+, and Ctrl+Alt+.
-//! nudge the offset by −/+100 ms (with Shift ±25 ms). Enter and Esc are registered only while
-//! the edit mode runs: the overlay never holds the keyboard focus, so it cannot receive them
-//! any other way.
+//! nudge the song offset by −/+100 ms (with Shift ±25 ms). Enter and Esc are registered only
+//! while the edit mode runs, Space and Esc only while a calibration or sync protocol runs: the
+//! overlay never holds the keyboard focus, so it cannot receive them any other way.
+
+use std::time::Instant;
 
 use tauri::plugin::TauriPlugin;
 use tauri::{AppHandle, Manager, Wry};
@@ -21,6 +23,9 @@ fn save() -> Shortcut {
 }
 fn cancel() -> Shortcut {
     Shortcut::new(None, Code::Escape)
+}
+fn tap() -> Shortcut {
+    Shortcut::new(None, Code::Space)
 }
 fn layout() -> Shortcut {
     Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyK)
@@ -43,15 +48,19 @@ pub fn plugin() -> TauriPlugin<Wry> {
             if event.state() != ShortcutState::Pressed {
                 return;
             }
+            // Taps are timed here, before any thread hop (calibration.rs).
+            let at = Instant::now();
             let (app, shortcut) = (app.clone(), *shortcut);
             // Off the event-loop thread: the actions save files and (un)register shortcuts.
-            std::thread::spawn(move || dispatch(&app, &shortcut));
+            std::thread::spawn(move || dispatch(&app, &shortcut, at));
         })
         .build()
 }
 
-fn dispatch(app: &AppHandle, shortcut: &Shortcut) {
-    if *shortcut == toggle() {
+fn dispatch(app: &AppHandle, shortcut: &Shortcut, at: Instant) {
+    if *shortcut == tap() {
+        crate::calibration::tap(app, at);
+    } else if *shortcut == toggle() {
         overlay::toggle(app);
     } else if *shortcut == edit() {
         if app.state::<overlay::OverlayState>().is_editing() {
@@ -62,7 +71,11 @@ fn dispatch(app: &AppHandle, shortcut: &Shortcut) {
     } else if *shortcut == save() {
         overlay::save_edit(app, None);
     } else if *shortcut == cancel() {
-        overlay::cancel_edit(app);
+        if app.state::<overlay::OverlayState>().is_editing() {
+            overlay::cancel_edit(app);
+        } else {
+            crate::calibration::stop(app);
+        }
     } else if *shortcut == layout() {
         crate::ipc::cycle_layout(app);
     } else if let Some((_, _, delta)) = nudges().into_iter().find(|(_, s, _)| s == shortcut) {
@@ -76,6 +89,23 @@ pub fn register_defaults(app: &AppHandle) {
         if let Err(e) = app.global_shortcut().register(s) {
             // Another app may own the combination; the tray still works.
             tracing::warn!(shortcut = name, error = %e, "could not register global shortcut");
+        }
+    }
+}
+
+/// Registers Space (tap) and Esc (stop) while a calibration or sync protocol runs.
+pub fn set_tap_keys(app: &AppHandle, active: bool) {
+    let gs = app.global_shortcut();
+    for (name, s) in [("Space", tap()), ("Esc", cancel())] {
+        let result = if active {
+            if gs.is_registered(s) { Ok(()) } else { gs.register(s) }
+        } else if gs.is_registered(s) {
+            gs.unregister(s)
+        } else {
+            Ok(())
+        };
+        if let Err(e) = result {
+            tracing::warn!(key = name, active, error = %e, "could not change tap shortcut");
         }
     }
 }

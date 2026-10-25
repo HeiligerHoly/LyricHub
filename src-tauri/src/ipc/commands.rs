@@ -96,6 +96,33 @@ pub async fn export_diagnostics(app: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub async fn start_calibration(app: AppHandle, mode: crate::calibration::Mode) -> Result<crate::calibration::CalibrationView, String> {
+    crate::calibration::start(&app, mode)
+}
+
+#[tauri::command]
+pub async fn stop_calibration(app: AppHandle) -> Option<crate::calibration::CalibrationView> {
+    crate::calibration::stop(&app);
+    crate::calibration::view(&app)
+}
+
+#[tauri::command]
+pub async fn apply_calibration(app: AppHandle) -> Result<i32, String> {
+    crate::calibration::apply_suggestion(&app)
+}
+
+#[tauri::command]
+pub async fn get_calibration(app: AppHandle) -> Option<crate::calibration::CalibrationView> {
+    crate::calibration::view(&app)
+}
+
+/// The overlay has applied and drawn the clock anchor `seq` (sent for seeks only).
+#[tauri::command]
+pub async fn clock_applied(app: AppHandle, seq: u64) {
+    app_state::clock_applied(&app, seq);
+}
+
+#[tauri::command]
 pub async fn list_audio_devices(app: AppHandle) -> Vec<crate::audio_devices::AudioDevice> {
     crate::audio_devices::list(&app)
 }

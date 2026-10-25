@@ -4,6 +4,7 @@
 
 mod app_state;
 mod audio_devices;
+mod calibration;
 mod hotkeys;
 mod ipc;
 mod logging;
@@ -44,6 +45,7 @@ pub fn run() {
         .manage(app_state::NowPlayingState::default())
         .manage(sync_lab::SyncLabState::default())
         .manage(audio_devices::AudioDeviceState::default())
+        .manage(calibration::CalibrationState::default())
         .invoke_handler(tauri::generate_handler![
             ipc::commands::get_settings,
             ipc::commands::set_settings,
@@ -57,6 +59,11 @@ pub fn run() {
             ipc::commands::nudge_offset,
             ipc::commands::set_song_offset,
             ipc::commands::sync_lab,
+            ipc::commands::start_calibration,
+            ipc::commands::stop_calibration,
+            ipc::commands::apply_calibration,
+            ipc::commands::get_calibration,
+            ipc::commands::clock_applied,
             ipc::commands::export_diagnostics,
             ipc::commands::list_audio_devices,
             ipc::commands::set_device_offset,

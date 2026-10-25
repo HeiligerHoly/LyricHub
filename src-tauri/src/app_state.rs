@@ -100,6 +100,8 @@ pub struct NowPlayingState {
     offsets: Mutex<Offsets>,
     /// Own connection to lyrichub.db for song and device offsets (the lyrics worker has one too).
     db: Mutex<Option<Cache>>,
+    /// Last seek anchor: (seq, when Spotify's report was valid, when the anchor went out).
+    pending_seek: Mutex<Option<(u64, Instant, Instant)>>,
 }
 
 struct Inner {
@@ -127,6 +129,7 @@ impl Default for NowPlayingState {
             lyrics_service: OnceLock::new(),
             offsets: Mutex::new(Offsets::default()),
             db: Mutex::new(None),
+            pending_seek: Mutex::new(None),
         }
     }
 }
@@ -489,9 +492,28 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                 "clock observation"
             );
             if update.changed() {
-                emit_clock(app, update_kind(&update));
+                let event = clock_event(app, update_kind(&update));
+                if matches!(update, Update::Seek { .. }) {
+                    *state.pending_seek.lock().unwrap() = Some((event.seq, obs.valid_at, Instant::now()));
+                }
+                emit(app, events::CLOCK, &event);
             }
         }
+    }
+}
+
+/// The overlay drew the anchor `seq`. For a seek this logs how long it took from Spotify's
+/// report to the corrected display (PLAN.md 2: within 300 ms of the SMTC event).
+pub fn clock_applied(app: &AppHandle, seq: u64) {
+    let state = app.state::<NowPlayingState>();
+    let pending = state.pending_seek.lock().unwrap().take_if(|p| p.0 == seq);
+    if let Some((_, valid_at, emitted)) = pending {
+        tracing::info!(
+            seq,
+            since_report_ms = ms(valid_at.elapsed()),
+            since_anchor_ms = ms(emitted.elapsed()),
+            "seek shown in overlay"
+        );
     }
 }
 
