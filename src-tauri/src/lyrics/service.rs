@@ -4,6 +4,7 @@
 //! carry line counts, never lyrics text.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -31,7 +32,7 @@ pub struct LyricsService {
 }
 
 impl LyricsService {
-    pub fn spawn(cache_path: PathBuf, transport: Box<dyn Transport>, emit: impl Fn(LyricsEvent) + Send + 'static) -> Self {
+    pub fn spawn(cache_path: PathBuf, transport: Arc<dyn Transport>, emit: impl Fn(LyricsEvent) + Send + 'static) -> Self {
         let (tx, rx) = mpsc::channel::<Request>();
         std::thread::Builder::new()
             .name("lyrics".into())
@@ -65,7 +66,7 @@ impl LyricsService {
                     }
                     retry_at = None;
                     let Some(req) = current.as_ref() else { continue };
-                    let done = handle(req, attempt, cache.as_ref(), transport.as_ref(), &emit);
+                    let done = handle(req, attempt, cache.as_ref(), &transport, &emit);
                     if !done {
                         match RETRY_DELAYS.get(attempt) {
                             Some(delay) => {
@@ -87,7 +88,7 @@ impl LyricsService {
 }
 
 /// Handles one request. Returns false if LRCLIB was unavailable and a retry makes sense.
-fn handle(req: &Request, attempt: usize, cache: Option<&Cache>, transport: &dyn Transport, emit: &dyn Fn(LyricsEvent)) -> bool {
+fn handle(req: &Request, attempt: usize, cache: Option<&Cache>, transport: &Arc<dyn Transport>, emit: &dyn Fn(LyricsEvent)) -> bool {
     let now = unix_now();
     if let Some(cache) = cache {
         let _ = cache.touch_track(&req.key, &req.title, &req.artist, req.album.as_deref(), req.duration_ms, now);
