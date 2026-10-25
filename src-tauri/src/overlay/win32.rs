@@ -8,15 +8,15 @@
 
 use windows::Win32::Foundation::{COLORREF, HWND, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
-    BitBlt, CAPTUREBLT, CLR_INVALID, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC,
-    GetPixel, ReleaseDC, SRCCOPY, SelectObject,
+    BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CAPTUREBLT, CreateCompatibleBitmap, CreateCompatibleDC,
+    DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC, GetDIBits, ReleaseDC, SRCCOPY, SelectObject,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, GA_ROOT, GW_HWNDNEXT, GWL_EXSTYLE, GetAncestor, GetForegroundWindow, GetWindow, GetWindowLongPtrW,
     GetWindowRect, GetWindowTextW, HWND_TOPMOST, IsWindowVisible, LWA_ALPHA, SW_HIDE, SW_SHOWNOACTIVATE,
-    SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetLayeredWindowAttributes, SetWindowLongPtrW,
-    SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    WS_EX_TOPMOST, WS_EX_TRANSPARENT, WindowFromPoint,
+    SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetForegroundWindow, SetLayeredWindowAttributes,
+    SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
+    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WindowFromPoint,
 };
 use windows::core::{HSTRING, PCWSTR};
 
@@ -202,25 +202,76 @@ pub fn is_above(upper: Hwnd, lower: Hwnd) -> Option<bool> {
     None
 }
 
-/// Reads one composed screen pixel (including layered windows) as 0x00BBGGRR.
-pub fn screen_pixel(x: i32, y: i32) -> Option<u32> {
-    // SAFETY: standard GDI capture into a 1x1 memory bitmap; every handle is released.
+/// Hands the foreground back to a window. Only works while our process may set it,
+/// e.g. right after one of our windows took it (used by the self-test to repair a steal).
+pub fn set_foreground(h: Hwnd) -> bool {
+    // SAFETY: plain call with a window handle.
+    unsafe { SetForegroundWindow(h.raw()).as_bool() }
+}
+
+/// Captures the composed screen (including layered windows) inside `r` as 0x00RRGGBB pixels.
+pub fn capture_rect(r: &RECT) -> Option<Vec<u32>> {
+    let (w, h) = (r.right - r.left, r.bottom - r.top);
+    if w <= 0 || h <= 0 {
+        return None;
+    }
+    // SAFETY: standard GDI capture into a memory bitmap; every handle is released.
     unsafe {
         let screen = GetDC(None);
         if screen.is_invalid() {
             return None;
         }
         let mem = CreateCompatibleDC(Some(screen));
-        let bmp = CreateCompatibleBitmap(screen, 1, 1);
+        let bmp = CreateCompatibleBitmap(screen, w, h);
         let old = SelectObject(mem, bmp.into());
-        let ok = BitBlt(mem, 0, 0, 1, 1, Some(screen), x, y, SRCCOPY | CAPTUREBLT).is_ok();
-        let px = GetPixel(mem, 0, 0);
+        let blit_ok = BitBlt(mem, 0, 0, w, h, Some(screen), r.left, r.top, SRCCOPY | CAPTUREBLT).is_ok();
         SelectObject(mem, old);
+
+        let mut info = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: w,
+                biHeight: -h, // negative = top-down rows
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: BI_RGB.0,
+                biSizeImage: 0,
+                biXPelsPerMeter: 0,
+                biYPelsPerMeter: 0,
+                biClrUsed: 0,
+                biClrImportant: 0,
+            },
+            ..Default::default()
+        };
+        let mut pixels = vec![0u32; (w * h) as usize];
+        let lines = GetDIBits(
+            mem,
+            bmp,
+            0,
+            h as u32,
+            Some(pixels.as_mut_ptr().cast()),
+            &mut info,
+            DIB_RGB_COLORS,
+        );
         let _ = DeleteObject(bmp.into());
         let _ = DeleteDC(mem);
         ReleaseDC(None, screen);
-        (ok && px.0 != CLR_INVALID).then_some(px.0)
+        (blit_ok && lines == h).then_some(pixels)
     }
+}
+
+/// Share of pixels whose strongest colour channel changed by more than `threshold`.
+pub fn changed_share(before: &[u32], after: &[u32], threshold: i32) -> f64 {
+    if before.is_empty() || before.len() != after.len() {
+        return 0.0;
+    }
+    let channel = |p: u32, shift: u32| ((p >> shift) & 0xFF) as i32;
+    let changed = before
+        .iter()
+        .zip(after)
+        .filter(|&(&a, &b)| [0, 8, 16].iter().any(|&s| (channel(a, s) - channel(b, s)).abs() > threshold))
+        .count();
+    changed as f64 / before.len() as f64
 }
 
 /// Human-readable list of the style bits Spike B cares about.

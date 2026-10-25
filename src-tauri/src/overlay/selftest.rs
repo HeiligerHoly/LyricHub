@@ -36,9 +36,14 @@ pub struct Step {
 pub struct Report {
     pub unix_time: u64,
     pub foreground_at_start: String,
+    /// False if a LyricHub window held the foreground at start; focus checks are then only info.
+    pub foreground_conclusive: bool,
     pub fake_game_present: bool,
+    /// Production path (groups win32 and topmost).
     pub passed: usize,
     pub failed: usize,
+    /// Expected findings in the tauri comparison group.
+    pub tauri_failed: usize,
     pub steps: Vec<Step>,
 }
 
@@ -88,10 +93,10 @@ impl Ctx {
     }
 }
 
-fn probe_point(h: Hwnd) -> Option<(i32, i32)> {
-    // Inside the glass panel: 60 px from the left edge, vertically centred.
-    win32::window_rect(h).map(|r| (r.left + 60, (r.top + r.bottom) / 2))
-}
+/// Minimum share of pixels in the overlay area that must change when it appears.
+/// Text strokes alone cover a few percent; the plate changes most bright backgrounds.
+const DRAWN_MIN_SHARE: f64 = 0.02;
+const PIXEL_THRESHOLD: i32 = 40;
 
 pub fn run(app: &AppHandle) -> Report {
     let state = app.state::<OverlayState>();
@@ -113,11 +118,12 @@ pub fn run(app: &AppHandle) -> Report {
         ),
     );
 
-    // Baseline pixel with the overlay hidden.
+    // Baseline capture of the overlay area with the overlay hidden.
     win32::hide(overlay);
     sleep(SETTLE);
-    let probe = probe_point(overlay);
-    let px_hidden = probe.and_then(|(x, y)| win32::screen_pixel(x, y));
+    let rect = win32::window_rect(overlay);
+    let capture = || rect.as_ref().and_then(win32::capture_rect);
+    let before = capture();
 
     // ---- Strategy A: direct Win32 (production path) ----
     c.group = "win32";
@@ -127,24 +133,32 @@ pub fn run(app: &AppHandle) -> Report {
     c.focus_kept("Einblenden ohne Fokusverlust");
     c.styles("Stil-Bits vollständig (klickdurchlässig)", true);
 
-    let px_shown = probe.and_then(|(x, y)| win32::screen_pixel(x, y));
-    let drawn = px_hidden.is_some() && px_shown.is_some() && px_hidden != px_shown;
-    if drawn {
-        c.push("Overlay wird gezeichnet", "pass", format!("Pixel vorher {px_hidden:06X?}, nachher {px_shown:06X?}"));
-    } else {
-        // Layered windows can stay invisible until SetLayeredWindowAttributes was called once.
-        let attr_ok = win32::set_layered_alpha(overlay, 255);
-        sleep(SETTLE);
-        let px_after = probe.and_then(|(x, y)| win32::screen_pixel(x, y));
-        let drawn_after = px_hidden.is_some() && px_after.is_some() && px_hidden != px_after;
-        c.push(
-            "Overlay wird gezeichnet",
-            if drawn_after { "info" } else { "fail" },
-            format!(
-                "Pixel vorher {px_hidden:06X?}, nachher {px_shown:06X?}; nach SetLayeredWindowAttributes(ok={attr_ok}) {px_after:06X?}. \
-                 Bei gesperrtem Bildschirm oder Remote-Sitzung ist dieser Test nicht aussagekräftig."
-            ),
-        );
+    let share_of = |after: &Option<Vec<u32>>| match (&before, after) {
+        (Some(b), Some(a)) => Some(win32::changed_share(b, a, PIXEL_THRESHOLD)),
+        _ => None,
+    };
+    let shown = share_of(&capture());
+    match shown {
+        Some(s) if s >= DRAWN_MIN_SHARE => {
+            c.push("Overlay wird gezeichnet", "pass", format!("{:.1} % der Pixel im Overlay-Bereich verändert", s * 100.0));
+        }
+        _ => {
+            // Layered windows can stay invisible until SetLayeredWindowAttributes was called once.
+            let attr_ok = win32::set_layered_alpha(overlay, 255);
+            sleep(SETTLE);
+            let retry = share_of(&capture());
+            let drawn_after = matches!(retry, Some(s) if s >= DRAWN_MIN_SHARE);
+            c.push(
+                "Overlay wird gezeichnet",
+                if drawn_after { "info" } else { "fail" },
+                format!(
+                    "verändert: {:?} %; nach SetLayeredWindowAttributes(ok={attr_ok}): {:?} %. \
+                     Bei gesperrtem Bildschirm oder Remote-Sitzung ist dieser Test nicht aussagekräftig.",
+                    shown.map(|s| (s * 1000.0).round() / 10.0),
+                    retry.map(|s| (s * 1000.0).round() / 10.0)
+                ),
+            );
+        }
     }
 
     c.click_through("Klicks gehen durch", true);
@@ -194,6 +208,13 @@ pub fn run(app: &AppHandle) -> Report {
         c.push("Tauri-Strategie", "fail", "Overlay-Fenster nicht gefunden");
     }
 
+    // Tauri's show() may have activated the overlay: hand the foreground back.
+    if c.fg_conclusive && win32::foreground() == overlay {
+        let ok = win32::set_foreground(fg0);
+        sleep(SETTLE);
+        c.push("Fokus zurückgegeben", "info", format!("SetForegroundWindow ok={ok}, Vordergrund jetzt \"{}\"", win32::window_title(win32::foreground())));
+    }
+
     // Restore the production state.
     win32::apply_overlay_exstyles(overlay, true);
     win32::show_no_activate(overlay);
@@ -203,12 +224,17 @@ pub fn run(app: &AppHandle) -> Report {
     // ---- Topmost against a fake game that holds the topmost band itself ----
     c.group = "topmost";
     if let Some(game) = fake_game {
-        let (mut above, mut total) = (0u32, 0u32);
-        for i in 0..60 {
-            if i % 20 == 0 {
-                win32::reassert_topmost(overlay, false); // what the watchdog does every 2 s
+        // Reassert interval under test; the watchdog default is 2 s. Override with
+        // LYRICHUB_TOPMOST_MS to measure how often the overlay must re-assert.
+        let reassert_ms: u64 = std::env::var("LYRICHUB_TOPMOST_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(2000);
+        let (mut above, mut total, mut since) = (0u32, 0u32, u64::MAX);
+        for _ in 0..120 {
+            if since >= reassert_ms {
+                win32::reassert_topmost(overlay, false);
+                since = 0;
             }
-            sleep(Duration::from_millis(100));
+            sleep(Duration::from_millis(50));
+            since += 50;
             if let Some(a) = win32::is_above(overlay, game) {
                 total += 1;
                 above += a as u32;
@@ -216,7 +242,7 @@ pub fn run(app: &AppHandle) -> Report {
         }
         let share = if total > 0 { 100.0 * above as f64 / total as f64 } else { 0.0 };
         c.push(
-            "Overlay über Fake-Game (6 s, Reassert alle 2 s)",
+            &format!("Overlay über Fake-Game (6 s, Reassert alle {reassert_ms} ms)"),
             if share >= 95.0 { "pass" } else if total == 0 { "fail" } else { "info" },
             format!("{share:.0} % der Proben oben ({above}/{total})"),
         );
@@ -227,14 +253,19 @@ pub fn run(app: &AppHandle) -> Report {
 
     state.pause_watchdog(false);
 
-    let passed = c.steps.iter().filter(|s| s.status == "pass").count();
-    let failed = c.steps.iter().filter(|s| s.status == "fail").count();
+    // The "tauri" group documents tao behaviour we avoid; its failures are expected findings,
+    // not failures of the production path, and are counted separately.
+    let count = |status: &str, tauri: bool| {
+        c.steps.iter().filter(|s| s.status == status && (s.group == "tauri") == tauri).count()
+    };
     Report {
         unix_time: SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0),
         foreground_at_start: win32::window_title(fg0),
+        foreground_conclusive: fg_conclusive,
         fake_game_present: fake_game.is_some(),
-        passed,
-        failed,
+        passed: count("pass", false),
+        failed: count("fail", false),
+        tauri_failed: count("fail", true),
         steps: c.steps,
     }
 }

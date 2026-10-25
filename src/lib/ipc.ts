@@ -41,9 +41,14 @@ export interface SelfTestStep {
 export interface SelfTestReport {
   unix_time: number;
   foreground_at_start: string;
+  /** False if a LyricHub window held the foreground at start; focus checks are then only info. */
+  foreground_conclusive: boolean;
   fake_game_present: boolean;
+  /** Production path (groups win32 and topmost). */
   passed: number;
   failed: number;
+  /** Expected findings in the tauri comparison group. */
+  tauri_failed: number;
   steps: SelfTestStep[];
 }
 

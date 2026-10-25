@@ -124,7 +124,10 @@
     </p>
     {#if report}
       <p class="summary">
-        {report.passed} bestanden · {report.failed} fehlgeschlagen · Vordergrund beim Start: „{report.foreground_at_start || "–"}“
+        Produktionsweg: {report.passed} bestanden · {report.failed} fehlgeschlagen · Tauri-Vergleich:
+        {report.tauri_failed} erwartete Befunde · Vordergrund beim Start: „{report.foreground_at_start || "–"}“{report.foreground_conclusive
+          ? ""
+          : " (Fokustest nicht aussagekräftig)"}
       </p>
       <table class="steps">
         <thead><tr><th>Gruppe</th><th>Prüfung</th><th>Ergebnis</th><th>Detail</th></tr></thead>
