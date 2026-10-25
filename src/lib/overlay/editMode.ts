@@ -1,6 +1,7 @@
 // Edit-mode geometry (PLAN.md 9.6): dragging with snap points, proportional scaling from the
 // corners and width from the sides. All values in CSS px relative to the monitor. The backend
 // turns the final box into anchor and offsets (overlay/window.rs, geometry_from_rect).
+import { ANCHORS, type Anchor } from "$lib/shared/types";
 
 export interface Box {
   x: number;
@@ -113,15 +114,10 @@ export function clampBox(box: Box, b: Bounds): Box {
   };
 }
 
-/** Anchor name of the third that holds the box centre, for the toolbar readout. */
-export function anchorLabel(box: Box, b: Bounds): string {
+/** Anchor of the third that holds the box centre, for the toolbar readout. */
+export function anchorAt(box: Box, b: Bounds): Anchor {
   const third = (c: number, total: number) => (c < total / 3 ? 0 : c > (total * 2) / 3 ? 2 : 1);
-  const col = third(box.x + box.w / 2, b.width);
-  const row = third(box.y + box.h / 2, b.height);
-  const rows = ["oben", "Mitte", "unten"];
-  const cols = ["links", "mittig", "rechts"];
-  if (row === 1 && col === 1) return "Bildschirmmitte";
-  return `${rows[row]} ${cols[col]}`;
+  return ANCHORS[third(box.y + box.h / 2, b.height)][third(box.x + box.w / 2, b.width)];
 }
 
 function clamp(v: number, lo: number, hi: number): number {

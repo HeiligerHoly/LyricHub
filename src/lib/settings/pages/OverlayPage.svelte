@@ -5,6 +5,7 @@
   // patch per 60 ms. "Nur bei Vollbild-App zeigen" follows with the fullscreen detection
   // (Phase 5).
   import { onMount, untrack } from "svelte";
+  import { num, t } from "$lib/shared/i18n.svelte";
   import { ipc } from "$lib/shared/ipc";
   import {
     LAYOUTS,
@@ -53,38 +54,40 @@
     }, PATCH_DELAY_MS);
   }
 
-  const num = (e: Event) => Number((e.currentTarget as HTMLInputElement).value);
+  const inputNum = (e: Event) => Number((e.currentTarget as HTMLInputElement).value);
 
   onMount(() => {
     ipc.listMonitors().then((m) => (monitors = m));
   });
 
   function monitorLabel(m: Monitor) {
-    const pct = Math.round(m.scale_factor * 100);
-    return `Monitor ${m.number} · ${m.width}×${m.height} · ${pct} %${m.primary ? " · Hauptbildschirm" : ""}`;
+    const label = t("overlayPage.monitor.item", { number: m.number, width: m.width, height: m.height, scale: Math.round(m.scale_factor * 100) });
+    return m.primary ? `${label} · ${t("overlayPage.monitor.primary")}` : label;
   }
 </script>
 
-<h1>Overlay</h1>
+<!-- Text with <b>…</b> parts from the locales, drawn without {@html}. -->
+{#snippet bold(text: string)}
+  {#each text.split(/<\/?b>/) as part, i (i)}{#if i % 2}<b>{part}</b>{:else}{part}{/if}{/each}
+{/snippet}
+
+<h1>{t("nav.overlay")}</h1>
 
 <section class="card">
   <div class="head">
     <div>
-      <h2>Position und Größe am Bildschirm</h2>
-      <p class="hint">
-        Im Edit-Modus lässt sich das Overlay direkt verschieben und skalieren. <b>Enter</b> speichert, <b>Esc</b>
-        bricht ab. Das Spiel behält dabei den Fokus.
-      </p>
+      <h2>{t("overlayPage.screen.title")}</h2>
+      <p class="hint">{@render bold(t("overlayPage.screen.hint"))}</p>
     </div>
     <button class="primary" onclick={() => ipc.enterEditMode()} disabled={editing}>
-      {editing ? "Edit-Modus läuft …" : "Edit-Modus starten"}
+      {editing ? t("overlayPage.screen.editing") : t("overlayPage.screen.startEdit")}
     </button>
   </div>
-  <p class="hint">Kürzel: <b>Strg+Alt+E</b> startet den Edit-Modus, <b>Strg+Alt+L</b> blendet das Overlay ein und aus.</p>
+  <p class="hint">{@render bold(t("overlayPage.screen.shortcuts"))}</p>
 </section>
 
 <section class="card grid">
-  <label class="label" for="layout">Layout</label>
+  <label class="label" for="layout">{t("overlayPage.layout")}</label>
   <div>
     <select
       id="layout"
@@ -96,13 +99,13 @@
       }}
     >
       {#each LAYOUTS as l (l.id)}
-        <option value={l.id}>{l.label}</option>
+        <option value={l.id}>{t(l.labelKey)}</option>
       {/each}
     </select>
-    <span class="value layout-hint">Strg+Alt+K wechselt auch im Spiel</span>
+    <span class="value layout-hint">{t("overlayPage.layout.hint")}</span>
   </div>
 
-  <label class="label" for="monitor">Monitor</label>
+  <label class="label" for="monitor">{t("overlayPage.monitor")}</label>
   <div>
     <select
       id="monitor"
@@ -113,19 +116,19 @@
         update({ overlay: { monitor_id: id || null } });
       }}
     >
-      <option value="">Hauptbildschirm (automatisch)</option>
+      <option value="">{t("overlayPage.monitor.auto")}</option>
       {#each monitors as m (m.id)}
         <option value={m.id}>{monitorLabel(m)}</option>
       {/each}
     </select>
   </div>
 
-  <span class="label">Anker</span>
+  <span class="label">{t("overlayPage.anchor")}</span>
   <div class="anchor">
     <AnchorPicker value={o.anchor} onpick={(a) => ipc.setOverlayAnchor(a)} />
   </div>
 
-  <label class="label" for="ox">Feinposition</label>
+  <label class="label" for="ox">{t("overlayPage.fine")}</label>
   <div class="pair">
     <span class="axis">X</span>
     <input
@@ -135,9 +138,9 @@
       max="50"
       step="0.1"
       value={o.offset_x_pct}
-      oninput={(e) => set("offset_x_pct", num(e))}
+      oninput={(e) => set("offset_x_pct", inputNum(e))}
     />
-    <input class="number" type="number" step="0.1" value={o.offset_x_pct} onchange={(e) => set("offset_x_pct", num(e))} />
+    <input class="number" type="number" step="0.1" value={o.offset_x_pct} onchange={(e) => set("offset_x_pct", inputNum(e))} />
     <span class="unit">%</span>
     <span class="axis">Y</span>
     <input
@@ -146,15 +149,15 @@
       max="50"
       step="0.1"
       value={o.offset_y_pct}
-      oninput={(e) => set("offset_y_pct", num(e))}
-      aria-label="Feinposition Y"
+      oninput={(e) => set("offset_y_pct", inputNum(e))}
+      aria-label={t("overlayPage.fine.y")}
     />
-    <input class="number" type="number" step="0.1" value={o.offset_y_pct} onchange={(e) => set("offset_y_pct", num(e))} aria-label="Feinposition Y in Prozent" />
+    <input class="number" type="number" step="0.1" value={o.offset_y_pct} onchange={(e) => set("offset_y_pct", inputNum(e))} aria-label={t("overlayPage.fine.yPct")} />
     <span class="unit">%</span>
   </div>
-  <p class="hint wide">Verschiebung vom Ankerpunkt in Prozent der Monitorbreite und -höhe. So bleibt die Position bei einem Auflösungswechsel erhalten.</p>
+  <p class="hint wide">{t("overlayPage.fine.hint")}</p>
 
-  <label class="label" for="width">Breite</label>
+  <label class="label" for="width">{t("overlayPage.width")}</label>
   <div class="slider">
     <input
       id="width"
@@ -163,19 +166,19 @@
       max={WIDTH_PCT_MAX}
       step="1"
       value={o.width_pct}
-      oninput={(e) => set("width_pct", num(e))}
+      oninput={(e) => set("width_pct", inputNum(e))}
     />
-    <span class="value">{Math.round(o.width_pct)} % der Monitorbreite</span>
+    <span class="value">{t("overlayPage.width.value", { pct: Math.round(o.width_pct) })}</span>
   </div>
 
-  <label class="label" for="scale">Skalierung</label>
+  <label class="label" for="scale">{t("overlayPage.scale")}</label>
   <div class="slider">
-    <input id="scale" type="range" min={SCALE_MIN} max={SCALE_MAX} step="0.05" value={o.scale} oninput={(e) => set("scale", num(e))} />
-    <span class="value">{o.scale.toFixed(2).replace(".", ",")}×</span>
+    <input id="scale" type="range" min={SCALE_MIN} max={SCALE_MAX} step="0.05" value={o.scale} oninput={(e) => set("scale", inputNum(e))} />
+    <span class="value">{num(o.scale, 2)}×</span>
   </div>
-  <p class="hint wide">1,00 ist die Grundgröße auf einem 1080p-Bildschirm. Größere Bildschirme skalieren im selben Verhältnis mit.</p>
+  <p class="hint wide">{t("overlayPage.scale.hint")}</p>
 
-  <label class="label" for="romaji">Japanische Zeilen</label>
+  <label class="label" for="romaji">{t("overlayPage.romaji")}</label>
   <div class="slider">
     <input
       id="romaji"
@@ -184,10 +187,10 @@
       checked={settings.appearance.romaji}
       onchange={(e) => update({ appearance: { romaji: (e.currentTarget as HTMLInputElement).checked } })}
     />
-    <span class="value">in Romaji (Hepburn) zeigen · Strg+Alt+R wechselt auch im Spiel</span>
+    <span class="value">{t("overlayPage.romaji.value")}</span>
   </div>
 
-  <label class="label" for="pause">Bei Pause ausblenden nach</label>
+  <label class="label" for="pause">{t("overlayPage.pause")}</label>
   <div class="slider">
     <input
       id="pause"
@@ -197,15 +200,15 @@
       max="3600"
       step="1"
       value={o.hide_after_pause_s}
-      onchange={(e) => set("hide_after_pause_s", Math.max(0, Math.round(num(e))))}
+      onchange={(e) => set("hide_after_pause_s", Math.max(0, Math.round(inputNum(e))))}
     />
-    <span class="value">Sekunden · 0 = nie ausblenden. Nach 2 s Pause wird das Overlay gedimmt.</span>
+    <span class="value">{t("overlayPage.pause.value")}</span>
   </div>
 </section>
 
 <section class="card actions">
-  <button onclick={() => ipc.toggleOverlay()}>Overlay ein/aus</button>
-  <button onclick={() => ipc.resetOverlayGeometry()}>Position und Größe zurücksetzen</button>
+  <button onclick={() => ipc.toggleOverlay()}>{t("overlayPage.toggle")}</button>
+  <button onclick={() => ipc.resetOverlayGeometry()}>{t("overlayPage.reset")}</button>
 </section>
 
 <style>

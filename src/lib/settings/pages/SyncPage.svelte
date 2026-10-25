@@ -3,6 +3,7 @@
   // (set by the nudge hotkeys, kept per song), offsets per audio device, the calibration
   // assistant (5.7) and the tap-based sync protocol (11.3), plus the lyrics of the current song.
   import { onMount, untrack } from "svelte";
+  import { t } from "$lib/shared/i18n.svelte";
   import { ipc, on, subscribe } from "$lib/shared/ipc";
   import {
     OFFSET_LIMIT_MS,
@@ -72,14 +73,7 @@
   let lyrics = $state<LyricsEvent | null>(null);
   let reloading = $state(false);
   const current = $derived(lyrics && now.track && lyrics.key === now.track.key ? lyrics : null);
-  const stateText: Record<LyricsEvent["state"], string> = {
-    loading: "wird gesucht …",
-    synced: "synchron",
-    unsynced: "nur ohne Zeitangaben",
-    instrumental: "Instrumental",
-    missing: "nicht gefunden",
-    error: "LRCLIB nicht erreichbar, neuer Versuch läuft",
-  };
+  const stateText = (state: LyricsEvent["state"]) => t(`sync.lyrics.state.${state}`);
   async function reload() {
     reloading = true;
     await ipc.reloadLyrics();
@@ -87,10 +81,15 @@
   }
 
   const describe = (ms: number) =>
-    ms === 0 ? "keine Verschiebung" : ms > 0 ? `Lyrics ${ms} ms später` : `Lyrics ${-ms} ms früher`;
+    ms === 0 ? t("sync.shift.none") : ms > 0 ? t("sync.shift.later", { ms }) : t("sync.shift.earlier", { ms: -ms });
   const signed = (ms: number) => (ms > 0 ? `+${ms}` : ms < 0 ? `−${-ms}` : "0");
   const stat = (s: TapStats) =>
-    `Median ${Math.round(s.median_abs_ms)} ms · p95 ${Math.round(s.p95_abs_ms)} ms · Tendenz ${signed(Math.round(s.bias_ms))} ms · ${s.count} Taps`;
+    t("sync.stats", {
+      median: Math.round(s.median_abs_ms),
+      p95: Math.round(s.p95_abs_ms),
+      bias: signed(Math.round(s.bias_ms)),
+      count: s.count,
+    });
 
   onMount(() => {
     ipc.getClock().then((c) => (offsets = c.offsets));
@@ -109,33 +108,30 @@
   });
 </script>
 
-<h1>Synchronisation</h1>
+<h1>{t("nav.sync")}</h1>
 
 <section class="card">
-  <h2>Offset dieses Songs</h2>
+  <h2>{t("sync.song.title")}</h2>
   {#if now.track}
     <p class="value">
       {now.track.title}: {describe(offsets?.song_ms ?? 0)}
-      <button class="inline" onclick={() => ipc.setSongOffset(0)} disabled={!offsets?.song_ms}>Auf 0</button>
+      <button class="inline" onclick={() => ipc.setSongOffset(0)} disabled={!offsets?.song_ms}>{t("sync.toZero")}</button>
     </p>
-    <p class="hint">
-      Strg+Alt+, (früher) und Strg+Alt+. (später) verschieben nur diesen Song um 100 ms, mit Umschalt um 25 ms.
-      LyricHub merkt sich den Wert für diesen Song; der nächste Song startet mit seinem eigenen.
-    </p>
+    <p class="hint">{t("sync.song.hint")}</p>
   {:else}
-    <p class="muted">Spotify spielt gerade nichts.</p>
+    <p class="muted">{t("sync.nothingPlaying")}</p>
   {/if}
 </section>
 
 <section class="card">
-  <h2>Audiogeräte</h2>
-  <p class="hint">Dauerhafte Verzögerung der Ausgabe, etwa bei Bluetooth. Neue Bluetooth-Geräte starten mit +150 ms.</p>
+  <h2>{t("sync.devices.title")}</h2>
+  <p class="hint">{t("sync.devices.hint")}</p>
   {#if devices.length}
     <table>
       <tbody>
         {#each devices as d (d.id)}
           <tr class:current={d.current}>
-            <td>{d.name}{d.current ? " · aktiv" : ""}{d.bluetooth ? " · Bluetooth" : ""}</td>
+            <td>{d.name}{d.current ? ` · ${t("sync.devices.active")}` : ""}{d.bluetooth ? " · Bluetooth" : ""}</td>
             <td class="num">
               <input
                 class="number"
@@ -143,7 +139,7 @@
                 step="10"
                 value={d.offset_ms}
                 onchange={(e) => setDevice(d.id, Number((e.currentTarget as HTMLInputElement).value))}
-                aria-label="Offset für {d.name} in ms"
+                aria-label={t("sync.devices.offset", { name: d.name })}
               />
               ms
             </td>
@@ -152,36 +148,32 @@
       </tbody>
     </table>
   {:else}
-    <p class="muted">Noch kein Ausgabegerät erkannt.</p>
+    <p class="muted">{t("sync.devices.none")}</p>
   {/if}
 </section>
 
 <section class="card">
-  <h2>Kalibrieren</h2>
-  <p class="hint">
-    Nutzt den laufenden Song. Drück fünfmal die Leertaste genau dann, wenn eine Zeile hörbar beginnt; der Balken im
-    Overlay zählt bis zur nächsten Zeile herunter, entscheidend ist aber der Ton. Der Median wird als Offset für das
-    aktive Audiogerät vorgeschlagen.
-  </p>
+  <h2>{t("sync.calibration.title")}</h2>
+  <p class="hint">{t("sync.calibration.hint")}</p>
   <div class="actions">
     {#if calibration?.active && calibration.mode === "calibrate"}
-      <span class="value">Läuft · {calibration.taps.length}/{calibration.needed} · Esc bricht ab</span>
-      <button onclick={() => ipc.stopCalibration()}>Abbrechen</button>
+      <span class="value">{t("sync.calibration.running", { n: calibration.taps.length, needed: calibration.needed })}</span>
+      <button onclick={() => ipc.stopCalibration()}>{t("common.cancel")}</button>
     {:else}
-      <button class="primary" onclick={() => startMeasure("calibrate")} disabled={!!calibration?.active}>Kalibrierung starten</button>
+      <button class="primary" onclick={() => startMeasure("calibrate")} disabled={!!calibration?.active}>{t("sync.calibration.start")}</button>
     {/if}
   </div>
   {#if calibration?.mode === "calibrate" && !calibration.active && calibration.taps.length}
     {#if calibration.suggestion_ms !== null}
       <p class="value">
-        Vorschlag: Geräte-Offset {signed(calibration.suggestion_ms)} ms (bisher {signed(calibration.device_offset_ms)} ms)
+        {t("sync.calibration.suggestion", { suggested: signed(calibration.suggestion_ms), current: signed(calibration.device_offset_ms) })}
         {#if calibration.total}<span class="muted"> · {stat(calibration.total)}</span>{/if}
       </p>
       <div class="actions">
-        <button class="primary" onclick={applySuggestion} disabled={calibration.suggestion_ms === calibration.device_offset_ms}>Übernehmen</button>
+        <button class="primary" onclick={applySuggestion} disabled={calibration.suggestion_ms === calibration.device_offset_ms}>{t("sync.calibration.apply")}</button>
       </div>
     {:else}
-      <p class="hint">Zu wenige brauchbare Taps (Abweichungen über 600 ms werden verworfen). Bitte noch einmal.</p>
+      <p class="hint">{t("sync.calibration.tooFew")}</p>
     {/if}
   {/if}
   {#if calibration?.message}<p class="hint">{calibration.message}</p>{/if}
@@ -189,22 +181,20 @@
 </section>
 
 <section class="card">
-  <h2>Sync-Protokoll</h2>
-  <p class="hint">
-    Für die Abnahme (PLAN.md 11.3): Drück über mehrere Songs bei jedem hörbaren Zeilenbeginn die Leertaste. LyricHub misst,
-    wie weit das Overlay daneben lag, und schreibt das Ergebnis in den Log-Ordner. Ziel: Median höchstens 100 ms, p95 höchstens
-    200 ms.
-  </p>
+  <h2>{t("sync.protocol.title")}</h2>
+  <p class="hint">{t("sync.protocol.hint")}</p>
   <div class="actions">
     {#if calibration?.active && calibration.mode === "protocol"}
-      <span class="value">Läuft · {calibration.taps.length} Taps{calibration.missed ? ` · ${calibration.missed} ohne Zeile` : ""}</span>
-      <button onclick={() => ipc.stopCalibration()}>Messung beenden</button>
+      <span class="value">
+        {t("sync.protocol.running", { n: calibration.taps.length })}{calibration.missed ? ` · ${t("sync.protocol.missed", { n: calibration.missed })}` : ""}
+      </span>
+      <button onclick={() => ipc.stopCalibration()}>{t("sync.protocol.stop")}</button>
     {:else}
-      <button onclick={() => startMeasure("protocol")} disabled={!!calibration?.active}>Messung starten</button>
+      <button onclick={() => startMeasure("protocol")} disabled={!!calibration?.active}>{t("sync.protocol.start")}</button>
     {/if}
   </div>
   {#if calibration?.mode === "protocol" && calibration.total}
-    <p class="value">Gesamt: {stat(calibration.total)} · {Math.round(calibration.total.within_100 * 100)} % innerhalb ±100 ms</p>
+    <p class="value">{t("sync.protocol.total", { stats: stat(calibration.total), pct: Math.round(calibration.total.within_100 * 100) })}</p>
     <ul class="songs">
       {#each calibration.per_song as s (s.key)}
         <li>{s.title}: {stat(s.stats)}</li>
@@ -215,10 +205,10 @@
 </section>
 
 <section class="card">
-  <h2>Globaler Offset</h2>
-  <p class="hint">Gilt für alle Songs und Geräte. Lyrics kommen zu früh? Regler nach rechts. Zu spät? Nach links.</p>
+  <h2>{t("sync.global.title")}</h2>
+  <p class="hint">{t("sync.global.hint")}</p>
   <div class="offset">
-    <span class="end">früher</span>
+    <span class="end">{t("sync.global.earlier")}</span>
     <input
       type="range"
       min={-SLIDER_LIMIT}
@@ -226,9 +216,9 @@
       step="10"
       value={Math.max(-SLIDER_LIMIT, Math.min(SLIDER_LIMIT, offset))}
       oninput={(e) => setOffset(Number((e.currentTarget as HTMLInputElement).value))}
-      aria-label="Globaler Offset"
+      aria-label={t("sync.global.title")}
     />
-    <span class="end">später</span>
+    <span class="end">{t("sync.global.later")}</span>
     <input
       class="number"
       type="number"
@@ -237,43 +227,44 @@
       max={OFFSET_LIMIT_MS}
       value={offset}
       onchange={(e) => setOffset(Number((e.currentTarget as HTMLInputElement).value))}
-      aria-label="Globaler Offset in Millisekunden"
+      aria-label={t("sync.global.ms")}
     />
     <span class="unit">ms</span>
-    <button onclick={() => setOffset(0)} disabled={offset === 0}>Auf 0</button>
+    <button onclick={() => setOffset(0)} disabled={offset === 0}>{t("sync.toZero")}</button>
   </div>
   <p class="value">{describe(offset)}</p>
   {#if offsets}
     <p class="hint">
-      Zusammen gerade: global {signed(offsets.global_ms)} + Gerät {signed(offsets.device_ms)} + Song {signed(offsets.song_ms)}
-      = {signed(offsets.global_ms + offsets.device_ms + offsets.song_ms)} ms
+      {t("sync.global.sum", {
+        global: signed(offsets.global_ms),
+        device: signed(offsets.device_ms),
+        song: signed(offsets.song_ms),
+        total: signed(offsets.global_ms + offsets.device_ms + offsets.song_ms),
+      })}
     </p>
   {/if}
 </section>
 
 <section class="card">
-  <h2>Lyrics des aktuellen Songs</h2>
+  <h2>{t("sync.lyrics.title")}</h2>
   {#if now.track}
     <dl class="kv">
-      <dt>Lyrics</dt>
-      <dd>{current ? stateText[current.state] : now.track.kind === "podcast" ? "Podcast, keine Suche" : "–"}</dd>
+      <dt>{t("sync.lyrics.state")}</dt>
+      <dd>{current ? stateText(current.state) : now.track.kind === "podcast" ? t("sync.lyrics.podcast") : "–"}</dd>
       {#if current?.state === "synced"}
-        <dt>Zeilen</dt>
+        <dt>{t("sync.lyrics.lines")}</dt>
         <dd>{current.lines.filter((l) => l.text).length}</dd>
-        <dt>Quelle</dt>
-        <dd>{current.source === "cache:lrclib" ? "LRCLIB (aus dem Cache)" : "LRCLIB"}</dd>
+        <dt>{t("sync.lyrics.source")}</dt>
+        <dd>{current.source === "cache:lrclib" ? t("sync.lyrics.cached") : "LRCLIB"}</dd>
       {/if}
     </dl>
     <div class="actions">
-      <button onclick={reload} disabled={reloading}>{reloading ? "Wird neu geladen …" : "Lyrics neu laden"}</button>
+      <button onclick={reload} disabled={reloading}>{reloading ? t("sync.lyrics.reloading") : t("sync.lyrics.reload")}</button>
     </div>
   {:else}
-    <p class="muted">Spotify spielt gerade nichts.</p>
+    <p class="muted">{t("sync.nothingPlaying")}</p>
   {/if}
-  <p class="hint">
-    Überblendung (Crossfade) und Automix in Spotify verwischen die Songgrenzen. Für die genaueste Synchronisation in Spotify
-    unter Einstellungen → Wiedergabe ausschalten.
-  </p>
+  <p class="hint">{t("sync.lyrics.crossfade")}</p>
 </section>
 
 <style>

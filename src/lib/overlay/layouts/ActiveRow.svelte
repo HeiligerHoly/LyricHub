@@ -4,6 +4,7 @@
   // 1.5 s), a hint (4 s) or a note for an instrumental part. Fixed height, so the window keeps
   // its size. Line change (PLAN.md 9.4): 220 ms, the new line fades in from 0.55 and rises a
   // little; the fill itself never eases.
+  import { t } from "$lib/shared/i18n.svelte";
   import type { Line } from "$lib/shared/types";
   import type { LocalClock } from "../clock";
   import KaraokeLine from "../KaraokeLine.svelte";
@@ -41,9 +42,9 @@
       {:else if hint}
         <p class="hint">{hint}</p>
       {:else if status === "loading"}
-        <p class="dots" aria-label="Lyrics werden geladen"><span></span><span></span><span></span></p>
+        <p class="dots" aria-label={t("overlay.loading")}><span></span><span></span><span></span></p>
       {:else if status === "instrumental"}
-        <p class="hint" aria-label="Instrumental">♪</p>
+        <p class="hint" aria-label={t("overlay.instrumental")}>♪</p>
       {/if}
     </div>
   {/key}

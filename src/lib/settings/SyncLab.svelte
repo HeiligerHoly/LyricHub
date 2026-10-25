@@ -4,6 +4,7 @@
   // values, a table view and the diagnostics export. Polls four times a second while the
   // page is visible; nothing runs when the settings window is closed.
   import { onMount } from "svelte";
+  import { t } from "$lib/shared/i18n.svelte";
   import { formatMs, ipc } from "$lib/shared/ipc";
   import type { LabEntry, SyncLab } from "$lib/shared/types";
 
@@ -14,12 +15,13 @@
   const WINDOW_S = 60;
 
   // Categorical slots 1–5 of the dataviz reference palette, dark steps (validated on #1a1a19).
+  // Labels are keys; t() runs in the template and in `marks`, so they follow the language.
   const CATEGORIES = [
-    { id: "none", label: "Bericht, keine Korrektur", color: "#3987e5", shape: "circle" },
-    { id: "slew", label: "Slew (weich angeglichen)", color: "#d95926", shape: "circle" },
-    { id: "jump", label: "Sprung", color: "#199e70", shape: "square" },
-    { id: "seek", label: "Seek / übernommen", color: "#c98500", shape: "triangle" },
-    { id: "tap", label: "Tap (Fehler des Overlays)", color: "#d55181", shape: "diamond" },
+    { id: "none", labelKey: "lab.cat.none", color: "#3987e5", shape: "circle" },
+    { id: "slew", labelKey: "lab.cat.slew", color: "#d95926", shape: "circle" },
+    { id: "jump", labelKey: "lab.cat.jump", color: "#199e70", shape: "square" },
+    { id: "seek", labelKey: "lab.cat.seek", color: "#c98500", shape: "triangle" },
+    { id: "tap", labelKey: "lab.cat.tap", color: "#d55181", shape: "diamond" },
   ] as const;
   type CategoryId = (typeof CATEGORIES)[number]["id"];
 
@@ -53,8 +55,13 @@
         const cat = CATEGORIES.find((k) => k.id === c)!;
         const tip =
           e.kind === "tap"
-            ? `Tap: Overlay ${value > 0 ? "zu früh" : value < 0 ? "zu spät" : "genau"} um ${Math.abs(Math.round(value))} ms`
-            : `Bericht ${formatMs(e.value_ms)} · Residuum ${e.residual_ms === null ? "–" : `${Math.round(e.residual_ms)} ms`} · Alter ${Math.round(e.age_ms ?? 0)} ms · ${cat.label}`;
+            ? t(value > 0 ? "lab.tip.tapEarly" : value < 0 ? "lab.tip.tapLate" : "lab.tip.tapExact", { ms: Math.abs(Math.round(value)) })
+            : t("lab.tip.report", {
+                value: formatMs(e.value_ms),
+                residual: e.residual_ms === null ? "–" : `${Math.round(e.residual_ms)} ms`,
+                age: Math.round(e.age_ms ?? 0),
+                category: t(cat.labelKey),
+              });
         return { cx: x(e.t_ms, now), cy: y(value), cat, tip, off: Math.abs(value) > RANGE_MS };
       });
   });
@@ -64,7 +71,7 @@
     const now = lab.now_ms;
     return lab.entries
       .filter((e) => e.kind === "track" || e.kind === "status")
-      .map((e) => ({ x: x(e.t_ms, now), label: e.kind === "track" ? "Song" : "Status" }));
+      .map((e) => ({ x: x(e.t_ms, now), label: t(e.kind === "track" ? "lab.marker.track" : "lab.marker.status") }));
   });
 
   const lastObs = $derived(lab ? [...lab.entries].reverse().find((e) => e.kind === "obs") : undefined);
@@ -87,24 +94,21 @@
 
 <section class="card">
   <h2>Sync Lab</h2>
-  <p class="hint">
-    Jeder Punkt ist ein Positionsbericht von Spotify, gezeichnet als Abweichung von der Vorhersage des Modells. Liegen die
-    Punkte auf der Nulllinie, sagt das Modell die Position richtig voraus. Werte über ±300 ms sitzen am Rand.
-  </p>
+  <p class="hint">{t("lab.intro")}</p>
 
   <ul class="legend">
     {#each CATEGORIES as c (c.id)}
-      <li><span class="swatch {c.shape}" style="--c: {c.color}"></span>{c.label}</li>
+      <li><span class="swatch {c.shape}" style="--c: {c.color}"></span>{t(c.labelKey)}</li>
     {/each}
   </ul>
 
-  <svg viewBox="0 0 {W} {H}" role="img" aria-label="Abweichung der Positionsberichte in den letzten 60 Sekunden">
+  <svg viewBox="0 0 {W} {H}" role="img" aria-label={t("lab.chart")}>
     {#each [-200, -100, 0, 100, 200] as g (g)}
       <line class="grid" class:zero={g === 0} x1={PAD.l} x2={W - PAD.r} y1={y(g)} y2={y(g)} />
       <text class="axis" x={PAD.l - 6} y={y(g) + 4} text-anchor="end">{g === 0 ? "0" : signed(g)}</text>
     {/each}
     {#each [60, 45, 30, 15, 0] as s (s)}
-      <text class="axis" x={PAD.l + (1 - s / WINDOW_S) * (W - PAD.l - PAD.r)} y={H - 6} text-anchor="middle">{s === 0 ? "jetzt" : `−${s} s`}</text>
+      <text class="axis" x={PAD.l + (1 - s / WINDOW_S) * (W - PAD.l - PAD.r)} y={H - 6} text-anchor="middle">{s === 0 ? t("lab.axis.now") : `−${s} s`}</text>
     {/each}
     {#each markers as m, i (i)}
       <line class="marker" x1={m.x} x2={m.x} y1={PAD.t} y2={H - PAD.b}><title>{m.label}</title></line>
@@ -128,39 +132,56 @@
 
   {#if lab}
     <dl class="kv">
-      <dt>Position (Modell)</dt>
+      <dt>{t("lab.position")}</dt>
       <dd>
-        {formatMs(lab.clock.pos_ms)} · {lab.clock.playing ? "läuft" : "steht"} · Tempo {lab.clock.rate.toFixed(3)}{lab.clock.slew_ms > 0
-          ? ` · gleicht noch ${Math.round(lab.clock.slew_ms)} ms an`
+        {formatMs(lab.clock.pos_ms)} · {t(lab.clock.playing ? "lab.position.running" : "lab.position.stopped")} ·
+        {t("lab.position.rate", { rate: lab.clock.rate.toFixed(3) })}{lab.clock.slew_ms > 0
+          ? ` · ${t("lab.position.slew", { ms: Math.round(lab.clock.slew_ms) })}`
           : ""}
       </dd>
-      <dt>Offsets</dt>
+      <dt>{t("lab.offsets")}</dt>
       <dd>
-        global {signed(lab.clock.offsets.global_ms)} · Gerät {signed(lab.clock.offsets.device_ms)} · Song {signed(lab.clock.offsets.song_ms)}
-        = {signed(lab.clock.offset_ms)} ms
+        {t("lab.offsets.value", {
+          global: signed(lab.clock.offsets.global_ms),
+          device: signed(lab.clock.offsets.device_ms),
+          song: signed(lab.clock.offsets.song_ms),
+          total: signed(lab.clock.offset_ms),
+        })}
       </dd>
-      <dt>Berichte von Spotify</dt>
+      <dt>{t("lab.reports")}</dt>
       <dd>
-        alle {lab.cadence_ms ? `${(lab.cadence_ms / 1000).toFixed(1)} s` : "–"} · letztes Alter beim Eintreffen
-        {lastObs?.age_ms != null ? `${Math.round(lastObs.age_ms)} ms` : "–"} · letzte Entscheidung {lastObs?.update || "–"}
+        {t("lab.reports.value", {
+          cadence: lab.cadence_ms ? `${(lab.cadence_ms / 1000).toFixed(1)} s` : "–",
+          age: lastObs?.age_ms != null ? `${Math.round(lastObs.age_ms)} ms` : "–",
+          decision: lastObs?.update || "–",
+        })}
       </dd>
-      <dt>Quellen</dt>
-      <dd>SMTC{lab.deviating.length ? ` · abweichend: ${lab.deviating.join(", ")}` : ""}</dd>
-      <dt>Anker-Nummer</dt>
+      <dt>{t("lab.sources")}</dt>
+      <dd>SMTC{lab.deviating.length ? ` · ${t("lab.sources.deviating", { list: lab.deviating.join(", ") })}` : ""}</dd>
+      <dt>{t("lab.anchorSeq")}</dt>
       <dd>{lab.clock.seq}</dd>
     </dl>
   {/if}
 
   <div class="actions">
-    <button onclick={() => (showTable = !showTable)}>{showTable ? "Tabelle ausblenden" : "Als Tabelle"}</button>
-    <button onclick={() => ipc.openLogsFolder()}>Logs öffnen</button>
-    <button class="primary" onclick={exportNow}>Diagnose exportieren</button>
+    <button onclick={() => (showTable = !showTable)}>{showTable ? t("lab.table.hide") : t("lab.table.show")}</button>
+    <button onclick={() => ipc.openLogsFolder()}>{t("common.openLogs")}</button>
+    <button class="primary" onclick={exportNow}>{t("lab.export")}</button>
   </div>
   {#if exportPath}<p class="hint mono">{exportPath}</p>{/if}
 
   {#if showTable && lab}
     <table>
-      <thead><tr><th>vor</th><th>Art</th><th>Wert</th><th>Residuum</th><th>Alter</th><th>Entscheidung</th></tr></thead>
+      <thead>
+        <tr>
+          <th>{t("lab.col.ago")}</th>
+          <th>{t("lab.col.kind")}</th>
+          <th>{t("lab.col.value")}</th>
+          <th>{t("lab.col.residual")}</th>
+          <th>{t("lab.col.age")}</th>
+          <th>{t("lab.col.decision")}</th>
+        </tr>
+      </thead>
       <tbody>
         {#each recent as e, i (i)}
           <tr>

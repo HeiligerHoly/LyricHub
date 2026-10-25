@@ -1,6 +1,7 @@
 // Mirrors of the Rust types (PLAN.md 4.3, 4.4), maintained by hand.
 // Sources: src-tauri/src/sources/types.rs, settings/schema.rs, overlay/mod.rs,
 // overlay/window.rs, overlay/selftest.rs, app_state.rs, ipc/commands.rs.
+import type { Key } from "./locales/de";
 
 export type PlaybackStatus = "closed" | "opened" | "changing" | "stopped" | "playing" | "paused";
 
@@ -37,11 +38,12 @@ export const ANCHORS: Anchor[][] = [
 ];
 
 export type Layout = "karaoke" | "bar" | "stack" | "minimal";
-export const LAYOUTS: { id: Layout; label: string }[] = [
-  { id: "karaoke", label: "Karaoke" },
-  { id: "bar", label: "Leiste" },
-  { id: "stack", label: "Stapel" },
-  { id: "minimal", label: "Minimal" },
+/** `labelKey` is shown through `t()` (i18n.svelte.ts). */
+export const LAYOUTS: { id: Layout; labelKey: Key }[] = [
+  { id: "karaoke", labelKey: "layout.karaoke" },
+  { id: "bar", labelKey: "layout.bar" },
+  { id: "stack", labelKey: "layout.stack" },
+  { id: "minimal", labelKey: "layout.minimal" },
 ];
 
 export interface OverlaySettings {
@@ -55,9 +57,13 @@ export interface OverlaySettings {
   hide_after_pause_s: number;
 }
 
+/** Interface language; "system" follows the Windows display language. */
+export type Language = "system" | "de" | "en";
+
 export interface BehaviorSettings {
   autostart: boolean;
   start_minimized: boolean;
+  language: Language;
 }
 
 export type Theme = "glass_dark" | "glass_light" | "neon" | "mono" | "custom";

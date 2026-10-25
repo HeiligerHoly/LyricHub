@@ -1,9 +1,10 @@
 <script lang="ts">
-  // Settings → Verhalten (PLAN.md 9.7): autostart, start minimised, logs. The language choice
-  // follows with i18n in Phase 4, an update check only with a release.
+  // Settings → Verhalten (PLAN.md 9.7): autostart, start minimised, interface language, logs.
+  // An update check follows only with a release.
   import { onMount } from "svelte";
+  import { t } from "$lib/shared/i18n.svelte";
   import { ipc } from "$lib/shared/ipc";
-  import type { AppInfo, Settings, SettingsPatch } from "$lib/shared/types";
+  import type { AppInfo, Language, Settings, SettingsPatch } from "$lib/shared/types";
 
   let { settings, update }: { settings: Settings; update: (patch: SettingsPatch) => Promise<void> } = $props();
 
@@ -15,9 +16,12 @@
     await update({ behavior: { autostart: enabled } });
     refreshInfo();
   }
+
+  // The variable name stays out of the locales; the text around it is translated.
+  const [debugBefore, debugAfter] = $derived(t("behavior.files.debug").split("{var}"));
 </script>
 
-<h1>Verhalten</h1>
+<h1>{t("nav.behavior")}</h1>
 
 <section class="card">
   <label class="toggle">
@@ -27,10 +31,10 @@
       onchange={(e) => setAutostart((e.currentTarget as HTMLInputElement).checked)}
     />
     <span>
-      <b>Mit Windows starten</b>
-      <span class="hint">LyricHub startet still im Tray und öffnet kein Fenster.</span>
+      <b>{t("behavior.autostart")}</b>
+      <span class="hint">{t("behavior.autostart.hint")}</span>
       {#if info && info.autostart_registered !== null && info.autostart_registered !== settings.behavior.autostart}
-        <span class="warn">Der Windows-Eintrag weicht ab und wird beim nächsten Start korrigiert.</span>
+        <span class="warn">{t("behavior.autostart.mismatch")}</span>
       {/if}
     </span>
   </label>
@@ -41,31 +45,42 @@
       onchange={(e) => update({ behavior: { start_minimized: (e.currentTarget as HTMLInputElement).checked } })}
     />
     <span>
-      <b>Auch beim manuellen Start nur im Tray starten</b>
-      <span class="hint">Sonst öffnet sich dieses Fenster, wenn LyricHub von Hand gestartet wird.</span>
+      <b>{t("behavior.minimized")}</b>
+      <span class="hint">{t("behavior.minimized.hint")}</span>
     </span>
   </label>
 </section>
 
-<section class="card">
-  <h2>Sprache</h2>
-  <p class="hint">Deutsch. Englisch folgt mit der Übersetzung der Oberfläche.</p>
+<section class="card grid">
+  <label class="label" for="language">{t("behavior.language")}</label>
+  <div>
+    <select
+      id="language"
+      value={settings.behavior.language}
+      onchange={(e) => update({ behavior: { language: (e.currentTarget as HTMLSelectElement).value as Language } })}
+    >
+      <option value="system">{t("behavior.language.system")}</option>
+      <!-- Language names stay in their own language, so each is found in either interface. -->
+      <option value="de">Deutsch</option>
+      <option value="en">English</option>
+    </select>
+  </div>
 </section>
 
 <section class="card">
-  <h2>Dateien</h2>
+  <h2>{t("behavior.files")}</h2>
   <dl class="kv">
-    <dt>Einstellungen</dt>
+    <dt>{t("behavior.files.settings")}</dt>
     <dd class="mono">{info?.settings_path ?? "…"}</dd>
-    <dt>Logs</dt>
+    <dt>{t("behavior.files.logs")}</dt>
     <dd class="mono">{info?.log_dir ?? "…"}</dd>
-    <dt>Version</dt>
+    <dt>{t("behavior.files.version")}</dt>
     <dd>{info?.version ?? "…"}</dd>
   </dl>
   <div class="actions">
-    <button onclick={() => ipc.openLogsFolder()}>Logs öffnen</button>
+    <button onclick={() => ipc.openLogsFolder()}>{t("common.openLogs")}</button>
   </div>
-  <p class="hint">Mehr Details im Log mit der Umgebungsvariable <span class="mono">LYRICHUB_LOG=debug</span>.</p>
+  <p class="hint">{debugBefore}<span class="mono">LYRICHUB_LOG=debug</span>{debugAfter}</p>
 </section>
 
 <style>
@@ -125,5 +140,23 @@
   .actions {
     display: flex;
     gap: 8px;
+  }
+  /* Label column and select as on the pages Overlay and Darstellung. */
+  .grid {
+    grid-template-columns: 190px 1fr;
+    gap: 14px 16px;
+    align-items: center;
+  }
+  .label {
+    color: var(--muted);
+  }
+  select {
+    min-width: 320px;
+    background: #12151b;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 6px 8px;
+    font: inherit;
   }
 </style>

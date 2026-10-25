@@ -4,6 +4,7 @@
   // shows sample lines in the current look (live preview); every change applies at once.
   // Sliders and colour pickers send at most one patch per 60 ms.
   import { onMount, untrack } from "svelte";
+  import { t, type Key } from "$lib/shared/i18n.svelte";
   import { ipc } from "$lib/shared/ipc";
   import { RADIUS_MAX_PX, type AppearanceSettings, type FontList, type Settings, type SettingsPatch, type Theme } from "$lib/shared/types";
 
@@ -16,12 +17,13 @@
   const PATCH_DELAY_MS = 60;
   const ECHO_GUARD_MS = 400;
 
-  const THEMES: { id: Theme; label: string; note: string; plate: string; text: string; base: string; accent: string; outline?: boolean }[] = [
-    { id: "glass_dark", label: "Glass Dark", note: "Standard, dunkle Platte", plate: "rgba(12,12,16,.75)", text: "#fff", base: "rgba(255,255,255,.55)", accent: "#ffd36e" },
-    { id: "glass_light", label: "Glass Light", note: "helle Platte, dunkle Schrift", plate: "rgba(255,255,255,.8)", text: "#111", base: "rgba(17,17,17,.5)", accent: "#9a6700" },
-    { id: "neon", label: "Neon", note: "ohne Platte, Kontur und Leuchten", plate: "transparent", text: "#fff", base: "rgba(255,255,255,.72)", accent: "#ffd36e", outline: true },
-    { id: "mono", label: "Mono", note: "Schwarz/Weiß, hoher Kontrast", plate: "rgba(0,0,0,.9)", text: "#fff", base: "rgba(255,255,255,.55)", accent: "#fff" },
-    { id: "custom", label: "Eigenes", note: "Farben, Kontur und Radius frei", plate: "rgba(12,12,16,.75)", text: "#fff", base: "rgba(255,255,255,.55)", accent: "#ffd36e" },
+  // Keys, not texts: the template calls t(), so the cards follow a language change.
+  const THEMES: { id: Theme; labelKey: Key; noteKey: Key; plate: string; text: string; base: string; accent: string; outline?: boolean }[] = [
+    { id: "glass_dark", labelKey: "appearance.theme.glassDark", noteKey: "appearance.theme.glassDark.note", plate: "rgba(12,12,16,.75)", text: "#fff", base: "rgba(255,255,255,.55)", accent: "#ffd36e" },
+    { id: "glass_light", labelKey: "appearance.theme.glassLight", noteKey: "appearance.theme.glassLight.note", plate: "rgba(255,255,255,.8)", text: "#111", base: "rgba(17,17,17,.5)", accent: "#9a6700" },
+    { id: "neon", labelKey: "appearance.theme.neon", noteKey: "appearance.theme.neon.note", plate: "transparent", text: "#fff", base: "rgba(255,255,255,.72)", accent: "#ffd36e", outline: true },
+    { id: "mono", labelKey: "appearance.theme.mono", noteKey: "appearance.theme.mono.note", plate: "rgba(0,0,0,.9)", text: "#fff", base: "rgba(255,255,255,.55)", accent: "#fff" },
+    { id: "custom", labelKey: "appearance.theme.custom", noteKey: "appearance.theme.custom.note", plate: "rgba(12,12,16,.75)", text: "#fff", base: "rgba(255,255,255,.55)", accent: "#ffd36e" },
   ];
 
   let fonts = $state<FontList | null>(null);
@@ -69,49 +71,49 @@
   });
 </script>
 
-<h1>Darstellung</h1>
+<h1>{t("nav.appearance")}</h1>
 
 <section class="card">
-  <h2>Theme</h2>
-  <p class="hint">Solange diese Seite offen ist, zeigt das Overlay eine Beispielzeile im gewählten Look.</p>
-  <div class="themes" role="radiogroup" aria-label="Theme">
-    {#each THEMES as t (t.id)}
+  <h2>{t("appearance.theme")}</h2>
+  <p class="hint">{t("appearance.theme.hint")}</p>
+  <div class="themes" role="radiogroup" aria-label={t("appearance.theme")}>
+    {#each THEMES as th (th.id)}
       <button
         class="theme"
-        class:active={a.theme === t.id}
+        class:active={a.theme === th.id}
         role="radio"
-        aria-checked={a.theme === t.id}
+        aria-checked={a.theme === th.id}
         onclick={() => {
-          a.theme = t.id;
-          send({ theme: t.id }, true);
+          a.theme = th.id;
+          send({ theme: th.id }, true);
         }}
       >
-        <span class="swatch" class:outline={t.outline} style="--p: {t.plate}; --t: {t.text}; --b: {t.base}; --a: {t.accent}">
+        <span class="swatch" class:outline={th.outline} style="--p: {th.plate}; --t: {th.text}; --b: {th.base}; --a: {th.accent}">
           <span class="lit">Kara</span><span class="rest">oke</span>
         </span>
-        <span class="name">{t.label}</span>
-        <span class="note">{t.note}</span>
+        <span class="name">{t(th.labelKey)}</span>
+        <span class="note">{t(th.noteKey)}</span>
       </button>
     {/each}
   </div>
 </section>
 
 <section class="card grid">
-  <span class="label">Akzentfarbe</span>
+  <span class="label">{t("appearance.accent")}</span>
   <div class="row">
     <label class="radio">
       <input type="radio" name="accent" checked={a.accent === "cover"} onchange={() => ((a.accent = "cover"), send({ accent: "cover" }, true))} />
-      aus dem Cover
+      {t("appearance.accent.cover")}
     </label>
     <label class="radio">
       <input type="radio" name="accent" checked={a.accent === "fixed"} onchange={() => ((a.accent = "fixed"), send({ accent: "fixed" }, true))} />
-      fest
+      {t("appearance.accent.fixed")}
     </label>
     <input
       class="color"
       type="color"
       value={a.accent_color}
-      aria-label="Feste Akzentfarbe"
+      aria-label={t("appearance.accent.fixedColor")}
       oninput={(e) => {
         a.accent_color = val(e);
         send({ accent_color: val(e) });
@@ -119,11 +121,11 @@
     />
   </div>
   <p class="hint wide">
-    Aus dem Cover nimmt LyricHub die kräftigste Farbe des Albumcovers und hellt sie so weit auf, dass sie sich gut von der Platte abhebt.
-    {#if a.theme === "mono"}Im Theme Mono bleibt die Füllung weiß.{/if}
+    {t("appearance.accent.hint")}
+    {#if a.theme === "mono"}{t("appearance.accent.monoNote")}{/if}
   </p>
 
-  <label class="label" for="opacity">Deckkraft der Platte</label>
+  <label class="label" for="opacity">{t("appearance.opacity")}</label>
   <div class="row">
     <input
       id="opacity"
@@ -138,10 +140,10 @@
         send({ plate_opacity: a.plate_opacity });
       }}
     />
-    <span class="value">{hasPlate ? `${Math.round(a.plate_opacity * 100)} % · höher liest sich über hellen Spielszenen besser` : "dieses Theme hat keine Platte"}</span>
+    <span class="value">{hasPlate ? t("appearance.opacity.value", { pct: Math.round(a.plate_opacity * 100) }) : t("appearance.opacity.none")}</span>
   </div>
 
-  <label class="label" for="font">Schrift</label>
+  <label class="label" for="font">{t("appearance.font")}</label>
   <div class="row">
     <select
       id="font"
@@ -151,51 +153,48 @@
         send({ font: a.font }, true);
       }}
     >
-      <option value="">Inter (mitgeliefert)</option>
-      {#if a.font && fonts && !fonts.families.includes(a.font)}<option value={a.font}>{a.font} (nicht installiert)</option>{/if}
+      <option value="">{t("appearance.font.bundled")}</option>
+      {#if a.font && fonts && !fonts.families.includes(a.font)}<option value={a.font}>{t("appearance.font.missing", { font: a.font })}</option>{/if}
       {#each fonts?.families ?? [] as f (f)}
         <option value={f}>{f}</option>
       {/each}
     </select>
   </div>
   {#if fonts && !fonts.japanese_ui_font}
-    <p class="hint wide warn">
-      Für japanische Zeilen fehlt eine passende Schrift (Yu Gothic UI oder Meiryo UI). Windows-Einstellungen → System → Optionale Features →
-      „Japanische ergänzende Schriftarten“ hinzufügen.
-    </p>
+    <p class="hint wide warn">{t("appearance.font.noJapanese")}</p>
   {/if}
 
-  <label class="label" for="motion">Bewegung reduzieren</label>
+  <label class="label" for="motion">{t("appearance.motion")}</label>
   <div class="row">
     <input id="motion" class="check" type="checkbox" checked={a.reduced_motion} onchange={(e) => ((a.reduced_motion = checked(e)), send({ reduced_motion: checked(e) }, true))} />
-    <span class="value">Übergänge höchstens 80 ms, kein Leuchten einzelner Wörter. Gilt auch, wenn Windows Animationen ausschaltet.</span>
+    <span class="value">{t("appearance.motion.value")}</span>
   </div>
 </section>
 
 {#if a.theme === "custom"}
   <section class="card grid">
-    <h2 class="wide-title">Eigenes Theme</h2>
+    <h2 class="wide-title">{t("appearance.custom.title")}</h2>
 
-    <label class="label" for="plate">Platte</label>
+    <label class="label" for="plate">{t("appearance.custom.plate")}</label>
     <div class="row">
       <input id="plate" class="check" type="checkbox" checked={a.custom.plate} onchange={(e) => setCustom("plate", checked(e), true)} />
-      <input class="color" type="color" value={a.custom.plate_color} disabled={!a.custom.plate} aria-label="Farbe der Platte" oninput={(e) => setCustom("plate_color", val(e))} />
-      <span class="value">Farbe; die Deckkraft steht oben</span>
+      <input class="color" type="color" value={a.custom.plate_color} disabled={!a.custom.plate} aria-label={t("appearance.custom.plateColor")} oninput={(e) => setCustom("plate_color", val(e))} />
+      <span class="value">{t("appearance.custom.plate.value")}</span>
     </div>
 
-    <label class="label" for="text">Textfarbe</label>
+    <label class="label" for="text">{t("appearance.custom.text")}</label>
     <div class="row">
       <input id="text" class="color" type="color" value={a.custom.text_color} oninput={(e) => setCustom("text_color", val(e))} />
-      <span class="value">Die Füllung nutzt die Akzentfarbe.</span>
+      <span class="value">{t("appearance.custom.text.value")}</span>
     </div>
 
-    <label class="label" for="outline">Kontur</label>
+    <label class="label" for="outline">{t("appearance.custom.outline")}</label>
     <div class="row">
       <input id="outline" class="check" type="checkbox" checked={a.custom.outline} onchange={(e) => setCustom("outline", checked(e), true)} />
-      <span class="value">dunkler Rand und Schatten um die Schrift, gut ohne Platte</span>
+      <span class="value">{t("appearance.custom.outline.value")}</span>
     </div>
 
-    <label class="label" for="radius">Eckenradius</label>
+    <label class="label" for="radius">{t("appearance.custom.radius")}</label>
     <div class="row">
       <input id="radius" type="range" min="0" max={RADIUS_MAX_PX} step="1" value={a.custom.radius_px} oninput={(e) => setCustom("radius_px", Number(val(e)))} />
       <span class="value">{a.custom.radius_px} px</span>

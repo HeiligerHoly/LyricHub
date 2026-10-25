@@ -1,38 +1,29 @@
 <script lang="ts">
   // 3×3 picker for the nine anchor points (PLAN.md 6.4).
+  import { t } from "$lib/shared/i18n.svelte";
   import { ANCHORS, type Anchor } from "$lib/shared/types";
 
   let { value, onpick }: { value: Anchor; onpick: (a: Anchor) => void } = $props();
 
-  const names: Record<Anchor, string> = {
-    tl: "oben links",
-    tc: "oben mittig",
-    tr: "oben rechts",
-    ml: "Mitte links",
-    mc: "Bildschirmmitte",
-    mr: "Mitte rechts",
-    bl: "unten links",
-    bc: "unten mittig",
-    br: "unten rechts",
-  };
+  const name = (a: Anchor) => t(`anchor.${a}`);
 </script>
 
-<div class="grid" role="radiogroup" aria-label="Ankerpunkt">
+<div class="grid" role="radiogroup" aria-label={t("anchor.group")}>
   {#each ANCHORS.flat() as a (a)}
     <button
       class="cell"
       class:active={value === a}
       role="radio"
       aria-checked={value === a}
-      title={names[a]}
-      aria-label={names[a]}
+      title={name(a)}
+      aria-label={name(a)}
       onclick={() => onpick(a)}
     >
       <span class="dot"></span>
     </button>
   {/each}
 </div>
-<span class="name">{names[value]}</span>
+<span class="name">{name(value)}</span>
 
 <style>
   .grid {

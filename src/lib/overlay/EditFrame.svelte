@@ -2,10 +2,11 @@
   // Edit-mode chrome (PLAN.md 9.6): dashed frame with drag area, corner handles (scale) and
   // side handles (width), nine snap markers on the monitor and a toolbar. The overlay window
   // covers the whole monitor while this is shown, so clientX/Y are monitor coordinates.
+  import { num, t } from "$lib/shared/i18n.svelte";
   import type { EditLayout } from "$lib/shared/types";
   import { MIN_WIDTH_CSS, SCALE_MAX, SCALE_MIN } from "$lib/shared/types";
   import {
-    anchorLabel,
+    anchorAt,
     clampBox,
     moveWithSnap,
     resizeWidth,
@@ -45,6 +46,7 @@
   const toolbarTop = $derived(box.y + box.h / 2 < bounds.height / 2 ? bounds.height * 0.62 : bounds.height * 0.24);
   const uiFactor = $derived(Math.min(1.5, Math.max(1, edit.res_factor)));
   const corners: Corner[] = ["tl", "tr", "bl", "br"];
+  const anchorNow = $derived(anchorAt(box, bounds));
 
   function begin(e: PointerEvent, op: Op) {
     if (e.button !== 0) return;
@@ -128,17 +130,17 @@
 
 <div class="toolbar" style:top="{toolbarTop}px" style="--r: {uiFactor}">
   <div class="row">
-    <strong>Position und Größe</strong>
+    <strong>{t("edit.title")}</strong>
     <span class="readout">
-      {anchorLabel(box, bounds)} · Breite {Math.round((box.w / bounds.width) * 100)} % · Größe {scale.toFixed(2).replace(".", ",")}
+      {t("edit.readout", { anchor: t(`anchor.${anchorNow}`), width: Math.round((box.w / bounds.width) * 100), scale: num(scale, 2) })}
     </span>
   </div>
-  <p class="help">Ziehen verschiebt · Ecken skalieren · Seiten ändern die Breite · Markierungen rasten ein</p>
+  <p class="help">{t("edit.help")}</p>
   <div class="row buttons">
-    <button class="primary" onclick={onsave}>Speichern <kbd>Enter</kbd></button>
-    <button onclick={oncancel}>Abbrechen <kbd>Esc</kbd></button>
+    <button class="primary" onclick={onsave}>{t("edit.save")} <kbd>Enter</kbd></button>
+    <button onclick={oncancel}>{t("common.cancel")} <kbd>Esc</kbd></button>
     {#if edit.monitor_count > 1}
-      <button onclick={onmonitor}>Nächster Monitor</button>
+      <button onclick={onmonitor}>{t("edit.nextMonitor")}</button>
       <span class="monitor">{edit.monitor_label}</span>
     {/if}
   </div>

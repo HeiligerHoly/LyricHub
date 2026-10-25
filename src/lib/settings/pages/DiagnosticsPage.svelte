@@ -3,6 +3,7 @@
   // latency, overlay window state and the overlay self-test from Spike B.
   import { onMount } from "svelte";
   import SyncLab from "../SyncLab.svelte";
+  import { lang, t } from "$lib/shared/i18n.svelte";
   import { formatMs, ipc } from "$lib/shared/ipc";
   import type {
     LatencySample,
@@ -50,22 +51,22 @@
   const worst = $derived(latencies.reduce((m, l) => Math.max(m, l.first_sign_to_render_ms), 0));
 </script>
 
-<h1>Diagnose</h1>
+<h1>{t("nav.diagnostics")}</h1>
 
 <section class="card">
-  <h2>Spotify (Windows-Media-Session)</h2>
+  <h2>{t("diag.spotify")}</h2>
   <dl class="kv">
-    <dt>Status</dt>
+    <dt>{t("diag.status")}</dt>
     <dd>{now.status}</dd>
     {#if now.track}
-      <dt>Titel</dt>
+      <dt>{t("diag.track")}</dt>
       <dd>{now.track.title} – {now.track.artist}{now.track.album ? ` · ${now.track.album}` : ""}</dd>
-      <dt>Dauer</dt>
+      <dt>{t("diag.duration")}</dt>
       <dd>{now.track.duration_ms ? formatMs(now.track.duration_ms) : "–"}</dd>
-      <dt>Schlüssel</dt>
+      <dt>{t("diag.key")}</dt>
       <dd class="mono">{now.track.key}</dd>
-      <dt>Cover</dt>
-      <dd>{now.track.art ? `${Math.round((now.track.art.url.length * 3) / 4 / 1024)} KB` : "keins"}</dd>
+      <dt>{t("diag.cover")}</dt>
+      <dd>{now.track.art ? `${Math.round((now.track.art.url.length * 3) / 4 / 1024)} KB` : t("diag.cover.none")}</dd>
     {/if}
   </dl>
 </section>
@@ -73,13 +74,13 @@
 <SyncLab />
 
 <section class="card">
-  <h2>Lyrics</h2>
+  <h2>{t("diag.lyrics")}</h2>
   <dl class="kv">
-    <dt>Lyrics</dt>
+    <dt>{t("diag.lyrics")}</dt>
     <dd>
       {#if lyrics}
-        {lyrics.state} · {lyrics.source || "–"} · {lyrics.lines.filter((l) => l.text).length} Zeilen{lyrics.lrc_offset_ms
-          ? ` · LRC-Offset ${lyrics.lrc_offset_ms} ms`
+        {lyrics.state} · {lyrics.source || "–"} · {t("diag.lyrics.lines", { n: lyrics.lines.filter((l) => l.text).length })}{lyrics.lrc_offset_ms
+          ? ` · ${t("diag.lyrics.lrcOffset", { ms: lyrics.lrc_offset_ms })}`
           : ""}
       {:else}
         –
@@ -89,22 +90,21 @@
 </section>
 
 <section class="card">
-  <h2>Titelwechsel bis zur Anzeige</h2>
-  <p class="hint">
-    Vom ersten Anzeichen in der Media-Session (neue Timeline oder neuer Titel) bis das Overlay den neuen Titel
-    gezeichnet hat. Ziel: höchstens 300 ms.
-  </p>
+  <h2>{t("diag.latency.title")}</h2>
+  <p class="hint">{t("diag.latency.hint")}</p>
   {#if latencies.length}
     <p class="summary">
-      {latencies.length} Wechsel · schlechtester Wert
+      {t("diag.latency.summary", { n: latencies.length })}
       <span class="badge" class:pass={worst <= 300} class:fail={worst > 300}>{Math.round(worst)} ms</span>
     </p>
     <table>
-      <thead><tr><th>Zeit</th><th>Titel</th><th>Gesamt</th><th>Event → Bild</th></tr></thead>
+      <thead>
+        <tr><th>{t("diag.latency.time")}</th><th>{t("diag.track")}</th><th>{t("diag.latency.total")}</th><th>{t("diag.latency.frame")}</th></tr>
+      </thead>
       <tbody>
         {#each latencies as l (l.unix_ms)}
           <tr>
-            <td>{new Date(l.unix_ms).toLocaleTimeString("de-DE")}</td>
+            <td>{new Date(l.unix_ms).toLocaleTimeString(lang() === "de" ? "de-DE" : "en-US")}</td>
             <td>{l.title} – {l.artist}</td>
             <td>{Math.round(l.first_sign_to_render_ms)} ms</td>
             <td>{Math.round(l.emit_to_render_ms)} ms</td>
@@ -113,44 +113,46 @@
       </tbody>
     </table>
   {:else}
-    <p class="muted">Noch kein Titelwechsel seit dem Start.</p>
+    <p class="muted">{t("diag.latency.none")}</p>
   {/if}
 </section>
 
 <section class="card">
-  <h2>Overlay-Fenster</h2>
+  <h2>{t("diag.window.title")}</h2>
   {#if diag}
     <dl class="kv">
-      <dt>Sichtbar</dt>
-      <dd>{diag.visible ? "ja" : "nein"}</dd>
-      <dt>Modus</dt>
-      <dd>{diag.edit_mode ? "Edit-Modus (fängt Klicks)" : diag.click_through ? "klickdurchlässig" : "fängt Klicks"}</dd>
-      <dt>Fenster</dt>
+      <dt>{t("diag.window.visible")}</dt>
+      <dd>{t(diag.visible ? "diag.yes" : "diag.no")}</dd>
+      <dt>{t("diag.window.mode")}</dt>
+      <dd>{t(diag.edit_mode ? "diag.window.mode.edit" : diag.click_through ? "diag.window.mode.clickThrough" : "diag.window.mode.catches")}</dd>
+      <dt>{t("diag.window.bounds")}</dt>
       <dd>{diag.bounds}</dd>
-      <dt>Fensterstil</dt>
+      <dt>{t("diag.window.style")}</dt>
       <dd class="mono">{diag.ex_style_text}</dd>
-      <dt>Vordergrundfenster</dt>
-      <dd>{diag.foreground_title || "–"}{diag.foreground_is_overlay ? " (Overlay! Fehler)" : ""}</dd>
+      <dt>{t("diag.window.foreground")}</dt>
+      <dd>{diag.foreground_title || "–"}{diag.foreground_is_overlay ? ` ${t("diag.window.foregroundIsOverlay")}` : ""}</dd>
     </dl>
   {/if}
   <div class="actions">
     <button class="primary" onclick={runSelfTest} disabled={running}>
-      {running ? "Selbsttest läuft …" : "Selbsttest ausführen"}
+      {running ? t("diag.selftest.running") : t("diag.selftest.run")}
     </button>
   </div>
-  <p class="hint">
-    Der Selbsttest blendet das Overlay mehrmals ein und aus und braucht etwa 15 Sekunden. Für einen aussagekräftigen
-    Fokustest vorher ein anderes Fenster in den Vordergrund holen und den Test über das Tray-Menü starten.
-  </p>
+  <p class="hint">{t("diag.selftest.hint")}</p>
   {#if report}
     <p class="summary">
-      Produktionsweg: {report.passed} bestanden · {report.failed} fehlgeschlagen · Tauri-Vergleich: {report.tauri_failed}
-      erwartete Befunde · Vordergrund beim Start: „{report.foreground_at_start || "–"}“{report.foreground_conclusive
-        ? ""
-        : " (Fokustest nicht aussagekräftig)"}
+      {t("diag.selftest.summary", {
+        passed: report.passed,
+        failed: report.failed,
+        tauri: report.tauri_failed,
+        foreground: report.foreground_at_start || "–",
+      })}{report.foreground_conclusive ? "" : ` ${t("diag.selftest.inconclusive")}`}
     </p>
+    <!-- Group, check and detail come from the backend self-test and stay German. -->
     <table>
-      <thead><tr><th>Gruppe</th><th>Prüfung</th><th>Ergebnis</th><th>Detail</th></tr></thead>
+      <thead>
+        <tr><th>{t("diag.selftest.group")}</th><th>{t("diag.selftest.check")}</th><th>{t("diag.selftest.result")}</th><th>{t("diag.selftest.detail")}</th></tr>
+      </thead>
       <tbody>
         {#each report.steps as step, i (i)}
           <tr>

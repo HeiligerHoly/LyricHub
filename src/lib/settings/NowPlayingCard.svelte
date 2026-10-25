@@ -1,19 +1,11 @@
 <script lang="ts">
+  import { t } from "$lib/shared/i18n.svelte";
   import type { NowPlaying } from "$lib/shared/types";
 
   let { now }: { now: NowPlaying } = $props();
-
-  const statusText: Record<NowPlaying["status"], string> = {
-    playing: "spielt",
-    paused: "pausiert",
-    stopped: "gestoppt",
-    changing: "wechselt",
-    opened: "bereit",
-    closed: "nicht gefunden",
-  };
 </script>
 
-<section class="np" aria-label="Jetzt läuft">
+<section class="np" aria-label={t("np.label")}>
   {#if now.track}
     {#if now.track.art}
       <img class="cover" src={now.track.art.url} alt="" />
@@ -23,13 +15,13 @@
     <div class="text">
       <p class="title" title={now.track.title}>{now.track.title}</p>
       <p class="artist" title={now.track.artist}>{now.track.artist}</p>
-      <span class="badge" class:ok={now.status === "playing"}>{statusText[now.status]}</span>
+      <span class="badge" class:ok={now.status === "playing"}>{t(`np.status.${now.status}`)}</span>
     </div>
   {:else}
     <span class="cover empty" aria-hidden="true">♪</span>
     <div class="text">
       <p class="title">Spotify</p>
-      <p class="artist">{now.status === "closed" ? "nicht gefunden" : "spielt nichts"}</p>
+      <p class="artist">{t(now.status === "closed" ? "np.status.closed" : "np.idle")}</p>
     </div>
   {/if}
 </section>

@@ -10,6 +10,7 @@
   // (clock.ts), switches lines with one timer per line and lets the compositor run the fill
   // (KaraokeLine.svelte). No IPC and no JavaScript per frame.
   import { onMount, tick } from "svelte";
+  import { setLanguage, t, type Key } from "$lib/shared/i18n.svelte";
   import { ipc, on, songId, subscribe } from "$lib/shared/ipc";
   import type {
     AppearanceSettings,
@@ -36,15 +37,11 @@
   import { langOf, lineIndexAt, nextTextLine, nextTextLines, previousTextLine, shownText } from "./lyricsTimeline";
   import { baseAccent, contrastGround, cssVars, look } from "./theme";
 
-  const SAMPLE_LINE = "Dies ist eine Beispielzeile zum Ausrichten";
-  /** Stack preview: one line before, one more after (invented text). */
-  const SAMPLE_PREVIOUS = "Die Zeile davor wird gedimmt";
-  const SAMPLE_LATER = "und noch eine weitere Zeile";
+  // Sample lines (invented text) live in the locales; the Japanese next line stays the same in
+  // every language.
   const SAMPLE_NEXT = "次の歌詞はここに少し小さく表示されます";
   /** What the backend makes of SAMPLE_NEXT (test `overlay_sample_line` in lyrics/romaji.rs). */
   const SAMPLE_NEXT_ROMAJI = "tsugi no kashi wa koko ni sukoshi chiisaku hyōji saremasu";
-  const SAMPLE_TRACK = { title: "Titel des Songs", artist: "Artist" };
-  const IDLE_TRACK = { title: "LyricHub", artist: "wartet auf Spotify" };
   const DIM_AFTER_MS = 2000;
   const HINT_MS = 3000;
   const REPORT_DEBOUNCE_MS = 50;
@@ -87,7 +84,8 @@
   let clockVersion = $state(0);
   let lineIndex = $state(-1);
   let loadingVisible = $state(false);
-  let stateHint = $state<string | null>(null);
+  /** Key, not text, so a language change also reaches a hint that is showing. */
+  let stateHint = $state<Key | null>(null);
   let toast = $state<string | null>(null);
   let calibration = $state<CalibrationView | null>(null);
   /** Countdown to the next line start while calibrating: restarts per line. */
@@ -144,8 +142,8 @@
     if (!measuring) return null;
     const n = measuring.taps.length;
     return measuring.mode === "calibrate"
-      ? `Kalibrierung ${n}/${measuring.needed} · Leertaste beim hörbaren Einsatz der nächsten Zeile · Esc beendet`
-      : `Sync-Messung · ${n} Taps · Leertaste bei jedem hörbaren Zeilenbeginn · Esc beendet`;
+      ? t("overlay.calibrate", { n, needed: measuring.needed })
+      : t("overlay.protocol", { n });
   });
 
   const lines = $derived<Line[] | null>(
@@ -159,10 +157,22 @@
   /** The lyrics service could not be reached (PLAN.md 9.6: a small mark, no text in the game). */
   const offline = $derived(!!lyrics && !!track && lyrics.key === track.key && lyrics.state === "error");
   const rowStatus = $derived(sample ? null : loadingVisible ? ("loading" as const) : activeLine && !activeLine.text ? ("instrumental" as const) : null);
-  const sampleActive: Line = { start_ms: 0, end_ms: 4000, fill_end_ms: 4000, text: SAMPLE_LINE, words: null, romaji: null, romaji_words: null };
+  // Derived, so the edit mode and the preview follow a language change.
+  const sampleTrack = $derived({ title: t("overlay.sample.title"), artist: t("overlay.sample.artist") });
+  const idleTrack = $derived({ title: "LyricHub", artist: t("overlay.idleArtist") });
+  const sampleActive = $derived<Line>({
+    start_ms: 0,
+    end_ms: 4000,
+    fill_end_ms: 4000,
+    text: t("overlay.sample.line"),
+    words: null,
+    romaji: null,
+    romaji_words: null,
+  });
   const sampleLine = (text: string, start_ms: number): Line => ({ start_ms, end_ms: null, fill_end_ms: start_ms + 3000, text, words: null, romaji: null, romaji_words: null });
-  const samplePrevious = sampleLine(SAMPLE_PREVIOUS, -4000);
-  const sampleLater = sampleLine(SAMPLE_LATER, 8000);
+  /** Stack preview: one line before, one more after. */
+  const samplePrevious = $derived(sampleLine(t("overlay.sample.previous"), -4000));
+  const sampleLater = $derived(sampleLine(t("overlay.sample.later"), 8000));
   const sampleNext: Line = {
     start_ms: 4000,
     end_ms: null,
@@ -292,19 +302,21 @@
     if (loadingVisible) loadingTimer = setTimeout(() => (loadingVisible = false), LOADING_MAX_MS);
     stateHint =
       e.state === "missing" || e.state === "unsynced"
-        ? "Keine synchronen Lyrics gefunden"
+        ? "overlay.noSyncedLyrics"
         : e.state === "instrumental"
-          ? "Instrumental"
+          ? "overlay.instrumental"
           : null;
     if (stateHint) hintStateTimer = setTimeout(() => (stateHint = null), STATE_HINT_MS);
   }
 
   let settingsSeen = false;
   function applySettings(s: Settings) {
+    // First, so a toast below already speaks the new language.
+    setLanguage(s.behavior.language);
     hideAfterPauseS = s.overlay.hide_after_pause_s;
     appearance = s.appearance;
     // Feedback for Ctrl+Alt+R, which changes nothing visible while a non-Japanese song plays.
-    if (settingsSeen && s.appearance.romaji !== romaji) showToast(s.appearance.romaji ? "Romaji an" : "Romaji aus");
+    if (settingsSeen && s.appearance.romaji !== romaji) showToast(t(s.appearance.romaji ? "overlay.toast.romajiOn" : "overlay.toast.romajiOff"));
     romaji = s.appearance.romaji;
     settingsSeen = true;
   }
@@ -318,8 +330,8 @@
 
   function showNudge(n: NudgeEvent) {
     const sign = n.offset_ms > 0 ? "+" : n.offset_ms < 0 ? "−" : "±";
-    const direction = n.delta_ms > 0 ? "Lyrics später" : "Lyrics früher";
-    showToast(`Song-Offset ${sign}${Math.abs(n.offset_ms)} ms · ${direction}`);
+    const direction = t(n.delta_ms > 0 ? "overlay.toast.later" : "overlay.toast.earlier");
+    showToast(t("overlay.toast.songOffset", { sign, ms: Math.abs(n.offset_ms), direction }));
   }
 
   // ---- Layout and edit mode ----
@@ -419,15 +431,15 @@
         {#if layout?.layout === "bar"}
           <Bar
             {track}
-            placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
-            lyric={sample ? SAMPLE_LINE : activeLine?.text ? shownText(activeLine, romaji) : null}
+            placeholder={sample ? sampleTrack : idleTrack}
+            lyric={sample ? sampleActive.text : activeLine?.text ? shownText(activeLine, romaji) : null}
             toast={headerNote}
             align={layout?.align ?? "center"}
           />
         {:else if layout?.layout === "stack"}
           <Stack
             {track}
-            placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
+            placeholder={sample ? sampleTrack : idleTrack}
             align={layout?.align ?? "center"}
             previous={sample ? samplePrevious : previousLine}
             active={sample ? sampleActive : activeLine}
@@ -436,7 +448,7 @@
             {romaji}
             glow={!reduced}
             status={rowStatus}
-            hint={sample ? null : stateHint}
+            hint={sample || !stateHint ? null : t(stateHint)}
             toast={headerNote}
             {offline}
             {clock}
@@ -446,14 +458,14 @@
         {:else if layout?.layout === "minimal"}
           <Minimal
             {track}
-            placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
+            placeholder={sample ? sampleTrack : idleTrack}
             align={layout?.align ?? "center"}
             active={sample ? sampleActive : activeLine}
             activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
             {romaji}
             glow={!reduced}
             status={rowStatus}
-            hint={sample ? null : stateHint}
+            hint={sample || !stateHint ? null : t(stateHint)}
             toast={headerNote}
             {clock}
             {clockVersion}
@@ -462,7 +474,7 @@
         {:else}
           <Karaoke
             {track}
-            placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
+            placeholder={sample ? sampleTrack : idleTrack}
             align={layout?.align ?? "center"}
             active={sample ? sampleActive : activeLine}
             activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
@@ -470,7 +482,7 @@
             {romaji}
             glow={!reduced}
             status={rowStatus}
-            hint={sample ? null : stateHint}
+            hint={sample || !stateHint ? null : t(stateHint)}
             toast={headerNote}
             {offline}
             countdown={sample ? null : countdown}

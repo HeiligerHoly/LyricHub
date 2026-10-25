@@ -1,8 +1,9 @@
 <script lang="ts">
   // Settings window (PLAN.md 9.7): navigation left, page right, dark theme like the overlay.
   // Pages: Overlay, Darstellung, Synchronisation, Verhalten, Diagnose. The window exists only
-  // while it is open (settings_window.rs).
+  // while it is open (settings_window.rs). Texts follow behavior.language (i18n.svelte.ts).
   import { onMount } from "svelte";
+  import { setLanguage, t, type Key } from "$lib/shared/i18n.svelte";
   import { ipc, on, subscribe } from "$lib/shared/ipc";
   import type { NowPlaying, Settings, SettingsPatch } from "$lib/shared/types";
   import NowPlayingCard from "./NowPlayingCard.svelte";
@@ -13,12 +14,12 @@
   import SyncPage from "./pages/SyncPage.svelte";
 
   type PageId = "overlay" | "appearance" | "sync" | "behavior" | "diagnostics";
-  const pages: { id: PageId; label: string }[] = [
-    { id: "overlay", label: "Overlay" },
-    { id: "appearance", label: "Darstellung" },
-    { id: "sync", label: "Synchronisation" },
-    { id: "behavior", label: "Verhalten" },
-    { id: "diagnostics", label: "Diagnose" },
+  const pages: { id: PageId; labelKey: Key }[] = [
+    { id: "overlay", labelKey: "nav.overlay" },
+    { id: "appearance", labelKey: "nav.appearance" },
+    { id: "sync", labelKey: "nav.sync" },
+    { id: "behavior", labelKey: "nav.behavior" },
+    { id: "diagnostics", labelKey: "nav.diagnostics" },
   ];
 
   let page = $state<PageId>("overlay");
@@ -28,9 +29,15 @@
   let version = $state("");
   let error = $state<string | null>(null);
 
+  /** Takes new settings and follows their interface language. */
+  function applySettings(s: Settings) {
+    setLanguage(s.behavior.language);
+    settings = s;
+  }
+
   async function update(patch: SettingsPatch) {
     try {
-      settings = await ipc.setSettings(patch);
+      applySettings(await ipc.setSettings(patch));
       error = null;
     } catch (e) {
       error = String(e);
@@ -38,12 +45,12 @@
   }
 
   onMount(() => {
-    ipc.getSettings().then((s) => (settings = s));
+    ipc.getSettings().then(applySettings);
     ipc.getNowPlaying().then((n) => (now = n));
     ipc.getOverlayLayout().then((l) => (editing = !!l?.edit));
     ipc.appInfo().then((i) => (version = i.version));
     return subscribe(
-      on("settings", (s) => (settings = s)),
+      on("settings", applySettings),
       on("track", (t) => (now = { ...now, track: t })),
       on("playback", (p) => (now = { ...now, status: p.status })),
       on("overlay-layout", (l) => (editing = !!l.edit)),
@@ -60,7 +67,7 @@
     <NowPlayingCard {now} />
     <nav>
       {#each pages as p (p.id)}
-        <button class="nav" class:active={page === p.id} onclick={() => (page = p.id)}>{p.label}</button>
+        <button class="nav" class:active={page === p.id} onclick={() => (page = p.id)}>{t(p.labelKey)}</button>
       {/each}
     </nav>
     <footer class="version">v{version}</footer>
@@ -83,7 +90,7 @@
         <DiagnosticsPage {now} />
       {/if}
     {:else}
-      <p class="muted">Lade Einstellungen …</p>
+      <p class="muted">{t("app.loading")}</p>
     {/if}
   </main>
 </div>

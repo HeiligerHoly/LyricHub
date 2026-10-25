@@ -2,6 +2,7 @@
   // Small header of the Karaoke and Stack layouts (PLAN.md 9.2): cover 24 px, title – artist,
   // or a toast in its place. Track change (PLAN.md 9.4): the header fades in over 300 ms and the
   // cover grows from 0.96.
+  import { t } from "$lib/shared/i18n.svelte";
   import { songId } from "$lib/shared/ipc";
   import type { TrackInfo } from "$lib/shared/types";
 
@@ -29,7 +30,7 @@
         </span>
         <span class="title">{title}</span>
         {#if artist}<span class="sep" aria-hidden="true">–</span><span class="artist">{artist}</span>{/if}
-        {#if offline}<span class="offline" title="Lyrics nicht erreichbar" aria-label="Lyrics nicht erreichbar"></span>{/if}
+        {#if offline}<span class="offline" title={t("overlay.offline")} aria-label={t("overlay.offline")}></span>{/if}
       </span>
     {/key}
   {/if}
