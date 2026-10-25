@@ -16,7 +16,8 @@ pub fn default_path() -> PathBuf {
     crate::paths::data_dir().join("settings.json")
 }
 
-pub fn load(path: &Path) -> Settings {
+#[cfg(test)]
+fn load(path: &Path) -> Settings {
     load_versioned(path).0
 }
 
