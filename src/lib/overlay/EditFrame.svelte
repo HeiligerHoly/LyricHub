@@ -82,6 +82,9 @@
 
   function end(e: PointerEvent) {
     if (!active) return;
+    // Chromium may fold the last move into the release: take the release position too, or the
+    // overlay lands a few pixels short of the mouse. A cancelled pointer keeps the last move.
+    if (e.type === "pointerup") move(e);
     (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
     active = null;
     dragSnap = null;
