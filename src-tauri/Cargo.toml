@@ -16,6 +16,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 base64 = "0.23"
+# Japanese word readings for romaji (docs/romaji.md). The IPADIC is embedded uncompressed, so it
+# stays in the mapped image instead of private memory; its build script downloads it once.
+lindera = { version = "6.2.0", default-features = false, features = ["embed-ipadic"] }
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "json", "blocking", "query"] }
 rusqlite = { version = "0.41.0", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
