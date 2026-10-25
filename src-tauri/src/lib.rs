@@ -1,7 +1,9 @@
-//! LyricHub backend. Phase 2: SMTC source, playback clock, lyrics from LRCLIB with cache,
-//! settings store, overlay geometry with edit mode, tray and hotkeys.
+//! LyricHub backend: SMTC source, playback clock with offsets per song and audio device,
+//! lyrics from LRCLIB with cache, Sync Lab, settings store, overlay geometry with edit mode,
+//! tray and hotkeys.
 
 mod app_state;
+mod audio_devices;
 mod hotkeys;
 mod ipc;
 mod logging;
@@ -12,6 +14,7 @@ mod settings;
 mod settings_window;
 mod sources;
 mod sync;
+mod sync_lab;
 mod tray;
 
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
@@ -39,6 +42,8 @@ pub fn run() {
         .manage(overlay::OverlayState::default())
         .manage(settings::SettingsState::load())
         .manage(app_state::NowPlayingState::default())
+        .manage(sync_lab::SyncLabState::default())
+        .manage(audio_devices::AudioDeviceState::default())
         .invoke_handler(tauri::generate_handler![
             ipc::commands::get_settings,
             ipc::commands::set_settings,
@@ -51,6 +56,10 @@ pub fn run() {
             ipc::commands::get_clock,
             ipc::commands::nudge_offset,
             ipc::commands::set_song_offset,
+            ipc::commands::sync_lab,
+            ipc::commands::export_diagnostics,
+            ipc::commands::list_audio_devices,
+            ipc::commands::set_device_offset,
             ipc::commands::reload_lyrics,
             ipc::commands::get_overlay_layout,
             ipc::commands::report_overlay_size,
@@ -74,6 +83,7 @@ pub fn run() {
             overlay::setup(&handle)?;
             ipc::apply_autostart(&handle, handle.state::<settings::SettingsState>().get().behavior.autostart);
             app_state::start(handle.clone(), sources::smtc::SmtcSource::new(PLAYER_FILTER).spawn());
+            audio_devices::spawn_watcher(handle.clone());
 
             if let Some(mode) = selftest_mode.clone() {
                 // Give the webview time to load and paint before measuring.

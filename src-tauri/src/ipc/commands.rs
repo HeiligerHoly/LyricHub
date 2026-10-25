@@ -82,6 +82,30 @@ pub async fn nudge_offset(app: AppHandle, delta_ms: i32) -> Option<i32> {
     super::nudge(&app, delta_ms)
 }
 
+#[tauri::command]
+pub async fn sync_lab(app: AppHandle) -> crate::sync_lab::SyncLab {
+    crate::sync_lab::snapshot(&app)
+}
+
+/// Writes the diagnostics export and shows it in Explorer; returns its path.
+#[tauri::command]
+pub async fn export_diagnostics(app: AppHandle) -> Result<String, String> {
+    let path = crate::sync_lab::export(&app)?;
+    let _ = app.opener().reveal_item_in_dir(&path);
+    Ok(path.display().to_string())
+}
+
+#[tauri::command]
+pub async fn list_audio_devices(app: AppHandle) -> Vec<crate::audio_devices::AudioDevice> {
+    crate::audio_devices::list(&app)
+}
+
+#[tauri::command]
+pub async fn set_device_offset(app: AppHandle, id: String, offset_ms: i32) -> Vec<crate::audio_devices::AudioDevice> {
+    crate::audio_devices::set_offset(&app, &id, offset_ms);
+    crate::audio_devices::list(&app)
+}
+
 /// Sets the offset of the current song, e.g. back to 0 from the settings.
 #[tauri::command]
 pub async fn set_song_offset(app: AppHandle, offset_ms: i32) -> Option<i32> {

@@ -11,8 +11,10 @@ pub const PLAYBACK: &str = "playback";
 pub const CLOCK: &str = "clock";
 /// `LyricsEvent`: lyrics or their state (loading, missing, …) for a track key.
 pub const LYRICS: &str = "lyrics";
-/// `{ offset_ms, delta_ms }`: a nudge hotkey changed the offset; the overlay shows a toast.
+/// `{ offset_ms, delta_ms }`: a nudge hotkey changed the song offset; the overlay shows a toast.
 pub const NUDGE: &str = "nudge";
+/// `{ text }`: a short notice for the overlay, e.g. a new audio device.
+pub const NOTICE: &str = "notice";
 /// The complete `Settings` object after every change.
 pub const SETTINGS: &str = "settings";
 /// `LayoutEvent`: overlay content size, alignment and edit mode. Extends PLAN.md's

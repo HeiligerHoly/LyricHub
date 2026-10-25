@@ -28,6 +28,7 @@ use crate::settings::SettingsState;
 use crate::sources::{PlaybackStatus, SourceEvent, TrackInfo};
 use crate::sync::clock::{self, PlaybackClock, Update};
 use crate::sync::offsets::{self, Offsets};
+use crate::sync_lab;
 
 const LATENCY_HISTORY: usize = 50;
 const CHANGING_EXPIRY: Duration = Duration::from_secs(1);
@@ -248,6 +249,7 @@ pub fn nudge_song(app: &AppHandle, delta_ms: i32) -> Option<i32> {
     };
     state.with_db(|db| db.set_song_offset(&key, ms));
     tracing::info!(key = %key, delta_ms, song_offset_ms = ms, "song offset nudged");
+    sync_lab::record(app, Instant::now(), sync_lab::entry("offset", "song", ms as f64));
     emit_clock(app, "offset");
     Some(ms)
 }
@@ -273,6 +275,7 @@ fn apply_song_offset(app: &AppHandle, key: &str) {
         std::mem::replace(&mut o.song_ms, ms) != ms
     };
     tracing::info!(key = %key, song_offset_ms = ms, "song offset applied");
+    sync_lab::record(app, Instant::now(), sync_lab::entry("offset", "song", ms as f64));
     if changed {
         emit_clock(app, "offset");
     }
@@ -301,6 +304,7 @@ pub fn set_device_offset_ms(app: &AppHandle, ms: i32) {
         let mut o = state.offsets.lock().unwrap();
         std::mem::replace(&mut o.device_ms, ms) != ms
     };
+    sync_lab::record(app, Instant::now(), sync_lab::entry("offset", "device", ms as f64));
     if changed {
         emit_clock(app, "offset");
     }
@@ -308,6 +312,16 @@ pub fn set_device_offset_ms(app: &AppHandle, ms: i32) {
 
 pub fn with_offset_store<T>(app: &AppHandle, f: impl FnOnce(&Cache) -> rusqlite::Result<T>) -> Option<T> {
     app.state::<NowPlayingState>().with_db(f)
+}
+
+pub fn deviating_sources(app: &AppHandle) -> Vec<&'static str> {
+    app.state::<NowPlayingState>().clock.lock().unwrap().deviating().to_vec()
+}
+
+/// Clock position at `at` minus all offsets: where the overlay stood at that moment.
+pub fn display_position(app: &AppHandle, at: Instant) -> f64 {
+    let raw = app.state::<NowPlayingState>().clock.lock().unwrap().position(at);
+    raw - current_offsets(app).total() as f64
 }
 
 /// Asks LRCLIB again for the current song, bypassing the cache.
@@ -394,6 +408,7 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                 rekey_song_offset(app, &old, &new);
             }
             if new_song {
+                sync_lab::record(app, Instant::now(), sync_lab::entry("track", "smtc", 0.0));
                 state.clock.lock().unwrap().on_track_change();
                 if let Some(t) = &info {
                     apply_song_offset(app, &t.key);
@@ -405,9 +420,12 @@ fn handle(app: &AppHandle, event: SourceEvent) {
         SourceEvent::Status(status) => {
             state.inner.lock().unwrap().now.status = status;
             emit(app, events::PLAYBACK, &PlaybackEvent { status });
-            let update = state.clock.lock().unwrap().on_status(status == PlaybackStatus::Playing, Instant::now());
+            let now = Instant::now();
+            let update = state.clock.lock().unwrap().on_status(status == PlaybackStatus::Playing, now);
             if update.changed() {
                 tracing::debug!(?update, "clock status");
+                let pos = state.clock.lock().unwrap().position(now);
+                sync_lab::record(app, now, sync_lab::LabEntry { update: "status", ..sync_lab::entry("status", "smtc", pos) });
                 emit_clock(app, update_kind(&update));
             }
         }
@@ -426,9 +444,34 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                 }
             }
             let now = Instant::now();
-            let update = state.clock.lock().unwrap().on_observation(
-                clock::Observation { pos_ms: obs.pos_ms, valid_at: obs.valid_at, playing: obs.playing },
+            let source = match obs.source {
+                crate::sources::SourceId::Smtc => "smtc",
+            };
+            let (update, residual) = {
+                let mut clock = state.clock.lock().unwrap();
+                let residual = (obs.playing && clock.anchor().playing).then(|| obs.pos_ms - clock.position(obs.valid_at));
+                let update = clock.on_observation(
+                    clock::Observation {
+                        source,
+                        pos_ms: obs.pos_ms,
+                        valid_at: obs.valid_at,
+                        playing: obs.playing,
+                        confidence: obs.confidence as f64,
+                    },
+                    now,
+                );
+                (update, residual)
+            };
+            let age_ms = now.saturating_duration_since(obs.valid_at).as_secs_f64() * 1000.0;
+            sync_lab::record(
+                app,
                 now,
+                sync_lab::LabEntry {
+                    residual_ms: residual,
+                    age_ms: Some(age_ms),
+                    update: update_kind(&update),
+                    ..sync_lab::entry("obs", source, obs.pos_ms)
+                },
             );
             // Every sync decision is logged with its values (PLAN.md 15).
             tracing::debug!(
