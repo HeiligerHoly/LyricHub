@@ -18,6 +18,7 @@ use crate::ipc::events;
 use crate::sources::{PlaybackStatus, SourceEvent, TrackInfo};
 
 const LATENCY_HISTORY: usize = 50;
+const CHANGING_EXPIRY: std::time::Duration = std::time::Duration::from_secs(1);
 
 #[derive(Serialize, Clone, Debug)]
 pub struct NowPlaying {
@@ -54,6 +55,9 @@ pub struct NowPlayingState {
 
 struct Inner {
     now: NowPlaying,
+    /// When `track-changing` went out; cleared by the next song. A seek to 0 brings no new
+    /// song, so the mark expires after `CHANGING_EXPIRY`.
+    changing_since: Option<Instant>,
     pending: Option<Pending>,
     latencies: VecDeque<LatencySample>,
 }
@@ -63,6 +67,7 @@ impl Default for NowPlayingState {
         Self {
             inner: Mutex::new(Inner {
                 now: NowPlaying { track: None, status: PlaybackStatus::Closed },
+                changing_since: None,
                 pending: None,
                 latencies: VecDeque::new(),
             }),
@@ -106,6 +111,7 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                     inner.pending = Some(Pending { key, first_sign, emitted: Instant::now() });
                 }
                 inner.now.track = info.clone();
+                inner.changing_since = None;
             }
             emit(app, events::TRACK, &info);
             crate::tray::set_tooltip(app, tooltip.as_deref());
@@ -113,6 +119,19 @@ fn handle(app: &AppHandle, event: SourceEvent) {
         SourceEvent::Status(status) => {
             state.inner.lock().unwrap().now.status = status;
             emit(app, events::PLAYBACK, &PlaybackEvent { status });
+        }
+        SourceEvent::Observation(obs) if obs.likely_track_change => {
+            let first = {
+                let mut inner = state.inner.lock().unwrap();
+                let fresh = inner.changing_since.is_none_or(|t| t.elapsed() > CHANGING_EXPIRY);
+                if fresh {
+                    inner.changing_since = Some(Instant::now());
+                }
+                fresh
+            };
+            if first {
+                emit(app, events::TRACK_CHANGING, &());
+            }
         }
         SourceEvent::Observation(obs) => {
             // Phase 2 feeds these into sync/clock.rs; until then they are only logged.

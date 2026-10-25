@@ -45,6 +45,7 @@ export const ipc = {
 
 interface EventPayloads {
   track: TrackInfo | null;
+  "track-changing": null;
   playback: PlaybackEvent;
   settings: Settings;
   "overlay-layout": OverlayLayout;

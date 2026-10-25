@@ -18,6 +18,8 @@
   const DIM_AFTER_MS = 2000;
   const HINT_MS = 3000;
   const REPORT_DEBOUNCE_MS = 50;
+  /** Old title comes back if no new one arrives in this time (seek to 0, repeat). */
+  const CHANGING_MAX_MS = 700;
 
   let track = $state<TrackInfo | null>(null);
   let status = $state<PlaybackStatus>("closed");
@@ -26,6 +28,8 @@
   /** 0 = normal, 1 = dimmed (paused > 2 s), 2 = faded out (paused > hide_after_pause_s) */
   let pauseStage = $state(0);
   let hint = $state(false);
+  /** The position jumped to a song start; the old title fades out until the new one arrives. */
+  let changing = $state(false);
   let draft = $state<EditChange | null>(null);
   let measured = $state({ w: 0, h: 0 });
   let plate: HTMLElement;
@@ -58,10 +62,18 @@
     tick().then(() => requestAnimationFrame(() => requestAnimationFrame(fn)));
   }
 
+  let changingTimer: ReturnType<typeof setTimeout> | undefined;
+  function trackChanging() {
+    changing = true;
+    clearTimeout(changingTimer);
+    changingTimer = setTimeout(() => (changing = false), CHANGING_MAX_MS);
+  }
+
   let lastSong = "";
   function applyTrack(t: TrackInfo | null) {
     track = t;
     const id = songId(t);
+    if (id !== lastSong) changing = false;
     if (t && id !== lastSong) {
       // Confirms the drawn title to the backend, which logs the track-change latency.
       afterPaint(() => ipc.overlayRendered(t.key));
@@ -125,6 +137,7 @@
 
     const unsubscribe = subscribe(
       on("track", applyTrack),
+      on("track-changing", trackChanging),
       on("playback", (p) => (status = p.status)),
       on("settings", (s) => (hideAfterPauseS = s.overlay.hide_after_pause_s)),
       on("overlay-layout", applyLayout),
@@ -144,12 +157,14 @@
     style:opacity
   >
     <section class="plate" bind:this={plate} style:width="{widthCss}px" style="--s: {uiScale}">
-      <Bar
-        {track}
-        placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
-        lyric={sample ? SAMPLE_LINE : null}
-        align={layout?.align ?? "center"}
-      />
+      <div class="content" class:changing={changing && !sample}>
+        <Bar
+          {track}
+          placeholder={sample ? SAMPLE_TRACK : IDLE_TRACK}
+          lyric={sample ? SAMPLE_LINE : null}
+          align={layout?.align ?? "center"}
+        />
+      </div>
     </section>
   </div>
 
@@ -199,5 +214,14 @@
     border-radius: calc(14px * var(--s));
     background: rgba(12, 12, 16, 0.55);
     text-rendering: optimizeLegibility;
+  }
+
+  /* Track change, first half (PLAN.md 9.4): the old title fades as soon as the position
+     jumps to the song start; the new one fades in when Spotify publishes it. */
+  .content {
+    transition: opacity 150ms ease-in-out;
+  }
+  .content.changing {
+    opacity: 0.15;
   }
 </style>
