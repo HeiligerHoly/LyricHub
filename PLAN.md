@@ -661,6 +661,8 @@ Tasks:
 
 DoD: Design-Review gegen 9.1–9.6; kein Layout pro Frame (DevTools Performance-Check); FPS-Test im Spiel ohne messbare Einbuße.
 
+**Ergebnis Phase 4 (2026-10-26)**: abgeschlossen, Tag `v0.4.0-phase4`. Die Füllung läuft Wort für Wort nach geschätzten Wortzeiten (Buchstaben, Kana 1, Kanji 1,5). LRCLIB hat praktisch keine echten Wortzeiten (0 von 160 Treffern), deshalb gibt es keine Kalibrierung daran. Fünf Themes mit Akzent aus dem Cover, vier Layouts, Seite „Darstellung“ mit Live-Vorschau, Deutsch und Englisch. Kein Layout pro Frame (0,2 pro Sekunde), CPU 0,48 % aller Kerne. Den FPS-Test hat der Nutzer für nicht nötig erklärt. Vorab wurde Romaji gemergt und Japanisch nachgemessen. Details in `docs/phase4.md`.
+
 ### Phase 5 – Robustheit und Release
 
 Tasks:
