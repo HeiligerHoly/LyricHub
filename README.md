@@ -2,7 +2,7 @@
 
 Windows-Overlay, das den laufenden Spotify-Song und karaoke-artig mitlaufende Lyrics über Spielen anzeigt, synchron zum hörbaren Ton. Der vollständige Plan steht in [PLAN.md](PLAN.md).
 
-Stand: Phase 0 abgeschlossen (Spikes und Gerüst). Ergebnisse in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md). Nächster Schritt ist Phase 1, der dünne Durchstich „Now Playing“.
+Stand: Phase 1, der dünne Durchstich „Now Playing“. Das Overlay zeigt Cover, Titel und Artist des laufenden Spotify-Songs und lässt sich im Edit-Modus direkt am Bildschirm verschieben und skalieren. Ergebnisse in [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md). Lyrics folgen mit Phase 2.
 
 ## Voraussetzungen
 
@@ -27,16 +27,19 @@ npm run tauri dev      # App mit Hot-Reload
 npm run check          # Svelte/TypeScript prüfen
 ```
 
-Die App startet im Tray. Linksklick auf das Tray-Icon blendet das Overlay ein und aus, das Rechtsklick-Menü öffnet die Einstellungen.
+Die App startet im Tray. Linksklick auf das Tray-Icon blendet das Overlay ein und aus, das Rechtsklick-Menü öffnet den Edit-Modus und die Einstellungen. Das Einstellungsfenster existiert nur, solange es offen ist. Mit `--minimized` (so startet der Autostart) öffnet sich kein Fenster.
 
 | Kürzel | Funktion |
 |---|---|
 | Strg+Alt+L | Overlay ein/aus |
-| Strg+Alt+E | Klickdurchlässigkeit umschalten (Vorstufe des Edit-Modus) |
+| Strg+Alt+E | Edit-Modus: Overlay ziehen, an den Ecken skalieren, an den Seiten die Breite ändern |
+| Enter / Esc | im Edit-Modus speichern / abbrechen (nur dann registriert) |
 
-Logs liegen unter `%APPDATA%\LyricHub\logs`, das Level steuert `LYRICHUB_LOG` (z. B. `debug`).
+Das Spiel behält im Edit-Modus den Fokus; das Overlay nimmt nie Tastatureingaben an.
 
-## Spikes erneut ausführen
+Einstellungen liegen in `%APPDATA%\LyricHub\settings.json`, Logs unter `%APPDATA%\LyricHub\logs`. Das Log-Level steuert `LYRICHUB_LOG` (z. B. `debug`).
+
+## Tests und Spikes
 
 ```powershell
 # Spike A: Spotify-Timeline über die Windows-Media-Session messen
@@ -48,7 +51,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\run-spik
 
 # CPU und Speicher einer laufenden LyricHub-Instanz messen
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\measure-cpu.ps1 -Seconds 10
+
+# Edit-Modus über dem Fake-Game prüfen (laufende Instanz nötig, bewegt die Maus einige Sekunden)
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\edit-mode-test.ps1
 ```
+
+Rust-Unit-Tests (Geometrie, Settings-Store, SMTC-Songwechsel-Erkennung): `cargo test` in `src-tauri`.
 
 ## Hinweise
 
