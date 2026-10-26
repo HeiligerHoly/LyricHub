@@ -243,6 +243,11 @@
     font-size: calc(13px * var(--r));
     display: grid;
     gap: calc(8px * var(--r));
+    /* The stage outlines the lyrics for plate-less themes (Neon, Minimal); the toolbar has its
+       own plate and must not inherit that. */
+    -webkit-text-stroke: 0;
+    paint-order: normal;
+    text-shadow: none;
   }
   .row {
     display: flex;
