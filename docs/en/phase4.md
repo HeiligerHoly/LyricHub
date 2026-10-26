@@ -5,7 +5,7 @@
 > Date: 2026-10-26 · Reference: [PLAN.md](../../PLAN.en.md) 10 (Phase 4), 5.6, 9.1–9.7
 > Result: **Phase 4 complete** (tag `v0.4.0-phase4`). The fill runs word by word. There are five themes with an accent color from the cover, four layouts, the "Appearance" page („Darstellung“) with a live preview, and German and English. The fill triggers no layout per frame, and the CPU load is 0.48 % of all cores. The user declared the in-game FPS test unnecessary.
 
-Before Phase 4, the romaji display came from `claude/unruffled-dirac-66618b` into main (merge `9a3d938`, see [romaji.md](romaji.md)). With it, the pending Japanese sync measurement was done ([sync-report.md](sync-report.md), run 3).
+Before Phase 4, the romaji display came from `claude/unruffled-dirac-66618b` into main (merge `daa4368`, see [romaji.md](romaji.md)). With it, the pending Japanese sync measurement was done ([sync-report.md](sync-report.md), run 3).
 
 ## What was built
 
