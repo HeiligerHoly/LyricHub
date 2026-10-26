@@ -28,7 +28,7 @@ Rationale:
 
 ### IPADIC license (deviation from PLAN.md 14.2, for your information)
 
-PLAN.md 14.2 names MIT, Apache-2.0 and BSD. IPADIC is under its own BSD-like license from NAIST with the terms of the ICOT Free Software: use, modification and redistribution are free. The only condition: the warranty disclaimer must be included. kuromoji.js (Apache-2.0) and the Kuromoji analyzer of Apache Lucene ship the same file. A dictionary with kanji readings under MIT, Apache-2.0 or BSD only exists in large sizes: UniDic (BSD-3) needs four times the space and reads worse for Hepburn; SudachiDict (Apache-2.0) is even larger and has no pronunciation. The notice text is in `THIRD_PARTY_NOTICES.md` and must be included in any release.
+PLAN.md 14.2 names MIT, Apache-2.0 and BSD. IPADIC is under its own BSD-like license from NAIST with the terms of the ICOT Free Software: use, modification and redistribution are free. The only condition: the warranty disclaimer must be included. kuromoji.js (Apache-2.0) and the Kuromoji analyzer of Apache Lucene ship the same file. A dictionary with kanji readings under MIT, Apache-2.0 or BSD only exists in large sizes: UniDic (BSD-3) needs four times the space and reads worse for Hepburn; SudachiDict (Apache-2.0) is even larger and has no pronunciation. The notice text is in `THIRD_PARTY_NOTICES.md`, which the installer puts next to `lyrichub.exe`.
 
 All Rust dependencies that lindera brings in at runtime are under MIT, Apache-2.0, BSD-3-Clause or Unlicense/MIT. Crates with an ISC or CDLA license (`ring`, `rustls-webpki`, `webpki-roots`) are only needed by the build script for the download; they do not end up in the binary.
 

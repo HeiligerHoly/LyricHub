@@ -1,0 +1,23 @@
+# cargo-about configuration for THIRD_PARTY_NOTICES.md (see README.md in this folder).
+# Only what ships in the Windows build: no build or dev dependencies.
+targets = ["x86_64-pc-windows-msvc"]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+# LyricHub itself (publish = false) has no licence entry.
+private = { ignore = true }
+# For crates under a choice of licences the first listed one is used.
+accepted = [
+  "MIT",
+  "Apache-2.0",
+  "Unicode-3.0",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "Unlicense",
+  "MPL-2.0",
+  "BSL-1.0",
+  "CDLA-Permissive-2.0",
+  "CC0-1.0",
+  "MIT-0",
+  "0BSD",
+]
