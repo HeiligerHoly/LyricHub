@@ -2,9 +2,22 @@
 
 Windows-Overlay, das den laufenden Spotify-Song und karaoke-artig mitlaufende Lyrics über Spielen anzeigt, synchron zum hörbaren Ton. Der vollständige Plan steht in [PLAN.md](PLAN.md).
 
-Stand: Phase 4 (`v0.4.0-phase4`), Karaoke-Feinschliff und Design. Das Overlay zeigt die synchronen Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit einer Karaoke-Füllung, die Wort für Wort läuft, dazu Cover, Titel und Artist; Position und Größe lassen sich im Edit-Modus direkt am Bildschirm einstellen. Vier Layouts, fünf Themes mit Akzentfarbe aus dem Albumcover, Deutsch und Englisch. Korrekturen gelten pro Song, Ausgabegeräte haben eigene Offsets, und ein Kalibrier-Assistent und das Sync Lab helfen beim Einstellen. Japanische Zeilen lassen sich in Romaji anzeigen ([docs/romaji.md](docs/romaji.md)). Ergebnisse in [docs/phase4.md](docs/phase4.md), [docs/phase3.md](docs/phase3.md) mit dem Messbericht [docs/sync-report.md](docs/sync-report.md), dazu [docs/phase2.md](docs/phase2.md) und [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md).
+Stand: Phase 5 (`v0.5.0-phase5`), Robustheit und Release. Das Overlay zeigt die synchronen Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit einer Karaoke-Füllung, die Wort für Wort läuft, dazu Cover, Titel und Artist; Position und Größe lassen sich im Edit-Modus direkt am Bildschirm einstellen. Vier Layouts, fünf Themes mit Akzentfarbe aus dem Albumcover, Deutsch und Englisch. Das Overlay bleibt auch über Spielen oben, die sich selbst nach vorne setzen, und lässt sich auf Vollbild-Apps beschränken. Korrekturen gelten pro Song, Ausgabegeräte haben eigene Offsets, und ein Kalibrier-Assistent und das Sync Lab helfen beim Einstellen. Japanische Zeilen lassen sich in Romaji anzeigen ([docs/romaji.md](docs/romaji.md)). Ergebnisse in [docs/phase5.md](docs/phase5.md), [docs/phase4.md](docs/phase4.md), [docs/phase3.md](docs/phase3.md) mit dem Messbericht [docs/sync-report.md](docs/sync-report.md), dazu [docs/phase2.md](docs/phase2.md) und [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md).
 
-## Voraussetzungen
+![Overlay im Layout Karaoke, Theme Glass Dark](docs/img/overlay-karaoke.png)
+
+| | |
+|---|---|
+| ![Layout Stapel, Theme Glass Light](docs/img/overlay-stack-light.png) | ![Layout Minimal, Theme Neon](docs/img/overlay-minimal-neon.png) |
+| ![Einstellungen → Darstellung](docs/img/settings-appearance.png) | ![Einstellungen → Hotkeys](docs/img/settings-hotkeys.png) |
+
+Die Bilder zeigen Beispielzeilen; Liedtexte stehen nicht im Repository.
+
+## Installieren
+
+`LyricHub_<version>_x64-setup.exe` ausführen (Bau siehe unten: `npx tauri build`, Ergebnis unter `src-tauri/target/release/bundle/nsis/`). Der Installer richtet LyricHub nur für den aktuellen Benutzer ein und braucht keine Administratorrechte. Er ist nicht signiert: Windows SmartScreen meldet einen unbekannten Herausgeber, „Weitere Informationen“ → „Trotzdem ausführen“. Fehlt die WebView2 Runtime (auf Windows 11 vorhanden), lädt der Installer sie nach. Danach Spotify starten; LyricHub erscheint im Tray und zeigt den laufenden Song.
+
+## Voraussetzungen zum Bauen
 
 - Windows 11 (Windows 10 ab 2004 sollte gehen)
 - Node.js 20 oder neuer
@@ -25,9 +38,12 @@ winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--pass
 npm install
 npm run tauri dev      # App mit Hot-Reload
 npm run check          # Svelte/TypeScript prüfen
+npx tauri build        # Release-Build und Installer (NSIS)
 ```
 
 Die App startet im Tray. Linksklick auf das Tray-Icon blendet das Overlay ein und aus, das Rechtsklick-Menü öffnet den Edit-Modus und die Einstellungen. Das Einstellungsfenster existiert nur, solange es offen ist. Mit `--minimized` (so startet der Autostart) öffnet sich kein Fenster.
+
+Standard-Kürzel; unter Einstellungen → Hotkeys lassen sie sich ändern oder abschalten:
 
 | Kürzel | Funktion |
 |---|---|
@@ -39,7 +55,7 @@ Die App startet im Tray. Linksklick auf das Tray-Icon blendet das Overlay ein un
 | Strg+Alt+, / Strg+Alt+. | Lyrics des laufenden Songs 100 ms früher / später (mit Umschalt 25 ms); LyricHub merkt sich den Wert pro Song |
 | Leertaste / Esc | während Kalibrierung oder Sync-Protokoll: Tap beim hörbaren Zeilenbeginn / Messung beenden (nur dann registriert) |
 
-Das Spiel behält im Edit-Modus den Fokus; das Overlay nimmt nie Tastatureingaben an.
+Das Spiel behält im Edit-Modus den Fokus; das Overlay nimmt nie Tastatureingaben an. Setzt sich ein Spiel über das Overlay, holt LyricHub es sofort zurück (Ereignisse der Fensterreihenfolge, keine Injection); gelingt das nicht, nennt der Tray das verdeckende Fenster. „Nur bei Vollbild-App zeigen“ (Einstellungen → Overlay) blendet das Overlay auf dem Desktop aus.
 
 Darstellung (Einstellungen → Darstellung): Themes Glass Dark, Glass Light, Neon, Mono und ein eigenes; Akzentfarbe aus dem Cover (mit Kontrastprüfung gegen die Platte) oder fest; Deckkraft, Schrift (Inter ist mitgeliefert) und „Bewegung reduzieren“. Solange die Seite offen ist, zeigt das Overlay Beispielzeilen im gewählten Look. Die Sprache (System, Deutsch, Englisch) steht unter Verhalten.
 
@@ -59,6 +75,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\run-spik
 
 # CPU und Speicher einer laufenden LyricHub-Instanz messen
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\measure-cpu.ps1 -Seconds 10
+
+# Start ohne Fokusklau (Release-Build, LyricHub darf nicht laufen)
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\start-focus-test.ps1
 
 # Edit-Modus über dem Fake-Game prüfen (laufende Instanz nötig, bewegt die Maus einige Sekunden)
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\edit-mode-test.ps1
