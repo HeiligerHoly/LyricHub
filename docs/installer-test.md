@@ -10,7 +10,7 @@ Für Phase 5 (PLAN.md 10, DoD „Installer auf frischem Windows-Profil getestet�
    - [ ] Es kommt **keine** Abfrage nach Administratorrechten (UAC).
    - [ ] Die Installation läuft ohne Fehler durch, Sprache Deutsch oder Englisch.
 2. **LyricHub starten** (Startmenü oder Ende des Installers).
-   - [ ] Das Einstellungsfenster öffnet sich, im Tray erscheint das LyricHub-Icon (Sprechblase).
+   - [ ] Das Einstellungsfenster öffnet sich, im Tray erscheint das LyricHub-Icon (Doppelnote auf amber-dunkler Kachel).
    - [ ] Ohne laufendes Spotify ist das Tray-Icon grau.
 3. **Spotify starten und einen Song abspielen.**
    - [ ] Oben mittig erscheint das Overlay mit Titel, Artist und mitlaufenden Lyrics.

@@ -12,7 +12,7 @@ For Phase 5 ([PLAN.md](../../PLAN.en.md) 10, DoD "Installer tested on a fresh Wi
    - [ ] There is **no** prompt for administrator rights (UAC).
    - [ ] The installation runs through without errors, in German or English.
 2. **Start LyricHub** (Start menu or the end of the installer).
-   - [ ] The settings window opens, and the LyricHub icon (speech bubble) appears in the tray.
+   - [ ] The settings window opens, and the LyricHub icon (a double note on an amber and dark tile) appears in the tray.
    - [ ] Without Spotify running, the tray icon is gray.
 3. **Start Spotify and play a song.**
    - [ ] The overlay appears at the top center with title, artist and lyrics that follow along.
