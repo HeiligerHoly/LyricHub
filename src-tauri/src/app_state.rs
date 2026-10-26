@@ -422,17 +422,18 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                 }
                 // Same song with a new key (the duration arrived later): the lyrics stay its own.
                 let old_key = inner.now.track.as_ref().map(|t| t.key.clone());
-                if let (false, Some(old), Some(next)) = (new_song, old_key.as_deref(), &info) {
-                    if old != next.key {
-                        rekeyed_offset = Some((old.to_owned(), next.key.clone()));
-                    }
+                if let (false, Some(old), Some(next)) = (new_song, old_key.as_deref(), &info)
+                    && old != next.key
+                {
+                    rekeyed_offset = Some((old.to_owned(), next.key.clone()));
                 }
                 let mut rekeyed = None;
-                if let (false, Some(next), Some(lyrics)) = (new_song, &info, inner.lyrics.as_mut()) {
-                    if old_key.as_deref() == Some(lyrics.key.as_str()) && lyrics.key != next.key {
-                        lyrics.key = next.key.clone();
-                        rekeyed = Some(lyrics.clone());
-                    }
+                if let (false, Some(next), Some(lyrics)) = (new_song, &info, inner.lyrics.as_mut())
+                    && old_key.as_deref() == Some(lyrics.key.as_str())
+                    && lyrics.key != next.key
+                {
+                    lyrics.key = next.key.clone();
+                    rekeyed = Some(lyrics.clone());
                 }
                 if new_song || info.is_none() {
                     inner.lyrics = None;

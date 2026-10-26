@@ -124,10 +124,10 @@ fn build_view(app: &AppHandle, s: &Session) -> CalibrationView {
 }
 
 fn emit_view(app: &AppHandle) {
-    if let Some(v) = view(app) {
-        if let Err(e) = app.emit(events::CALIBRATION, &v) {
-            tracing::warn!(error = %e, "could not emit calibration state");
-        }
+    if let Some(v) = view(app)
+        && let Err(e) = app.emit(events::CALIBRATION, &v)
+    {
+        tracing::warn!(error = %e, "could not emit calibration state");
     }
 }
 

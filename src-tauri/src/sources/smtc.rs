@@ -180,13 +180,13 @@ impl Worker {
                 self.bound = None;
                 self.manager = None;
             }
-            if self.manager.is_none() {
-                if let Err(e) = self.connect() {
-                    tracing::warn!(error = %e, "smtc session manager unavailable, retrying in 5 s");
-                    self.manager = None;
-                    std::thread::sleep(RETRY);
-                    continue;
-                }
+            if self.manager.is_none()
+                && let Err(e) = self.connect()
+            {
+                tracing::warn!(error = %e, "smtc session manager unavailable, retrying in 5 s");
+                self.manager = None;
+                std::thread::sleep(RETRY);
+                continue;
             }
             let timeout = if self.restart_at.is_some() { FAST_POLL } else { POLL };
             let result = match self.msg_rx.recv_timeout(timeout) {
@@ -327,10 +327,12 @@ impl Worker {
         let updated = tl.LastUpdatedTime()?.UniversalTime;
         let end_ms = tl.EndTime()?.Duration / 10_000;
         // Only changed reports count as observations, otherwise polling would autocorrelate (PLAN.md 5.4).
-        if let Some(prev) = self.timeline {
-            if prev.updated == updated && prev.pos_ms == pos_ms && prev.end_ms == end_ms {
-                return Ok(());
-            }
+        if let Some(prev) = self.timeline
+            && prev.updated == updated
+            && prev.pos_ms == pos_ms
+            && prev.end_ms == end_ms
+        {
+            return Ok(());
         }
 
         let now = Instant::now();
@@ -355,19 +357,20 @@ impl Worker {
 
         // The duration may settle after the title. While a track change is pending, the new
         // timeline belongs to the next song, not the current one.
-        if self.restart_at.is_none() && end_ms > 0 {
-            if let Some(track) = &self.track {
-                let duration = Some(end_ms as u32);
-                if track.duration_ms != duration {
-                    let mut t = track.clone();
-                    t.duration_ms = duration;
-                    t.key = track_key(&t.artist, &t.title, duration);
-                    let music_type = t.kind != TrackKind::Unknown;
-                    t.kind = classify(&t.title, &t.artist, t.album.as_deref(), duration, music_type);
-                    tracing::debug!(key = %t.key, "track duration updated");
-                    self.track = Some(t.clone());
-                    self.emit(SourceEvent::Track { info: Some(t), first_sign: now });
-                }
+        if self.restart_at.is_none()
+            && end_ms > 0
+            && let Some(track) = &self.track
+        {
+            let duration = Some(end_ms as u32);
+            if track.duration_ms != duration {
+                let mut t = track.clone();
+                t.duration_ms = duration;
+                t.key = track_key(&t.artist, &t.title, duration);
+                let music_type = t.kind != TrackKind::Unknown;
+                t.kind = classify(&t.title, &t.artist, t.album.as_deref(), duration, music_type);
+                tracing::debug!(key = %t.key, "track duration updated");
+                self.track = Some(t.clone());
+                self.emit(SourceEvent::Track { info: Some(t), first_sign: now });
             }
         }
         Ok(())
@@ -404,16 +407,15 @@ impl Worker {
 
         if let Some(cur) = self.track.clone().filter(|cur| cur.same_song(&info)) {
             // Same song. Spotify may publish or replace the cover after the title.
-            if event_at.is_some() || (cur.art.is_none() && self.art_attempts < ART_POLL_ATTEMPTS) {
-                if let Some(art) = self.read_art(&props) {
-                    if cur.art.as_ref().map(|a| a.hash) != Some(art.hash) {
-                        tracing::debug!(bytes = art.url.len(), "cover updated");
-                        let mut t = cur;
-                        t.art = Some(art);
-                        self.track = Some(t.clone());
-                        self.emit(SourceEvent::Track { info: Some(t), first_sign: Instant::now() });
-                    }
-                }
+            if (event_at.is_some() || (cur.art.is_none() && self.art_attempts < ART_POLL_ATTEMPTS))
+                && let Some(art) = self.read_art(&props)
+                && cur.art.as_ref().map(|a| a.hash) != Some(art.hash)
+            {
+                tracing::debug!(bytes = art.url.len(), "cover updated");
+                let mut t = cur;
+                t.art = Some(art);
+                self.track = Some(t.clone());
+                self.emit(SourceEvent::Track { info: Some(t), first_sign: Instant::now() });
             }
             return Ok(());
         }

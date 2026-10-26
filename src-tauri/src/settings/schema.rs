@@ -390,8 +390,7 @@ mod tests {
 
     #[test]
     fn sanitize_clamps_out_of_range_values() {
-        let mut s = Settings::default();
-        s.schema_version = 0;
+        let mut s = Settings { schema_version: 0, ..Default::default() };
         s.overlay.scale = 9.0;
         s.overlay.width_pct = 1.0;
         s.overlay.offset_x_pct = f64::NAN;

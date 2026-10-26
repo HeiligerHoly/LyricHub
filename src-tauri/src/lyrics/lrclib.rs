@@ -213,10 +213,10 @@ pub fn lookup(t: &Arc<dyn Transport>, q: &Query) -> Outcome {
         let wait = next_hedge.saturating_duration_since(Instant::now());
         match rx.recv_timeout(if launched < stages.len() { wait } else { Duration::from_secs(TIMEOUT_S + 1) }) {
             Ok((i, answer)) => {
-                if let Answer::Tracks(tracks) = &answer {
-                    if let Some(track) = tracks.iter().find(|t| t.has_synced()) {
-                        return Outcome::Found { track: track.clone(), stage: stages[i].name };
-                    }
+                if let Answer::Tracks(tracks) = &answer
+                    && let Some(track) = tracks.iter().find(|t| t.has_synced())
+                {
+                    return Outcome::Found { track: track.clone(), stage: stages[i].name };
                 }
                 let next_now = !matches!(answer, Answer::Tracks(_));
                 answers[i] = Some(answer);

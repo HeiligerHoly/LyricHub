@@ -121,11 +121,11 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             // Runs on the main thread: never lock overlay state here (see overlay/mod.rs).
-            if window.label() == overlay::LABEL {
-                if let WindowEvent::ScaleFactorChanged { .. } = event {
-                    let app: AppHandle = window.app_handle().clone();
-                    std::thread::spawn(move || overlay::force_relayout(&app));
-                }
+            if window.label() == overlay::LABEL
+                && let WindowEvent::ScaleFactorChanged { .. } = event
+            {
+                let app: AppHandle = window.app_handle().clone();
+                std::thread::spawn(move || overlay::force_relayout(&app));
             }
             // The appearance page may close with the window: end its preview.
             if window.label() == settings_window::LABEL && matches!(event, WindowEvent::Destroyed) {

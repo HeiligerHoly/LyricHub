@@ -313,11 +313,11 @@ pub fn layout_ready(app: &AppHandle, seq: u64) {
     let state = app.state::<OverlayState>();
     let h = state.hwnd();
     let mut view = state.view.lock().unwrap();
-    if let Some((wait, bounds)) = view.pending_bounds {
-        if seq >= wait {
-            view.pending_bounds = None;
-            apply_bounds(&mut view, h, bounds);
-        }
+    if let Some((wait, bounds)) = view.pending_bounds
+        && seq >= wait
+    {
+        view.pending_bounds = None;
+        apply_bounds(&mut view, h, bounds);
     }
 }
 
@@ -605,10 +605,10 @@ fn spawn_watchdog(app: AppHandle) {
                     tracing::warn!("overlay lost visibility, showing again without activation");
                     win32::show_no_activate(h);
                 }
-                if tick % TOPMOST_EVERY_TICKS == 0 {
+                if tick.is_multiple_of(TOPMOST_EVERY_TICKS) {
                     win32::reassert_topmost(h, false);
                 }
-                if tick % MONITORS_EVERY_TICKS == 0 {
+                if tick.is_multiple_of(MONITORS_EVERY_TICKS) {
                     check_geometry(&app, h);
                 }
             }

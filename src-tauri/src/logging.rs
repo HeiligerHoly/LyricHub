@@ -20,7 +20,7 @@ fn prune_reports(dir: &std::path::Path) {
         .filter(|e| e.file_name().to_string_lossy().starts_with("selftest-"))
         .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
         .collect();
-    reports.sort_by(|a, b| b.0.cmp(&a.0));
+    reports.sort_by_key(|r| std::cmp::Reverse(r.0));
     for (_, path) in reports.into_iter().skip(SELFTEST_REPORTS_KEPT) {
         let _ = std::fs::remove_file(path);
     }

@@ -83,11 +83,11 @@ fn migrate(mut value: Value) -> Value {
             "settings come from a newer LyricHub, unknown fields are kept as they are"
         );
     }
-    if version < 2 {
-        if let Some(sync) = value.get_mut("sync").and_then(Value::as_object_mut) {
-            let old = sync.insert("global_offset_ms".into(), Value::from(0));
-            tracing::info!(old_global_offset_ms = ?old, "settings v1 → v2: global offset reset, nudges are per song now");
-        }
+    if version < 2
+        && let Some(sync) = value.get_mut("sync").and_then(Value::as_object_mut)
+    {
+        let old = sync.insert("global_offset_ms".into(), Value::from(0));
+        tracing::info!(old_global_offset_ms = ?old, "settings v1 → v2: global offset reset, nudges are per song now");
     }
     if let Value::Object(map) = &mut value {
         map.insert("schema_version".into(), Value::from(SCHEMA_VERSION));

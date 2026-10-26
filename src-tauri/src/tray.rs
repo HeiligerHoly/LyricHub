@@ -72,7 +72,9 @@ fn tray_icon() -> Option<Image<'static>> {
 fn greyscale(icon: &Image<'_>) -> Image<'static> {
     let rgba: Vec<u8> = icon
         .rgba()
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .flat_map(|p| {
             let l = (0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32) * 0.8;
             let l = l.round().clamp(0.0, 255.0) as u8;

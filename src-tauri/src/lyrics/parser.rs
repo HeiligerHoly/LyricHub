@@ -46,14 +46,14 @@ pub fn parse(input: &str) -> ParsedLrc {
                 rest = inner[close + 1..].trim_start_matches(' ');
                 continue;
             }
-            if stamps.is_empty() {
-                if let Some((key, value)) = parse_meta(tag) {
-                    match key.as_str() {
-                        "offset" => out.offset_ms = value.trim_start_matches('+').parse().unwrap_or(0),
-                        "ti" => out.title = Some(value.to_owned()).filter(|v| !v.is_empty()),
-                        "ar" => out.artist = Some(value.to_owned()).filter(|v| !v.is_empty()),
-                        _ => {}
-                    }
+            if stamps.is_empty()
+                && let Some((key, value)) = parse_meta(tag)
+            {
+                match key.as_str() {
+                    "offset" => out.offset_ms = value.trim_start_matches('+').parse().unwrap_or(0),
+                    "ti" => out.title = Some(value.to_owned()).filter(|v| !v.is_empty()),
+                    "ar" => out.artist = Some(value.to_owned()).filter(|v| !v.is_empty()),
+                    _ => {}
                 }
             }
             // A section label such as "[Chorus]" after timestamps stays part of the text.
@@ -176,15 +176,14 @@ fn parse_words(text: &str) -> (String, Option<Vec<(i64, String)>>) {
     let mut current: Option<i64> = None;
     let mut segment = String::new();
     while !rest.is_empty() {
-        if let Some(inner) = rest.strip_prefix('<') {
-            if let Some(close) = inner.find('>') {
-                if let Some(ms) = parse_timestamp(&inner[..close]) {
-                    flush(&mut words, current, &mut segment);
-                    current = Some(ms);
-                    rest = &inner[close + 1..];
-                    continue;
-                }
-            }
+        if let Some(inner) = rest.strip_prefix('<')
+            && let Some(close) = inner.find('>')
+            && let Some(ms) = parse_timestamp(&inner[..close])
+        {
+            flush(&mut words, current, &mut segment);
+            current = Some(ms);
+            rest = &inner[close + 1..];
+            continue;
         }
         let ch = rest.chars().next().unwrap();
         segment.push(ch);

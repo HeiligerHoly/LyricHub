@@ -158,10 +158,10 @@ fn handle(
     match outcome {
         Outcome::Found { track, stage } => {
             let cached = to_cached(&track, now);
-            if let Some(cache) = cache {
-                if let Err(e) = cache.put(&req.key, &cached) {
-                    tracing::warn!(error = %e, "lyrics cache write failed");
-                }
+            if let Some(cache) = cache
+                && let Err(e) = cache.put(&req.key, &cached)
+            {
+                tracing::warn!(error = %e, "lyrics cache write failed");
             }
             let event = to_event(&req.key, &cached, "lrclib");
             tracing::info!(key = %req.key, stage, lrclib_id = track.id, state = ?event.state, lines = event.lines.len(), took_ms, "lyrics found");

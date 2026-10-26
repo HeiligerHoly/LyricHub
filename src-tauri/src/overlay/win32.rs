@@ -107,7 +107,7 @@ pub fn layered_alpha_set(h: Hwnd) -> bool {
 pub fn reassert_topmost(h: Hwnd, frame_changed: bool) {
     let mut flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
     if frame_changed {
-        flags = flags | SWP_FRAMECHANGED;
+        flags |= SWP_FRAMECHANGED;
     }
     // SAFETY: z-order change of our own window.
     unsafe {
