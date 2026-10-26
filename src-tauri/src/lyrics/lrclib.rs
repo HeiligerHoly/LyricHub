@@ -19,6 +19,8 @@ use super::matcher::{self, Candidate, Wanted};
 
 pub const BASE_URL: &str = "https://lrclib.net";
 const TIMEOUT_S: u64 = 4;
+/// A search with 20 results is about 200 KB; anything far beyond that is not a lyrics answer.
+const MAX_BODY_BYTES: u64 = 4 * 1024 * 1024;
 const HEDGE_AFTER: Duration = Duration::from_millis(350);
 
 /// LRCLIB asks clients to identify themselves.
@@ -82,9 +84,15 @@ impl HttpTransport {
 
 impl Transport for HttpTransport {
     fn get(&self, path: &str, query: &[(&str, String)]) -> Result<(u16, String), String> {
+        use std::io::Read;
         let response = self.client.get(format!("{}{path}", self.base)).query(query).send().map_err(|e| e.to_string())?;
         let status = response.status().as_u16();
-        Ok((status, response.text().unwrap_or_default()))
+        let mut body = Vec::new();
+        response.take(MAX_BODY_BYTES + 1).read_to_end(&mut body).map_err(|e| e.to_string())?;
+        if body.len() as u64 > MAX_BODY_BYTES {
+            return Err(format!("answer larger than {MAX_BODY_BYTES} bytes"));
+        }
+        Ok((status, String::from_utf8_lossy(&body).into_owned()))
     }
 }
 
