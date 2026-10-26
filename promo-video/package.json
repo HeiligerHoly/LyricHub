@@ -7,6 +7,7 @@
   "scripts": {
     "studio": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts Master out/lyrichub-promo.mp4",
+    "thumbnail": "remotion still src/index.ts Thumbnail out/thumbnail.jpg --scale=0.6666667 --image-format=jpeg --jpeg-quality=92",
     "stills": "node scripts/stills.ts",
     "script:md": "node scripts/build-script-md.ts",
     "typecheck": "tsc --noEmit"

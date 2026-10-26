@@ -2,12 +2,13 @@
 // All lengths come from src/data/scenes.ts; per-scene voice-over files can stretch a scene, and
 // the master adds the background music from public/music/.
 import React from "react";
-import { AbsoluteFill, Audio, Composition, Folder, Series, staticFile } from "remotion";
+import { AbsoluteFill, Audio, Composition, Folder, Series, Still, staticFile } from "remotion";
 import { FPS, HEIGHT, SCENES, WIDTH } from "./data/scenes";
 import { S04Overlay, S05OutOfTheWay, S06Hotkeys, S07EditMode, S08Behavior } from "./scenes/Core";
 import { S01Hook, S02What, S03Setup } from "./scenes/Intro";
 import { S09Layouts, S10Appearance, S11Sync, S12Romaji, S13Settings, S14Tests, S15Outro } from "./scenes/More";
 import { BackgroundMusic } from "./music";
+import { Thumbnail } from "./Thumbnail";
 import { EMPTY_TIMELINE, sceneDurations, sceneVoFile, singleVoFile, timeline, type Timeline } from "./vo";
 
 export const SCENE_COMPONENTS: Record<string, React.FC> = {
@@ -73,6 +74,7 @@ export const Root: React.FC = () => (
         return { durationInFrames: t.durations.reduce((a, b) => a + b, 0), props: t };
       }}
     />
+    <Still id="Thumbnail" component={Thumbnail} width={WIDTH} height={HEIGHT} />
     <Folder name="Scenes">
       {SCENES.map((s, i) => (
         <Composition

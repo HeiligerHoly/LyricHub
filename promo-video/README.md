@@ -25,6 +25,7 @@ npm install
 |---|---|
 | `npm run studio` | Opens Remotion Studio in the browser. Pick `Master` or any scene under `Scenes`. |
 | `npm run render` | Renders the full video to `out/lyrichub-promo.mp4`. |
+| `npm run thumbnail` | Renders the YouTube thumbnail (1280x720 JPG) to `out/thumbnail.jpg`. |
 | `npm run stills` | Renders check stills (15 %, 50 %, 85 % of each scene) to `out/stills/`. |
 | `npm run script:md` | Rewrites `script.md` from `src/data/scenes.ts` and warns if a scene is too short for its text. |
 | `npm run typecheck` | Checks the TypeScript. |
