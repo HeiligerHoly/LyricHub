@@ -5,6 +5,8 @@ An animated promo and explainer for LyricHub (about 5:47), built in code with
 the settings window and the edit mode are recreated from LyricHub's own styles. All songs,
 artists, lyrics and covers in it are invented, and the game backgrounds are abstract.
 
+The finished video is on YouTube: [youtu.be/lT9tKeel5nE](https://youtu.be/lT9tKeel5nE).
+
 - [FEATURES.md](FEATURES.md): what LyricHub does, with source references. Everything the video
   claims comes from here.
 - [script.md](script.md): the voice-over script, one block per scene with start, end, spoken text

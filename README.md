@@ -4,6 +4,10 @@
 
 A Windows overlay that shows the current Spotify song with karaoke-style lyrics over games, in sync with what you hear. The full plan is in [PLAN.en.md](PLAN.en.md) (German original: [PLAN.md](PLAN.md)).
 
+[![LyricHub promo video: lyrics over your games](docs/img/promo-video.jpg)](https://youtu.be/lT9tKeel5nE)
+
+▶ [Watch the promo video on YouTube](https://youtu.be/lT9tKeel5nE) (5:47, English). It was made in code with Remotion; the project is in [promo-video/](promo-video/).
+
 Status: `v1.0.0`, the first public release (2026-10-26). The overlay shows the synced lyrics of the current Spotify song from [LRCLIB](https://lrclib.net) with a karaoke fill that moves word by word, plus cover, title and artist; position and size can be set right on the screen in the edit mode. Four layouts, five themes with an accent colour taken from the album cover, German and English. The overlay stays on top even over games that push themselves to the front, and it can be limited to fullscreen apps. Corrections are kept per song, every output device has its own offset, and a calibration assistant and the Sync Lab help with the setup. Japanese lines can be shown in romaji ([docs/en/romaji.md](docs/en/romaji.md)). Results in [docs/en/phase5.md](docs/en/phase5.md) and the security, performance and disk checks in [docs/en/checks.md](docs/en/checks.md), [docs/en/phase4.md](docs/en/phase4.md), [docs/en/phase3.md](docs/en/phase3.md) with the measurement report [docs/en/sync-report.md](docs/en/sync-report.md), plus [docs/en/phase2.md](docs/en/phase2.md) and [docs/en/phase1.md](docs/en/phase1.md); the phase 0 spikes are in [docs/en/spike-smtc.md](docs/en/spike-smtc.md) and [docs/en/spike-overlay.md](docs/en/spike-overlay.md).
 
 ![Overlay, layout Karaoke, theme Glass Dark](docs/img/overlay-karaoke.png)
