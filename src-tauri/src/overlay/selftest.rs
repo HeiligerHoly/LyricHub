@@ -239,7 +239,7 @@ pub fn run(app: &AppHandle) -> Report {
                 since = 0;
             }
             sleep(Duration::from_millis(50));
-            since += 50;
+            since = since.saturating_add(50);
             if let Some(a) = win32::is_above(overlay, game) {
                 total += 1;
                 above += a as u32;
