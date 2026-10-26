@@ -1,0 +1,9 @@
+# Original plan / Original-Plan
+
+**English.** This folder holds the plan for LyricHub as it stood in the first commit (`d3829ea`, 2026-10-25), before the first line of code: [PLAN.md](PLAN.md) is the German original, [PLAN.en.md](PLAN.en.md) the English translation. Claude Fable wrote it as the working basis for Claude Opus, which then built LyricHub phase by phase (Phase 0 spikes up to Phase 5 release). The same plan with every later decision and the result of each phase is [PLAN.en.md](../../PLAN.en.md) in the repository root; the reports of the phases are in [docs/en/](../en/).
+
+To rebuild LyricHub yourself instead of trusting the binaries, hand this plan to an AI coding assistant (or work through it by hand) one phase at a time, in the order of section 10, with the working rules of section 15. The phase reports show where the real implementation deviated from the plan and why.
+
+**Deutsch.** Dieser Ordner enthält den Plan für LyricHub, wie er im ersten Commit stand (`d3829ea`, 2026-10-25), vor der ersten Codezeile: [PLAN.md](PLAN.md) ist das deutsche Original, [PLAN.en.md](PLAN.en.md) die englische Übersetzung. Claude Fable hat ihn als Arbeitsgrundlage für Claude Opus geschrieben, das LyricHub danach Phase für Phase gebaut hat (von den Spikes in Phase 0 bis zum Release in Phase 5). Derselbe Plan mit allen späteren Entscheidungen und dem Ergebnis jeder Phase ist [PLAN.md](../../PLAN.md) im Hauptordner; die Berichte der Phasen stehen in [docs/](../).
+
+Wer LyricHub lieber selbst nachbaut, als den fertigen Dateien zu trauen, gibt diesen Plan Phase für Phase einem KI-Programmierassistenten (oder arbeitet ihn von Hand ab), in der Reihenfolge von Abschnitt 10 und nach den Arbeitsregeln in Abschnitt 15. Die Phasenberichte zeigen, wo die echte Umsetzung vom Plan abwich und warum.
