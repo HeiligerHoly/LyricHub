@@ -138,7 +138,12 @@ pub fn start(app: &AppHandle, mode: Mode) -> Result<CalibrationView, String> {
     }
     let lyrics_ok = app.state::<NowPlayingState>().lyrics().is_some_and(|l| l.state == LyricsState::Synced);
     if !lyrics_ok {
-        return Err(pick(current(app), "Für die Messung braucht der laufende Song synchrone Lyrics.", "The measurement needs synced lyrics for the current song.").into());
+        return Err(pick(
+            current(app),
+            "Für die Messung braucht der laufende Song synchrone Lyrics.",
+            "The measurement needs synced lyrics for the current song.",
+        )
+        .into());
     }
     {
         let state = app.state::<CalibrationState>();
@@ -180,12 +185,26 @@ pub fn tap(app: &AppHandle, at: Instant) {
                 let unix_ms = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
                 tracing::info!(title = %t.title, line = index, line_start_ms = start, error_ms, "tap");
                 sync_lab::record(app, at, sync_lab::entry("tap", "user", error_ms));
-                s.taps.push(Tap { key: t.key.clone(), title: t.title.clone(), line_index: index, line_start_ms: start, error_ms, unix_ms });
+                s.taps.push(Tap {
+                    key: t.key.clone(),
+                    title: t.title.clone(),
+                    line_index: index,
+                    line_start_ms: start,
+                    error_ms,
+                    unix_ms,
+                });
                 s.message = None;
             }
             None => {
                 s.missed += 1;
-                s.message = Some(pick(current(app), "Kein Zeilenanfang in der Nähe, Tap nicht gezählt.", "No line start nearby, tap not counted.").into());
+                s.message = Some(
+                    pick(
+                        current(app),
+                        "Kein Zeilenanfang in der Nähe, Tap nicht gezählt.",
+                        "No line start nearby, tap not counted.",
+                    )
+                    .into(),
+                );
             }
         }
         s.mode == Mode::Calibrate && s.taps.len() >= CALIBRATION_TAPS
@@ -223,8 +242,13 @@ pub fn stop(app: &AppHandle) {
 /// Takes the calibration suggestion as the offset of the current audio device.
 pub fn apply_suggestion(app: &AppHandle) -> Result<i32, String> {
     let lang = current(app);
-    let suggestion = view(app).and_then(|v| v.suggestion_ms).ok_or(pick(lang, "Kein Vorschlag vorhanden.", "No suggestion yet."))?;
-    let device = crate::audio_devices::current_id(app).ok_or(pick(lang, "Kein Audiogerät erkannt.", "No audio device found."))?;
+    let suggestion =
+        view(app).and_then(|v| v.suggestion_ms).ok_or(pick(lang, "Kein Vorschlag vorhanden.", "No suggestion yet."))?;
+    let device = crate::audio_devices::current_id(app).ok_or(pick(
+        lang,
+        "Kein Audiogerät erkannt.",
+        "No audio device found.",
+    ))?;
     crate::audio_devices::set_offset(app, &device, suggestion);
     tracing::info!(device_offset_ms = suggestion, "calibration applied");
     emit_view(app);
@@ -245,7 +269,10 @@ fn write_protocol(app: &AppHandle) -> Option<String> {
         "missed": v.missed,
     });
     let path = crate::logging::log_dir().join(format!("sync-protocol-{unix}.json"));
-    match serde_json::to_string_pretty(&report).map_err(|e| e.to_string()).and_then(|t| std::fs::write(&path, t).map_err(|e| e.to_string())) {
+    match serde_json::to_string_pretty(&report)
+        .map_err(|e| e.to_string())
+        .and_then(|t| std::fs::write(&path, t).map_err(|e| e.to_string()))
+    {
         Ok(()) => {
             tracing::info!(path = %path.display(), "sync protocol written");
             Some(path.display().to_string())

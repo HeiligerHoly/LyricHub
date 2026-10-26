@@ -113,7 +113,15 @@ impl Cache {
         Ok(lyrics)
     }
 
-    pub fn touch_track(&self, key: &str, title: &str, artist: &str, album: Option<&str>, duration_ms: Option<u32>, now: i64) -> rusqlite::Result<()> {
+    pub fn touch_track(
+        &self,
+        key: &str,
+        title: &str,
+        artist: &str,
+        album: Option<&str>,
+        duration_ms: Option<u32>,
+        now: i64,
+    ) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO tracks (key, title, artist, album, duration_ms, last_seen) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
              ON CONFLICT(key) DO UPDATE SET last_seen = excluded.last_seen",
@@ -143,7 +151,8 @@ impl Cache {
         if let Some(hit) = hit {
             return Ok(Lookup::Hit(hit));
         }
-        let until: Option<i64> = self.conn.query_row("SELECT until FROM negative_cache WHERE key = ?1", [key], |r| r.get(0)).optional()?;
+        let until: Option<i64> =
+            self.conn.query_row("SELECT until FROM negative_cache WHERE key = ?1", [key], |r| r.get(0)).optional()?;
         Ok(match until {
             Some(until) if until > now => Lookup::Negative,
             _ => Lookup::Miss,
@@ -154,7 +163,16 @@ impl Cache {
         self.conn.execute(
             "INSERT OR REPLACE INTO lyrics (key, source, source_id, format, raw, synced, instrumental, fetched_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![key, c.source, c.source_id, c.format.as_str(), c.raw, (c.format == Format::Lrc) as i64, c.instrumental as i64, c.fetched_at],
+            params![
+                key,
+                c.source,
+                c.source_id,
+                c.format.as_str(),
+                c.raw,
+                (c.format == Format::Lrc) as i64,
+                c.instrumental as i64,
+                c.fetched_at
+            ],
         )?;
         self.conn.execute("DELETE FROM negative_cache WHERE key = ?1", [key])?;
         Ok(())
@@ -165,13 +183,17 @@ impl Cache {
     }
 
     pub fn put_negative_for(&self, key: &str, now: i64, ttl_s: i64) -> rusqlite::Result<()> {
-        self.conn.execute("INSERT OR REPLACE INTO negative_cache (key, until) VALUES (?1, ?2)", params![key, now + ttl_s])?;
+        self.conn
+            .execute("INSERT OR REPLACE INTO negative_cache (key, until) VALUES (?1, ?2)", params![key, now + ttl_s])?;
         Ok(())
     }
 
     /// Stored song offset (Nudge, PLAN.md 5.7); 0 for a song never corrected.
     pub fn song_offset(&self, key: &str) -> rusqlite::Result<i32> {
-        let ms: Option<i64> = self.conn.query_row("SELECT offset_ms FROM song_overrides WHERE key = ?1", [key], |r| r.get(0)).optional()?;
+        let ms: Option<i64> = self
+            .conn
+            .query_row("SELECT offset_ms FROM song_overrides WHERE key = ?1", [key], |r| r.get(0))
+            .optional()?;
         Ok(ms.unwrap_or(0) as i32)
     }
 
@@ -190,8 +212,10 @@ impl Cache {
 
     /// Offset of an audio output device, if it was seen before.
     pub fn device_offset(&self, device_id: &str) -> rusqlite::Result<Option<i32>> {
-        let ms: Option<i64> =
-            self.conn.query_row("SELECT offset_ms FROM device_offsets WHERE device_id = ?1", [device_id], |r| r.get(0)).optional()?;
+        let ms: Option<i64> = self
+            .conn
+            .query_row("SELECT offset_ms FROM device_offsets WHERE device_id = ?1", [device_id], |r| r.get(0))
+            .optional()?;
         Ok(ms.map(|m| m as i32))
     }
 
@@ -206,7 +230,8 @@ impl Cache {
 
     /// All known devices as (id, name, offset).
     pub fn devices(&self) -> rusqlite::Result<Vec<(String, String, i32)>> {
-        let mut stmt = self.conn.prepare("SELECT device_id, COALESCE(name, ''), offset_ms FROM device_offsets ORDER BY name")?;
+        let mut stmt =
+            self.conn.prepare("SELECT device_id, COALESCE(name, ''), offset_ms FROM device_offsets ORDER BY name")?;
         let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? as i32)))?;
         rows.collect()
     }
@@ -224,14 +249,28 @@ mod tests {
     use super::*;
 
     fn cached(format: Format) -> Cached {
-        Cached { source: "lrclib".into(), source_id: Some(42), format, raw: "[00:01.00]a".into(), instrumental: false, fetched_at: 100 }
+        Cached {
+            source: "lrclib".into(),
+            source_id: Some(42),
+            format,
+            raw: "[00:01.00]a".into(),
+            instrumental: false,
+            fetched_at: 100,
+        }
     }
 
     #[test]
     fn prune_drops_old_lyrics_but_keeps_offsets() {
         let c = Cache::in_memory().unwrap();
         let day = 86_400;
-        let cached = |at| Cached { source: "lrclib".into(), source_id: Some(1), format: Format::Lrc, raw: "[00:01.00]x".into(), instrumental: false, fetched_at: at };
+        let cached = |at| Cached {
+            source: "lrclib".into(),
+            source_id: Some(1),
+            format: Format::Lrc,
+            raw: "[00:01.00]x".into(),
+            instrumental: false,
+            fetched_at: at,
+        };
         c.touch_track("old", "Old", "A", None, None, 0).unwrap();
         c.put("old", &cached(0)).unwrap();
         c.touch_track("new", "New", "A", None, None, 400 * day).unwrap();

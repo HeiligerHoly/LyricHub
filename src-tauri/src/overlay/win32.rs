@@ -14,12 +14,12 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
 use windows::Win32::UI::WindowsAndMessaging::{
-    FindWindowW, GA_ROOT, GW_HWNDNEXT, GWL_EXSTYLE, GetAncestor, GetForegroundWindow, GetWindow, GetWindowLongPtrW,
-    GetLayeredWindowAttributes, GetWindowRect, GetWindowTextW, HWND_TOPMOST, LAYERED_WINDOW_ATTRIBUTES_FLAGS, IsWindowVisible, LWA_ALPHA, MONITORINFOF_PRIMARY, SW_HIDE,
-    SW_SHOWNOACTIVATE, SWP_ASYNCWINDOWPOS, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER,
-    SetForegroundWindow, SetLayeredWindowAttributes, SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE,
-    WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
-    WindowFromPoint,
+    FindWindowW, GA_ROOT, GW_HWNDNEXT, GWL_EXSTYLE, GetAncestor, GetForegroundWindow, GetLayeredWindowAttributes,
+    GetWindow, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, HWND_TOPMOST, IsWindowVisible,
+    LAYERED_WINDOW_ATTRIBUTES_FLAGS, LWA_ALPHA, MONITORINFOF_PRIMARY, SW_HIDE, SW_SHOWNOACTIVATE, SWP_ASYNCWINDOWPOS,
+    SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SetForegroundWindow,
+    SetLayeredWindowAttributes, SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WS_EX_APPWINDOW,
+    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WindowFromPoint,
 };
 use windows::core::{BOOL, HSTRING, PCWSTR};
 
@@ -40,7 +40,8 @@ impl Hwnd {
 }
 
 /// Extended styles the overlay must always carry, independent of click-through.
-pub const OVERLAY_REQUIRED: WINDOW_EX_STYLE = WINDOW_EX_STYLE(WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TOPMOST.0);
+pub const OVERLAY_REQUIRED: WINDOW_EX_STYLE =
+    WINDOW_EX_STYLE(WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TOPMOST.0);
 /// Extra bits for click-through: layered + transparent makes hit-testing skip the window.
 pub const CLICK_THROUGH: WINDOW_EX_STYLE = WINDOW_EX_STYLE(WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0);
 
@@ -229,12 +230,7 @@ pub fn root_window_from_point(x: i32, y: i32) -> Hwnd {
 
 pub fn find_window_by_title(title: &str) -> Option<Hwnd> {
     // SAFETY: plain query with a valid wide string.
-    unsafe {
-        FindWindowW(PCWSTR::null(), &HSTRING::from(title))
-            .ok()
-            .filter(|h| !h.is_invalid())
-            .map(Hwnd::from_raw)
-    }
+    unsafe { FindWindowW(PCWSTR::null(), &HSTRING::from(title)).ok().filter(|h| !h.is_invalid()).map(Hwnd::from_raw) }
 }
 
 /// True if `upper` is above `lower` in the z-order, None if `lower` was not found below.
@@ -315,15 +311,7 @@ pub fn capture_rect(r: &RECT) -> Option<Vec<u32>> {
             ..Default::default()
         };
         let mut pixels = vec![0u32; (w * h) as usize];
-        let lines = GetDIBits(
-            mem,
-            bmp,
-            0,
-            h as u32,
-            Some(pixels.as_mut_ptr().cast()),
-            &mut info,
-            DIB_RGB_COLORS,
-        );
+        let lines = GetDIBits(mem, bmp, 0, h as u32, Some(pixels.as_mut_ptr().cast()), &mut info, DIB_RGB_COLORS);
         let _ = DeleteObject(bmp.into());
         let _ = DeleteDC(mem);
         ReleaseDC(None, screen);

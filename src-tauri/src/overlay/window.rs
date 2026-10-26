@@ -235,7 +235,13 @@ mod tests {
         for (x, y) in [(10.0, 20.0), (400.0, 900.0), (700.0, 1800.0), (300.0, 1000.0)] {
             let r = Rect { x, y, width: 480.0, height: 64.0 };
             let (anchor, ox, oy, wp) = geometry_from_rect(&m, &r, 480.0);
-            let o = OverlaySettings { anchor, offset_x_pct: ox, offset_y_pct: oy, width_pct: wp, ..OverlaySettings::default() };
+            let o = OverlaySettings {
+                anchor,
+                offset_x_pct: ox,
+                offset_y_pct: oy,
+                width_pct: wp,
+                ..OverlaySettings::default()
+            };
             let back = place(&o, &m, (content_layout(&o, &m).width_css, 64.0));
             assert!((back.x - x).abs() < 0.1 && (back.y - y).abs() < 0.1, "{anchor:?}: {back:?} vs ({x},{y})");
         }

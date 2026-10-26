@@ -28,7 +28,13 @@ const PODCAST_MIN_MS: u32 = 20 * 60_000;
 /// Heuristics without the Web API (PLAN.md 5.5): an ad is titled "Advertisement" or "Spotify"
 /// with no artist and lasts at most 40 s; a podcast episode is longer than 20 min and has no
 /// album. Premium (the user's account) plays no ads, so a simple rule suffices.
-pub fn classify(title: &str, artist: &str, album: Option<&str>, duration_ms: Option<u32>, music_type: bool) -> TrackKind {
+pub fn classify(
+    title: &str,
+    artist: &str,
+    album: Option<&str>,
+    duration_ms: Option<u32>,
+    music_type: bool,
+) -> TrackKind {
     let title_l = title.trim().to_lowercase();
     let artist_l = artist.trim().to_lowercase();
     let ad_title = matches!(title_l.as_str(), "advertisement" | "spotify" | "spotify free" | "werbung");

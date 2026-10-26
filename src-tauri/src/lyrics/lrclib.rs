@@ -85,7 +85,8 @@ impl HttpTransport {
 impl Transport for HttpTransport {
     fn get(&self, path: &str, query: &[(&str, String)]) -> Result<(u16, String), String> {
         use std::io::Read;
-        let response = self.client.get(format!("{}{path}", self.base)).query(query).send().map_err(|e| e.to_string())?;
+        let response =
+            self.client.get(format!("{}{path}", self.base)).query(query).send().map_err(|e| e.to_string())?;
         let status = response.status().as_u16();
         let mut body = Vec::new();
         response.take(MAX_BODY_BYTES + 1).read_to_end(&mut body).map_err(|e| e.to_string())?;
@@ -106,7 +107,10 @@ pub struct Query<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum Outcome {
-    Found { track: LrclibTrack, stage: &'static str },
+    Found {
+        track: LrclibTrack,
+        stage: &'static str,
+    },
     /// LRCLIB answered and has nothing that fits: worth caching as a miss.
     NotFound,
     /// Server busy or network trouble: try again later, do not cache.
@@ -178,7 +182,11 @@ fn stages(q: &Query) -> Vec<Stage> {
         path: "/api/search",
         query: vec![("track_name", stripped_title.clone()), ("artist_name", main_artist.clone())],
     });
-    list.push(Stage { name: "search-text", path: "/api/search", query: vec![("q", format!("{stripped_title} {main_artist}"))] });
+    list.push(Stage {
+        name: "search-text",
+        path: "/api/search",
+        query: vec![("q", format!("{stripped_title} {main_artist}"))],
+    });
     list
 }
 
@@ -280,7 +288,8 @@ mod tests {
         }
     }
 
-    const BUSY: &str = r#"{"message":"The server is busy, please retry in a moment","name":"ServerOverloaded","statusCode":503}"#;
+    const BUSY: &str =
+        r#"{"message":"The server is busy, please retry in a moment","name":"ServerOverloaded","statusCode":503}"#;
     const SYNCED: &str = "[00:00.06] Morning light on empty streets\n[00:04.25] I count the steps back home\n";
 
     fn track(id: i64, title: &str, artist: &str, duration: f64, synced: bool) -> String {
@@ -315,9 +324,17 @@ mod tests {
 
     #[test]
     fn wrong_edition_is_skipped_and_search_finds_the_right_one() {
-        let search = format!("[{},{}]", track(7, "Paper Boats", "The Inventions", 280.0, true), track(8, "Paper Boats", "The Inventions", 232.0, true));
+        let search = format!(
+            "[{},{}]",
+            track(7, "Paper Boats", "The Inventions", 280.0, true),
+            track(8, "Paper Boats", "The Inventions", 232.0, true)
+        );
         let t = Recorded::new(&[
-            ("/api/get?track_name=Paper Boats&artist_name=The Inventions&duration=231", 200, &track(7, "Paper Boats", "The Inventions", 280.0, true)),
+            (
+                "/api/get?track_name=Paper Boats&artist_name=The Inventions&duration=231",
+                200,
+                &track(7, "Paper Boats", "The Inventions", 280.0, true),
+            ),
             ("/api/search?track_name=Paper Boats&artist_name=The Inventions", 200, &search),
         ]);
         let out = lookup(t, &query("Paper Boats", None));
@@ -342,17 +359,31 @@ mod tests {
     #[test]
     fn plain_only_result_waits_for_a_synced_one() {
         let t = Recorded::new(&[
-            ("/api/get?track_name=Paper Boats&artist_name=The Inventions&duration=231", 200, &track(3, "Paper Boats", "The Inventions", 231.0, false)),
-            ("/api/search?track_name=Paper Boats&artist_name=The Inventions", 200, &format!("[{}]", track(4, "Paper Boats", "The Inventions", 230.0, true))),
+            (
+                "/api/get?track_name=Paper Boats&artist_name=The Inventions&duration=231",
+                200,
+                &track(3, "Paper Boats", "The Inventions", 231.0, false),
+            ),
+            (
+                "/api/search?track_name=Paper Boats&artist_name=The Inventions",
+                200,
+                &format!("[{}]", track(4, "Paper Boats", "The Inventions", 230.0, true)),
+            ),
         ]);
         assert!(matches!(lookup(t, &query("Paper Boats", None)), Outcome::Found { ref track, .. } if track.id == 4));
         // Without a synced alternative the plain lyrics are used.
         let t = Recorded::new(&[
-            ("/api/get?track_name=Paper Boats&artist_name=The Inventions&duration=231", 200, &track(3, "Paper Boats", "The Inventions", 231.0, false)),
+            (
+                "/api/get?track_name=Paper Boats&artist_name=The Inventions&duration=231",
+                200,
+                &track(3, "Paper Boats", "The Inventions", 231.0, false),
+            ),
             ("/api/search?track_name=Paper Boats&artist_name=The Inventions", 200, "[]"),
             ("/api/search?q=Paper Boats The Inventions", 200, "[]"),
         ]);
-        assert!(matches!(lookup(t, &query("Paper Boats", None)), Outcome::Found { ref track, stage: "get-without-album" } if track.id == 3));
+        assert!(
+            matches!(lookup(t, &query("Paper Boats", None)), Outcome::Found { ref track, stage: "get-without-album" } if track.id == 3)
+        );
     }
 
     #[test]
@@ -362,14 +393,21 @@ mod tests {
             200,
             &track(5, "Paper Boats", "The Inventions", 231.0, true),
         )]);
-        let q = Query { title: "Paper Boats - Remastered 2011", artist: "The Inventions, Guest", album: None, duration_s: Some(231.0) };
+        let q = Query {
+            title: "Paper Boats - Remastered 2011",
+            artist: "The Inventions, Guest",
+            album: None,
+            duration_s: Some(231.0),
+        };
         assert!(matches!(lookup(t, &q), Outcome::Found { stage: "get-normalised", ref track } if track.id == 5));
     }
 
     #[test]
     fn instrumental_is_found() {
-        let body = serde_json::json!({ "id": 9, "trackName": "Interlude", "artistName": "The Inventions", "albumName": null,
-            "duration": 95.0, "instrumental": true, "plainLyrics": null, "syncedLyrics": null }).to_string();
+        let body =
+            serde_json::json!({ "id": 9, "trackName": "Interlude", "artistName": "The Inventions", "albumName": null,
+            "duration": 95.0, "instrumental": true, "plainLyrics": null, "syncedLyrics": null })
+            .to_string();
         let t = Recorded::new(&[
             ("/api/get?track_name=Interlude&artist_name=The Inventions&duration=95", 200, &body),
             ("/api/search?track_name=Interlude&artist_name=The Inventions", 200, "[]"),
@@ -396,7 +434,10 @@ mod tests {
     fn slow_first_stage_is_overtaken() {
         let first = "/api/get?track_name=Paper Boats&artist_name=The Inventions&album_name=Inventions&duration=231";
         let second = "/api/get?track_name=Paper Boats&artist_name=The Inventions&duration=231";
-        let recorded = Recorded::new(&[(first, 503, BUSY), (second, 200, &track(2, "Paper Boats", "The Inventions", 231.0, true))]);
+        let recorded = Recorded::new(&[
+            (first, 503, BUSY),
+            (second, 200, &track(2, "Paper Boats", "The Inventions", 231.0, true)),
+        ]);
         let slow = Slow(recorded, [(first.to_owned(), 2000u64)].into_iter().collect());
         let started = Instant::now();
         let out = super::lookup(&(Arc::new(slow) as Arc<dyn Transport>), &query("Paper Boats", Some("Inventions")));

@@ -7,7 +7,7 @@ use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Wry};
 
-use crate::i18n::{self, pick, Lang};
+use crate::i18n::{self, Lang, pick};
 use crate::overlay;
 use crate::settings::{Layout, SettingsState};
 
@@ -125,8 +125,10 @@ struct Texts {
 fn texts(app: &AppHandle, lang: Lang) -> Texts {
     Texts {
         visible: pick(lang, "Overlay anzeigen", "Show overlay").to_owned() + &combo(app, lang, |h| &h.toggle),
-        nudge_back: pick(lang, "Song: Lyrics früher, −100 ms", "Song: lyrics earlier, −100 ms").to_owned() + &combo(app, lang, |h| &h.nudge_earlier),
-        nudge_forward: pick(lang, "Song: Lyrics später, +100 ms", "Song: lyrics later, +100 ms").to_owned() + &combo(app, lang, |h| &h.nudge_later),
+        nudge_back: pick(lang, "Song: Lyrics früher, −100 ms", "Song: lyrics earlier, −100 ms").to_owned()
+            + &combo(app, lang, |h| &h.nudge_earlier),
+        nudge_forward: pick(lang, "Song: Lyrics später, +100 ms", "Song: lyrics later, +100 ms").to_owned()
+            + &combo(app, lang, |h| &h.nudge_later),
         layout: "Layout".to_owned() + &combo(app, lang, |h| &h.layout),
         settings: pick(lang, "Einstellungen …", "Settings …"),
         selftest: pick(lang, "Overlay-Selbsttest ausführen", "Run overlay self-test"),
@@ -153,9 +155,13 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let current = app.state::<SettingsState>().get().overlay.layout;
     let mut layouts = Vec::new();
     for l in Layout::ALL {
-        layouts.push((l, CheckMenuItem::with_id(app, layout_id(l), layout_label(lang, l), true, l == current, None::<&str>)?));
+        layouts.push((
+            l,
+            CheckMenuItem::with_id(app, layout_id(l), layout_label(lang, l), true, l == current, None::<&str>)?,
+        ));
     }
-    let layout_refs: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = layouts.iter().map(|(_, i)| i as &dyn tauri::menu::IsMenuItem<Wry>).collect();
+    let layout_refs: Vec<&dyn tauri::menu::IsMenuItem<Wry>> =
+        layouts.iter().map(|(_, i)| i as &dyn tauri::menu::IsMenuItem<Wry>).collect();
     let layout_menu = Submenu::with_items(app, &t.layout, true, &layout_refs)?;
     let settings = MenuItem::with_id(app, "open_settings", t.settings, true, None::<&str>)?;
     let selftest = MenuItem::with_id(app, "overlay_selftest", t.selftest, true, None::<&str>)?;

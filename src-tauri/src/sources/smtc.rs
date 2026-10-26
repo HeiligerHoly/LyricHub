@@ -27,7 +27,8 @@ use windows::Media::MediaPlaybackType;
 use windows::Storage::Streams::{Buffer, DataReader, InputStreamOptions};
 
 use super::{
-    ArtRef, Observation, PlaybackSource, PlaybackStatus, SourceEvent, SourceId, TrackInfo, TrackKind, classify, track_key,
+    ArtRef, Observation, PlaybackSource, PlaybackStatus, SourceEvent, SourceId, TrackInfo, TrackKind, classify,
+    track_key,
 };
 
 const POLL: Duration = Duration::from_millis(250);
@@ -126,7 +127,8 @@ impl TimelineSample {
     /// True if a new report at `pos_ms` means "back at the start of a song": a track change
     /// whose title is still pending, or a seek to 0 (docs/spike-smtc.md, Folgen).
     fn is_restart(&self, pos_ms: f64, valid_at: Instant) -> bool {
-        let elapsed = if self.playing { valid_at.saturating_duration_since(self.valid_at).as_secs_f64() * 1000.0 } else { 0.0 };
+        let elapsed =
+            if self.playing { valid_at.saturating_duration_since(self.valid_at).as_secs_f64() * 1000.0 } else { 0.0 };
         let predicted = self.pos_ms + elapsed;
         pos_ms < RESTART_MAX_POS_MS && predicted - pos_ms > RESTART_MIN_DROP_MS
     }
@@ -449,7 +451,12 @@ impl Worker {
                 let mut hasher = DefaultHasher::new();
                 bytes.hash(&mut hasher);
                 let url = format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(&bytes));
-                tracing::debug!(mime, bytes = bytes.len(), took_ms = started.elapsed().as_millis() as u64, "cover read");
+                tracing::debug!(
+                    mime,
+                    bytes = bytes.len(),
+                    took_ms = started.elapsed().as_millis() as u64,
+                    "cover read"
+                );
                 Some(ArtRef { url, hash: hasher.finish() })
             }
             Ok(None) => None,

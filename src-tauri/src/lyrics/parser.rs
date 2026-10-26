@@ -96,7 +96,8 @@ pub fn parse(input: &str) -> ParsedLrc {
                     })
                     .collect()
             });
-            let words = words.or_else(|| Some(words::estimate(&l.text, start_ms, fill_end_ms)).filter(|w| !w.is_empty()));
+            let words =
+                words.or_else(|| Some(words::estimate(&l.text, start_ms, fill_end_ms)).filter(|w| !w.is_empty()));
             Line { start_ms, end_ms, fill_end_ms, text: l.text, words, romaji: None, romaji_words: None }
         })
         .collect();
@@ -134,7 +135,11 @@ fn parse_timestamp(tag: &str) -> Option<i64> {
         [m, s, f] => ("0", *m, *s, *f),
         _ => return None,
     };
-    let num = |s: &str| (!s.is_empty() && s.len() <= 4 && s.bytes().all(|b| b.is_ascii_digit())).then(|| s.parse::<i64>().ok()).flatten();
+    let num = |s: &str| {
+        (!s.is_empty() && s.len() <= 4 && s.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| s.parse::<i64>().ok())
+            .flatten()
+    };
     let (h, m, s) = (num(hours)?, num(minutes)?, num(seconds)?);
     if s > 59 || seconds.len() > 2 {
         return None;
@@ -215,17 +220,24 @@ mod tests {
 
     #[test]
     fn plain_lrclib_style() {
-        let p = parse("[00:00.06] Morning light on empty streets\n[00:04.25] I count the steps back home\n[00:08.86] \n[00:10.92] Every window holds a story\n");
+        let p = parse(
+            "[00:00.06] Morning light on empty streets\n[00:04.25] I count the steps back home\n[00:08.86] \n[00:10.92] Every window holds a story\n",
+        );
         assert!(p.synced);
         assert_eq!(starts(&p), [60, 4250, 8860, 10920]);
-        assert_eq!(texts(&p), ["Morning light on empty streets", "I count the steps back home", "", "Every window holds a story"]);
+        assert_eq!(
+            texts(&p),
+            ["Morning light on empty streets", "I count the steps back home", "", "Every window holds a story"]
+        );
         assert_eq!(p.lines[0].end_ms, Some(4250));
         assert_eq!(p.lines[3].end_ms, None);
     }
 
     #[test]
     fn crlf_and_bom() {
-        let p = parse("\u{feff}[ti:Paper Boats]\r\n[ar:The Inventions]\r\n[00:01.00]First line\r\n[00:03.50]Second line\r\n");
+        let p = parse(
+            "\u{feff}[ti:Paper Boats]\r\n[ar:The Inventions]\r\n[00:01.00]First line\r\n[00:03.50]Second line\r\n",
+        );
         assert_eq!(p.title.as_deref(), Some("Paper Boats"));
         assert_eq!(p.artist.as_deref(), Some("The Inventions"));
         assert_eq!(starts(&p), [1000, 3500]);
@@ -269,7 +281,10 @@ mod tests {
         let l = &p.lines[0];
         assert_eq!(l.text, "Tiny paper boats");
         let w = l.words.as_ref().unwrap();
-        assert_eq!(w.iter().map(|w| (w.start_ms, w.end_ms)).collect::<Vec<_>>(), [(12_000, 12_400), (12_400, 12_900), (12_900, 14_000)]);
+        assert_eq!(
+            w.iter().map(|w| (w.start_ms, w.end_ms)).collect::<Vec<_>>(),
+            [(12_000, 12_400), (12_400, 12_900), (12_900, 14_000)]
+        );
         assert!(w.iter().all(|w| !w.estimated));
         // Lines without marks get estimated words.
         assert!(p.lines[1].words.as_ref().unwrap().iter().all(|w| w.estimated));

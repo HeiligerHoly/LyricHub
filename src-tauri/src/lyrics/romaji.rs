@@ -35,7 +35,8 @@ pub fn annotate(lines: &mut [Line]) -> usize {
     for line in lines.iter_mut().filter(|l| l.romaji.is_none() && is_japanese(&l.text)) {
         let romaji = memo.entry(line.text.clone()).or_insert_with(|| romanizer.line(&line.text)).clone();
         count += usize::from(romaji.is_some());
-        line.romaji_words = romaji.as_deref().map(|r| words::estimate(r, line.start_ms, line.fill_end_ms)).filter(|w| !w.is_empty());
+        line.romaji_words =
+            romaji.as_deref().map(|r| words::estimate(r, line.start_ms, line.fill_end_ms)).filter(|w| !w.is_empty());
         line.romaji = romaji;
     }
     count
@@ -153,7 +154,8 @@ fn romanize(morphemes: &[Morpheme], out: &mut Output) {
             flush(&mut word, out);
         }
         // Proper nouns start with a capital; unknown words have no reading and stay lower case.
-        let w = word.get_or_insert_with(|| Word { parts: Vec::new(), proper: m.pos1 == "固有名詞" && m.reading.is_some() });
+        let w = word
+            .get_or_insert_with(|| Word { parts: Vec::new(), proper: m.pos1 == "固有名詞" && m.reading.is_some() });
         match kana_of(m) {
             // The volitional う after an o (行こう, でしょう) is a long ō in Hepburn.
             Some(_) if m.pos == "助動詞" && m.surface == "う" && w.last_vowel() == Some('o') => w.push_kana("ー"),
@@ -188,7 +190,9 @@ fn kana_of(m: &Morpheme) -> Option<String> {
     match (&m.reading, &m.pron) {
         (Some(reading), Some(pron)) => Some(spoken(reading, pron)),
         (Some(reading), None) => Some(reading.clone()),
-        _ if m.surface.chars().all(|c| matches!(c, '\u{3041}'..='\u{30ff}')) => Some(m.surface.chars().map(to_katakana).collect()),
+        _ if m.surface.chars().all(|c| matches!(c, '\u{3041}'..='\u{30ff}')) => {
+            Some(m.surface.chars().map(to_katakana).collect())
+        }
         _ => None,
     }
 }
@@ -577,7 +581,15 @@ mod tests {
 
     #[test]
     fn annotate_fills_japanese_lines_once() {
-        let line = |text: &str| Line { start_ms: 0, end_ms: None, fill_end_ms: 0, text: text.into(), words: None, romaji: None, romaji_words: None };
+        let line = |text: &str| Line {
+            start_ms: 0,
+            end_ms: None,
+            fill_end_ms: 0,
+            text: text.into(),
+            words: None,
+            romaji: None,
+            romaji_words: None,
+        };
         let mut lines = vec![line("夢を見た"), line("Plain text"), line(""), line("夢を見た")];
         assert_eq!(annotate(&mut lines), 2);
         let got: Vec<Option<&str>> = lines.iter().map(|l| l.romaji.as_deref()).collect();
@@ -588,6 +600,9 @@ mod tests {
     #[test]
     fn overlay_sample_line() {
         // Shown in the edit mode and the settings preview (Overlay.svelte, SAMPLE_NEXT_ROMAJI).
-        assert_eq!(romaji("次の歌詞はここに少し小さく表示されます"), "tsugi no kashi wa koko ni sukoshi chiisaku hyōji saremasu");
+        assert_eq!(
+            romaji("次の歌詞はここに少し小さく表示されます"),
+            "tsugi no kashi wa koko ni sukoshi chiisaku hyōji saremasu"
+        );
     }
 }

@@ -79,12 +79,24 @@ pub struct Observation {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Update {
     None,
-    Status { playing: bool },
+    Status {
+        playing: bool,
+    },
     /// Position taken as reported (paused, resume, right after a seek).
-    Adopt { by_ms: f64 },
-    Seek { from_ms: f64, to_ms: f64 },
-    Jump { by_ms: f64 },
-    Slew { by_ms: f64, over_ms: f64 },
+    Adopt {
+        by_ms: f64,
+    },
+    Seek {
+        from_ms: f64,
+        to_ms: f64,
+    },
+    Jump {
+        by_ms: f64,
+    },
+    Slew {
+        by_ms: f64,
+        over_ms: f64,
+    },
 }
 
 impl Update {
@@ -361,7 +373,14 @@ mod tests {
 
     /// Feeds an observation every `every_ms` (with `jitter`) for `duration_ms`, sampling the
     /// display every 16 ms. Returns (max error after `settle_ms`, largest backward step).
-    fn run(sim: &Sim, clock: &mut PlaybackClock, every_ms: f64, jitter: f64, duration_ms: f64, settle_ms: f64) -> (f64, f64) {
+    fn run(
+        sim: &Sim,
+        clock: &mut PlaybackClock,
+        every_ms: f64,
+        jitter: f64,
+        duration_ms: f64,
+        settle_ms: f64,
+    ) -> (f64, f64) {
         let (mut max_err, mut max_back, mut last) = (0.0f64, 0.0f64, f64::MIN);
         let mut next_obs = 0.0;
         let mut i = 0u64;
@@ -523,7 +542,11 @@ mod tests {
         for i in 0..60u64 {
             let t = i as f64 * 1000.0;
             c.on_observation(obs(sim.truth(t), sim.at(t)), sim.at(t));
-            let api = Observation { source: "api", confidence: 0.6, ..obs(sim.truth(t + 500.0) + 150.0 + noise(i, 60.0), sim.at(t + 500.0)) };
+            let api = Observation {
+                source: "api",
+                confidence: 0.6,
+                ..obs(sim.truth(t + 500.0) + 150.0 + noise(i, 60.0), sim.at(t + 500.0))
+            };
             c.on_observation(api, sim.at(t + 500.0));
             if t > 5000.0 {
                 max_err = max_err.max((c.position(sim.at(t + 600.0)) - sim.truth(t + 600.0)).abs());
@@ -541,7 +564,11 @@ mod tests {
             let t = i as f64 * 1000.0;
             c.on_observation(obs(sim.truth(t) + noise(i, 5.0), sim.at(t)), sim.at(t));
             // 700 ms off with a wide spread, but below the seek threshold.
-            let api = Observation { source: "api", confidence: 0.9, ..obs(sim.truth(t + 500.0) + 700.0 + noise(i + 99, 150.0), sim.at(t + 500.0)) };
+            let api = Observation {
+                source: "api",
+                confidence: 0.9,
+                ..obs(sim.truth(t + 500.0) + 700.0 + noise(i + 99, 150.0), sim.at(t + 500.0))
+            };
             c.on_observation(api, sim.at(t + 500.0));
         }
         assert_eq!(c.deviating(), &["api"]);
@@ -553,7 +580,9 @@ mod tests {
         let sim = Sim { t0: Instant::now(), start_pos: 0.0, rate: 1.0 };
         let mut c = playing_clock(&sim, 0.0);
         let u = c.on_observation(obs(1100.0, sim.at(1000.0)), sim.at(1000.0));
-        assert!(matches!(u, Update::Slew { by_ms, over_ms } if (by_ms - 100.0).abs() < 1.0 && (over_ms - 1000.0).abs() < 1.0));
+        assert!(
+            matches!(u, Update::Slew { by_ms, over_ms } if (by_ms - 100.0).abs() < 1.0 && (over_ms - 1000.0).abs() < 1.0)
+        );
         let s = c.snapshot(sim.at(1500.0));
         assert!((s.rate - 1.1).abs() < 1e-9 && (s.slew_ms - 500.0).abs() < 1.0);
         // The report said "100 ms ahead": after the slew the model runs 100 ms ahead of t.

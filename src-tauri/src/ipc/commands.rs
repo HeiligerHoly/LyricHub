@@ -96,7 +96,10 @@ pub async fn export_diagnostics(app: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn start_calibration(app: AppHandle, mode: crate::calibration::Mode) -> Result<crate::calibration::CalibrationView, String> {
+pub async fn start_calibration(
+    app: AppHandle,
+    mode: crate::calibration::Mode,
+) -> Result<crate::calibration::CalibrationView, String> {
     crate::calibration::start(&app, mode)
 }
 
@@ -210,7 +213,9 @@ pub async fn suspend_hotkeys(app: AppHandle, suspended: bool) -> Vec<crate::hotk
 /// Installed font families and whether a Japanese UI font is there (PLAN.md 9.5).
 #[tauri::command]
 pub async fn list_fonts() -> crate::fonts::FontList {
-    tauri::async_runtime::spawn_blocking(crate::fonts::list).await.unwrap_or_else(|_| crate::fonts::FontList { families: Vec::new(), japanese_ui_font: false })
+    tauri::async_runtime::spawn_blocking(crate::fonts::list)
+        .await
+        .unwrap_or_else(|_| crate::fonts::FontList { families: Vec::new(), japanese_ui_font: false })
 }
 
 /// Sample lines in the overlay while the appearance page is open (PLAN.md 9.5: live preview).

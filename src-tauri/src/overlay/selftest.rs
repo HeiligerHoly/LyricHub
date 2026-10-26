@@ -69,7 +69,11 @@ impl Ctx {
         let fg = win32::foreground();
         let detail = format!("Vordergrund: \"{}\"", win32::window_title(fg));
         if !self.fg_conclusive {
-            self.push(name, "info", format!("{detail} (Startzustand ohne fremdes Vordergrundfenster, nicht aussagekräftig)"));
+            self.push(
+                name,
+                "info",
+                format!("{detail} (Startzustand ohne fremdes Vordergrundfenster, nicht aussagekräftig)"),
+            );
         } else if fg == self.overlay {
             self.push(name, "fail", format!("Overlay hat den Fokus übernommen. {detail}"));
         } else {
@@ -144,7 +148,11 @@ pub fn run(app: &AppHandle) -> Report {
     let shown = share_of(&capture());
     match shown {
         Some(s) if s >= DRAWN_MIN_SHARE => {
-            c.push("Overlay wird gezeichnet", "pass", format!("{:.1} % der Pixel im Overlay-Bereich verändert", s * 100.0));
+            c.push(
+                "Overlay wird gezeichnet",
+                "pass",
+                format!("{:.1} % der Pixel im Overlay-Bereich verändert", s * 100.0),
+            );
         }
         _ => {
             // Layered windows can stay invisible until SetLayeredWindowAttributes was called once.
@@ -166,8 +174,11 @@ pub fn run(app: &AppHandle) -> Report {
     }
 
     c.click_through("Klicks gehen durch", true);
-    c.push("Alt+Tab", if win32::has(win32::ex_style(overlay), win32::EX_TOOLWINDOW) { "pass" } else { "fail" },
-        "TOOLWINDOW gesetzt und APPWINDOW nicht gesetzt hält das Fenster aus Alt+Tab heraus (Sichtprüfung empfohlen)");
+    c.push(
+        "Alt+Tab",
+        if win32::has(win32::ex_style(overlay), win32::EX_TOOLWINDOW) { "pass" } else { "fail" },
+        "TOOLWINDOW gesetzt und APPWINDOW nicht gesetzt hält das Fenster aus Alt+Tab heraus (Sichtprüfung empfohlen)",
+    );
 
     win32::apply_overlay_exstyles(overlay, false);
     sleep(SETTLE);
@@ -216,7 +227,11 @@ pub fn run(app: &AppHandle) -> Report {
     if c.fg_conclusive && win32::foreground() == overlay {
         let ok = win32::set_foreground(fg0);
         sleep(SETTLE);
-        c.push("Fokus zurückgegeben", "info", format!("SetForegroundWindow ok={ok}, Vordergrund jetzt \"{}\"", win32::window_title(win32::foreground())));
+        c.push(
+            "Fokus zurückgegeben",
+            "info",
+            format!("SetForegroundWindow ok={ok}, Vordergrund jetzt \"{}\"", win32::window_title(win32::foreground())),
+        );
     }
 
     // Restore the production state.

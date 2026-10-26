@@ -84,8 +84,8 @@ fn split(text: &str) -> Vec<(String, f64)> {
 fn cjk_weight(c: char) -> Option<f64> {
     match c {
         // ー lengthens the vowel before it; small kana join their mora.
-        'ー' | 'ぁ' | 'ぃ' | 'ぅ' | 'ぇ' | 'ぉ' | 'ゃ' | 'ゅ' | 'ょ' | 'ゎ' | 'ァ' | 'ィ' | 'ゥ' | 'ェ' | 'ォ' | 'ャ'
-        | 'ュ' | 'ョ' | 'ヮ' => Some(0.0),
+        'ー' | 'ぁ' | 'ぃ' | 'ぅ' | 'ぇ' | 'ぉ' | 'ゃ' | 'ゅ' | 'ょ' | 'ゎ' | 'ァ' | 'ィ' | 'ゥ' | 'ェ' | 'ォ'
+        | 'ャ' | 'ュ' | 'ョ' | 'ヮ' => Some(0.0),
         '\u{3000}'..='\u{303f}' | '\u{ff01}'..='\u{ff0f}' | '\u{ff1a}'..='\u{ff20}' | '\u{30fb}' => Some(0.0),
         '\u{3040}'..='\u{30ff}' | '\u{ff66}'..='\u{ff9f}' => Some(1.0),
         '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}' | '\u{f900}'..='\u{faff}' => Some(1.5),

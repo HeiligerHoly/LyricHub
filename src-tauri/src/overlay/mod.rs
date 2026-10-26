@@ -378,7 +378,11 @@ pub fn hide(app: &AppHandle) {
 /// Toggles visibility; returns the new state.
 pub fn toggle(app: &AppHandle) -> bool {
     let visible = app.state::<OverlayState>().is_visible();
-    if visible { hide(app) } else { show(app) }
+    if visible {
+        hide(app)
+    } else {
+        show(app)
+    }
     tracing::info!(visible = !visible, "overlay toggled");
     !visible
 }

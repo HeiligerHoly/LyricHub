@@ -92,7 +92,18 @@ pub fn parse(combo: &str) -> Option<Shortcut> {
     let s = Shortcut::from_str(combo.trim()).ok()?;
     let function_key = matches!(
         s.key,
-        Code::F1 | Code::F2 | Code::F3 | Code::F4 | Code::F5 | Code::F6 | Code::F7 | Code::F8 | Code::F9 | Code::F10 | Code::F11 | Code::F12
+        Code::F1
+            | Code::F2
+            | Code::F3
+            | Code::F4
+            | Code::F5
+            | Code::F6
+            | Code::F7
+            | Code::F8
+            | Code::F9
+            | Code::F10
+            | Code::F11
+            | Code::F12
     );
     (!s.mods.is_empty() || function_key).then_some(s)
 }
@@ -260,7 +271,10 @@ mod tests {
     #[test]
     fn combinations_need_a_modifier_or_a_function_key() {
         assert_eq!(parse("Ctrl+Alt+L"), Some(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyL)));
-        assert_eq!(parse("Ctrl+Alt+Shift+,"), Some(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT), Code::Comma)));
+        assert_eq!(
+            parse("Ctrl+Alt+Shift+,"),
+            Some(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT), Code::Comma))
+        );
         assert!(parse("F9").is_some());
         assert!(parse("L").is_none());
         assert!(parse("Space").is_none());

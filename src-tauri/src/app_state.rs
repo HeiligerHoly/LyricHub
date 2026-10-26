@@ -455,7 +455,9 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                     apply_song_offset(app, &t.key);
                     // Ads and podcast episodes have no lyrics to look for (PLAN.md 5.5).
                     match t.kind {
-                        TrackKind::Ad | TrackKind::Podcast => tracing::info!(kind = ?t.kind, "no lyrics lookup for this kind"),
+                        TrackKind::Ad | TrackKind::Podcast => {
+                            tracing::info!(kind = ?t.kind, "no lyrics lookup for this kind")
+                        }
                         _ => request_lyrics(app, t, false),
                     }
                 }
@@ -471,7 +473,11 @@ fn handle(app: &AppHandle, event: SourceEvent) {
             if update.changed() {
                 tracing::debug!(?update, "clock status");
                 let pos = state.clock.lock().unwrap().position(now);
-                sync_lab::record(app, now, sync_lab::LabEntry { update: "status", ..sync_lab::entry("status", "smtc", pos) });
+                sync_lab::record(
+                    app,
+                    now,
+                    sync_lab::LabEntry { update: "status", ..sync_lab::entry("status", "smtc", pos) },
+                );
                 emit_clock(app, update_kind(&update));
             }
         }
@@ -495,7 +501,8 @@ fn handle(app: &AppHandle, event: SourceEvent) {
             };
             let (update, residual) = {
                 let mut clock = state.clock.lock().unwrap();
-                let residual = (obs.playing && clock.anchor().playing).then(|| obs.pos_ms - clock.position(obs.valid_at));
+                let residual =
+                    (obs.playing && clock.anchor().playing).then(|| obs.pos_ms - clock.position(obs.valid_at));
                 let update = clock.on_observation(
                     clock::Observation {
                         source,

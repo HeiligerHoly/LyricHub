@@ -5,8 +5,10 @@
 use std::collections::BTreeSet;
 
 use serde::Serialize;
-use windows::core::{w, BOOL};
-use windows::Win32::Graphics::DirectWrite::{DWriteCreateFactory, IDWriteFactory, IDWriteFontCollection, IDWriteLocalizedStrings, DWRITE_FACTORY_TYPE_SHARED};
+use windows::Win32::Graphics::DirectWrite::{
+    DWRITE_FACTORY_TYPE_SHARED, DWriteCreateFactory, IDWriteFactory, IDWriteFontCollection, IDWriteLocalizedStrings,
+};
+use windows::core::{BOOL, w};
 
 #[derive(Serialize, Clone, Debug)]
 pub struct FontList {

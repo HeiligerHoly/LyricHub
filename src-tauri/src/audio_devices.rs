@@ -12,7 +12,9 @@ use windows::Win32::Devices::FunctionDiscovery::{PKEY_Device_EnumeratorName, PKE
 use windows::Win32::Foundation::PROPERTYKEY;
 use windows::Win32::Media::Audio::{IMMDeviceEnumerator, MMDeviceEnumerator, eConsole, eRender};
 use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToBSTR};
-use windows::Win32::System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree, STGM_READ};
+use windows::Win32::System::Com::{
+    CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree, STGM_READ,
+};
 use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
 
 use crate::app_state;
@@ -56,17 +58,19 @@ pub fn spawn_watcher(app: AppHandle) {
             // SAFETY: COM for this thread only; MTA, nothing apartment-bound crosses threads.
             let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
             // SAFETY: standard Core Audio enumerator creation.
-            let enumerator: IMMDeviceEnumerator = match unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL) } {
-                Ok(e) => e,
-                Err(e) => {
-                    tracing::error!(error = %e, "audio device enumerator unavailable, device offsets stay 0");
-                    return;
-                }
-            };
+            let enumerator: IMMDeviceEnumerator =
+                match unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL) } {
+                    Ok(e) => e,
+                    Err(e) => {
+                        tracing::error!(error = %e, "audio device enumerator unavailable, device offsets stay 0");
+                        return;
+                    }
+                };
             loop {
                 match read_default(&enumerator) {
                     Ok(endpoint) => {
-                        let changed = app.state::<AudioDeviceState>().current.lock().unwrap().as_ref() != Some(&endpoint);
+                        let changed =
+                            app.state::<AudioDeviceState>().current.lock().unwrap().as_ref() != Some(&endpoint);
                         if changed {
                             on_change(&app, endpoint);
                         }
@@ -118,8 +122,13 @@ fn on_change(app: &AppHandle, endpoint: Endpoint) {
             // The very first device on a fresh install is the normal output, no reason to ask.
             if !first_device_ever {
                 let text = match crate::i18n::current(app) {
-                    crate::i18n::Lang::De => format!("Neues Audiogerät: {}. Sync prüfen unter Einstellungen → Synchronisation", endpoint.name),
-                    crate::i18n::Lang::En => format!("New audio device: {}. Check the sync under Settings → Sync", endpoint.name),
+                    crate::i18n::Lang::De => format!(
+                        "Neues Audiogerät: {}. Sync prüfen unter Einstellungen → Synchronisation",
+                        endpoint.name
+                    ),
+                    crate::i18n::Lang::En => {
+                        format!("New audio device: {}. Check the sync under Settings → Sync", endpoint.name)
+                    }
                 };
                 if let Err(e) = app.emit(events::NOTICE, Notice { text }) {
                     tracing::warn!(error = %e, "could not emit notice");
@@ -141,7 +150,13 @@ pub fn list(app: &AppHandle) -> Vec<AudioDevice> {
         .into_iter()
         .map(|(id, name, offset_ms)| {
             let is_current = current.as_ref().is_some_and(|c| c.id == id);
-            AudioDevice { bluetooth: is_current && current.as_ref().is_some_and(|c| c.bluetooth), current: is_current, id, name, offset_ms }
+            AudioDevice {
+                bluetooth: is_current && current.as_ref().is_some_and(|c| c.bluetooth),
+                current: is_current,
+                id,
+                name,
+                offset_ms,
+            }
         })
         .collect();
     devices.sort_by_key(|d| !d.current);

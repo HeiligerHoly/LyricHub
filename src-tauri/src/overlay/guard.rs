@@ -17,8 +17,8 @@
 //! cannot spin.
 
 use std::cell::RefCell;
-use std::sync::{Mutex, OnceLock};
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -30,16 +30,16 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook};
 use windows::Win32::UI::Shell::{QUNS_RUNNING_D3D_FULL_SCREEN, SHQueryUserNotificationState};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DispatchMessageW, EVENT_OBJECT_REORDER, EVENT_SYSTEM_FOREGROUND, GW_HWNDNEXT, GWL_EXSTYLE,
-    GetClassNameW, GetForegroundWindow, GetMessageW, GetTopWindow, GetWindow, GetWindowLongPtrW, GetWindowRect,
-    GetWindowThreadProcessId, IsIconic, IsWindowVisible, MSG, PBT_APMRESUMEAUTOMATIC, RegisterClassW, SetTimer,
-    TranslateMessage, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_DISPLAYCHANGE, WM_POWERBROADCAST,
-    WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_OVERLAPPED,
+    CreateWindowExW, DefWindowProcW, DispatchMessageW, EVENT_OBJECT_REORDER, EVENT_SYSTEM_FOREGROUND, GW_HWNDNEXT,
+    GWL_EXSTYLE, GetClassNameW, GetForegroundWindow, GetMessageW, GetTopWindow, GetWindow, GetWindowLongPtrW,
+    GetWindowRect, GetWindowThreadProcessId, IsIconic, IsWindowVisible, MSG, PBT_APMRESUMEAUTOMATIC, RegisterClassW,
+    SetTimer, TranslateMessage, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_DISPLAYCHANGE,
+    WM_POWERBROADCAST, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_OVERLAPPED,
 };
 use windows::core::w;
 
-use super::win32::{self, Hwnd};
 use super::OverlayState;
+use super::win32::{self, Hwnd};
 
 /// At most this many re-asserts per second; beyond that another window fights for the top.
 const BURST_MAX: u32 = 10;
@@ -114,7 +114,12 @@ thread_local! {
 
 pub fn status() -> GuardStatus {
     let covered_by = COVERED_BY.lock().unwrap().clone();
-    GuardStatus { screen: screen(), covered: covered_by.is_some(), covered_by, reasserts: REASSERTS.load(Ordering::Relaxed) }
+    GuardStatus {
+        screen: screen(),
+        covered: covered_by.is_some(),
+        covered_by,
+        reasserts: REASSERTS.load(Ordering::Relaxed),
+    }
 }
 
 pub fn screen() -> Screen {
@@ -129,18 +134,17 @@ pub fn spawn(app: AppHandle) {
     if APP.set(app).is_err() {
         return;
     }
-    std::thread::Builder::new()
-        .name("overlay-guard".into())
-        .spawn(run)
-        .expect("failed to spawn overlay guard");
+    std::thread::Builder::new().name("overlay-guard".into()).spawn(run).expect("failed to spawn overlay guard");
 }
 
 fn run() {
     // SAFETY: hooks and window belong to this thread, which pumps messages until the app ends.
     unsafe {
         let flags = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
-        let reorder: HWINEVENTHOOK = SetWinEventHook(EVENT_OBJECT_REORDER, EVENT_OBJECT_REORDER, None, Some(on_event), 0, 0, flags);
-        let foreground: HWINEVENTHOOK = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, None, Some(on_event), 0, 0, flags);
+        let reorder: HWINEVENTHOOK =
+            SetWinEventHook(EVENT_OBJECT_REORDER, EVENT_OBJECT_REORDER, None, Some(on_event), 0, 0, flags);
+        let foreground: HWINEVENTHOOK =
+            SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, None, Some(on_event), 0, 0, flags);
         if reorder.is_invalid() || foreground.is_invalid() {
             tracing::warn!("WinEvent hooks unavailable, the watchdog alone keeps the overlay on top");
         }
@@ -148,7 +152,11 @@ fn run() {
         if let Some(w) = window {
             SetTimer(Some(w), TIMER_ID, TICK.as_millis() as u32, None);
         }
-        tracing::info!(hooks = !reorder.is_invalid() && !foreground.is_invalid(), window = window.is_some(), "overlay guard started");
+        tracing::info!(
+            hooks = !reorder.is_invalid() && !foreground.is_invalid(),
+            window = window.is_some(),
+            "overlay guard started"
+        );
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {
             let _ = TranslateMessage(&msg);
@@ -162,11 +170,30 @@ unsafe fn create_message_window() -> Option<HWND> {
     // message-only window would not get the WM_DISPLAYCHANGE and WM_POWERBROADCAST broadcasts.
     unsafe {
         let instance = GetModuleHandleW(None).ok()?;
-        let class = WNDCLASSW { lpfnWndProc: Some(window_proc), hInstance: instance.into(), lpszClassName: w!("LyricHubGuard"), ..Default::default() };
+        let class = WNDCLASSW {
+            lpfnWndProc: Some(window_proc),
+            hInstance: instance.into(),
+            lpszClassName: w!("LyricHubGuard"),
+            ..Default::default()
+        };
         if RegisterClassW(&class) == 0 {
             return None;
         }
-        CreateWindowExW(WS_EX_TOOLWINDOW, w!("LyricHubGuard"), w!("LyricHub Guard"), WS_OVERLAPPED, 0, 0, 0, 0, None, None, Some(instance.into()), None).ok()
+        CreateWindowExW(
+            WS_EX_TOOLWINDOW,
+            w!("LyricHubGuard"),
+            w!("LyricHub Guard"),
+            WS_OVERLAPPED,
+            0,
+            0,
+            0,
+            0,
+            None,
+            None,
+            Some(instance.into()),
+            None,
+        )
+        .ok()
     }
 }
 
@@ -335,7 +362,11 @@ fn foreground_screen() -> Screen {
             return Screen::Normal;
         }
         let m = info.rcMonitor;
-        if r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom { Screen::Borderless } else { Screen::Normal }
+        if r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom {
+            Screen::Borderless
+        } else {
+            Screen::Normal
+        }
     }
 }
 
@@ -371,7 +402,11 @@ unsafe fn covers(h: HWND, overlay: &RECT) -> bool {
             return false;
         }
         let mut r = RECT::default();
-        GetWindowRect(h, &mut r).is_ok() && r.left < overlay.right && r.right > overlay.left && r.top < overlay.bottom && r.bottom > overlay.top
+        GetWindowRect(h, &mut r).is_ok()
+            && r.left < overlay.right
+            && r.right > overlay.left
+            && r.top < overlay.bottom
+            && r.bottom > overlay.top
     }
 }
 

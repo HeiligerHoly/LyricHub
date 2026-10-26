@@ -3,10 +3,7 @@
 use std::path::PathBuf;
 
 pub fn data_dir() -> PathBuf {
-    std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir)
-        .join("LyricHub")
+    std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("LyricHub")
 }
 
 /// WebView2's data folder, which Tauri puts under %LOCALAPPDATA%/<identifier>.

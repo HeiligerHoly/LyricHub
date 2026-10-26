@@ -12,11 +12,8 @@ pub const MIN_ARTIST_SIMILARITY: f64 = 0.6;
 
 /// Lowercase, NFKC (full-width letters, ligatures), punctuation dropped, whitespace collapsed.
 pub fn normalize(s: &str) -> String {
-    let folded: String = s
-        .nfkc()
-        .flat_map(char::to_lowercase)
-        .map(|c| if c.is_alphanumeric() { c } else { ' ' })
-        .collect();
+    let folded: String =
+        s.nfkc().flat_map(char::to_lowercase).map(|c| if c.is_alphanumeric() { c } else { ' ' }).collect();
     folded.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
@@ -93,7 +90,11 @@ pub fn score(c: &Candidate, w: &Wanted) -> Option<f64> {
             if diff > MAX_DURATION_DIFF_S {
                 return None;
             }
-            if diff <= GOOD_DURATION_DIFF_S { 1.0 } else { 1.0 - (diff - GOOD_DURATION_DIFF_S) / (MAX_DURATION_DIFF_S - GOOD_DURATION_DIFF_S) * 0.7 }
+            if diff <= GOOD_DURATION_DIFF_S {
+                1.0
+            } else {
+                1.0 - (diff - GOOD_DURATION_DIFF_S) / (MAX_DURATION_DIFF_S - GOOD_DURATION_DIFF_S) * 0.7
+            }
         }
         None => 0.5,
     };
@@ -105,7 +106,13 @@ pub fn score(c: &Candidate, w: &Wanted) -> Option<f64> {
     if artist < MIN_ARTIST_SIMILARITY {
         return None;
     }
-    let usable = if c.synced { 1.0 } else if c.instrumental { 0.6 } else { 0.0 };
+    let usable = if c.synced {
+        1.0
+    } else if c.instrumental {
+        0.6
+    } else {
+        0.0
+    };
     Some(title * 0.35 + artist * 0.2 + duration * 0.3 + usable * 0.15)
 }
 
@@ -159,10 +166,10 @@ mod tests {
     fn duration_decides_the_edition() {
         let w = Wanted { title: "Paper Boats", artist: "The Inventions", duration_s: Some(231.0) };
         let cands = [
-            cand("Paper Boats", "The Inventions", 223.0, true),   // other edition, 8 s off: allowed but weak
-            cand("Paper Boats", "The Inventions", 280.0, true),   // live version: rejected
-            cand("Paper Boats", "The Inventions", 232.0, true),   // the one
-            cand("Paper Boats", "The Inventions", 231.0, false),  // exact, but only plain lyrics
+            cand("Paper Boats", "The Inventions", 223.0, true), // other edition, 8 s off: allowed but weak
+            cand("Paper Boats", "The Inventions", 280.0, true), // live version: rejected
+            cand("Paper Boats", "The Inventions", 232.0, true), // the one
+            cand("Paper Boats", "The Inventions", 231.0, false), // exact, but only plain lyrics
         ];
         assert_eq!(best(&cands, &w), Some(2));
         assert!(score(&cands[1], &w).is_none());

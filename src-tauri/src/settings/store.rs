@@ -77,7 +77,11 @@ pub fn save(path: &Path, settings: &Settings) -> io::Result<()> {
 fn migrate(mut value: Value) -> Value {
     let version = value.get("schema_version").and_then(Value::as_u64).unwrap_or(1);
     if version > SCHEMA_VERSION as u64 {
-        tracing::warn!(version, supported = SCHEMA_VERSION, "settings come from a newer LyricHub, unknown fields are kept as they are");
+        tracing::warn!(
+            version,
+            supported = SCHEMA_VERSION,
+            "settings come from a newer LyricHub, unknown fields are kept as they are"
+        );
     }
     if version < 2 {
         if let Some(sync) = value.get_mut("sync").and_then(Value::as_object_mut) {
@@ -165,8 +169,13 @@ mod tests {
 
     #[test]
     fn v1_global_offset_from_nudges_is_reset() {
-        let s = parse(r#"{ "schema_version": 1, "sync": { "global_offset_ms": -500 }, "overlay": { "anchor": "mr" } }"#).unwrap();
-        assert_eq!((s.schema_version, s.sync.global_offset_ms, s.overlay.anchor), (SCHEMA_VERSION, 0, Anchor::MiddleRight));
+        let s =
+            parse(r#"{ "schema_version": 1, "sync": { "global_offset_ms": -500 }, "overlay": { "anchor": "mr" } }"#)
+                .unwrap();
+        assert_eq!(
+            (s.schema_version, s.sync.global_offset_ms, s.overlay.anchor),
+            (SCHEMA_VERSION, 0, Anchor::MiddleRight)
+        );
         // A v2 file keeps its global offset.
         let s = parse(r#"{ "schema_version": 2, "sync": { "global_offset_ms": 40 } }"#).unwrap();
         assert_eq!(s.sync.global_offset_ms, 40);
@@ -189,7 +198,10 @@ mod tests {
     #[test]
     fn merge_patch_follows_rfc7386() {
         let mut v = json!({ "overlay": { "anchor": "tc", "monitor_id": "X", "scale": 1.0 }, "behavior": { "autostart": false } });
-        merge_patch(&mut v, &json!({ "overlay": { "scale": 2.0, "monitor_id": null }, "behavior": { "autostart": true } }));
+        merge_patch(
+            &mut v,
+            &json!({ "overlay": { "scale": 2.0, "monitor_id": null }, "behavior": { "autostart": true } }),
+        );
         assert_eq!(v, json!({ "overlay": { "anchor": "tc", "scale": 2.0 }, "behavior": { "autostart": true } }));
     }
 }

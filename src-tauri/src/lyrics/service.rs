@@ -37,7 +37,11 @@ pub struct LyricsService {
 }
 
 impl LyricsService {
-    pub fn spawn(cache_path: PathBuf, transport: Arc<dyn Transport>, emit: impl Fn(LyricsEvent) + Send + 'static) -> Self {
+    pub fn spawn(
+        cache_path: PathBuf,
+        transport: Arc<dyn Transport>,
+        emit: impl Fn(LyricsEvent) + Send + 'static,
+    ) -> Self {
         let (tx, rx) = mpsc::channel::<Request>();
         std::thread::Builder::new()
             .name("lyrics".into())
@@ -108,7 +112,13 @@ impl LyricsService {
 }
 
 /// Handles one request. Returns false if LRCLIB was unavailable and a retry makes sense.
-fn handle(req: &Request, attempt: usize, cache: Option<&Cache>, transport: &Arc<dyn Transport>, emit: &dyn Fn(LyricsEvent)) -> bool {
+fn handle(
+    req: &Request,
+    attempt: usize,
+    cache: Option<&Cache>,
+    transport: &Arc<dyn Transport>,
+    emit: &dyn Fn(LyricsEvent),
+) -> bool {
     let now = unix_now();
     if let Some(cache) = cache {
         let _ = cache.touch_track(&req.key, &req.title, &req.artist, req.album.as_deref(), req.duration_ms, now);
@@ -182,7 +192,14 @@ fn to_cached(track: &LrclibTrack, now: i64) -> Cached {
     } else {
         (Format::None, String::new())
     };
-    Cached { source: "lrclib".into(), source_id: Some(track.id), format, raw, instrumental: track.instrumental, fetched_at: now }
+    Cached {
+        source: "lrclib".into(),
+        source_id: Some(track.id),
+        format,
+        raw,
+        instrumental: track.instrumental,
+        fetched_at: now,
+    }
 }
 
 fn to_event(key: &str, c: &Cached, via: &str) -> LyricsEvent {
@@ -191,7 +208,13 @@ fn to_event(key: &str, c: &Cached, via: &str) -> LyricsEvent {
         Format::Lrc => {
             let parsed = parser::parse(&c.raw);
             if parsed.synced && parsed.lines.iter().any(|l| !l.text.is_empty()) {
-                return LyricsEvent { key: key.to_owned(), state: LyricsState::Synced, source, lines: parsed.lines, lrc_offset_ms: parsed.offset_ms };
+                return LyricsEvent {
+                    key: key.to_owned(),
+                    state: LyricsState::Synced,
+                    source,
+                    lines: parsed.lines,
+                    lrc_offset_ms: parsed.offset_ms,
+                };
             }
             LyricsState::Unsynced
         }
@@ -221,6 +244,9 @@ mod tests {
         assert_eq!(to_event("k", &cached(Format::Plain, "a\nb", false), "lrclib").state, LyricsState::Unsynced);
         assert_eq!(to_event("k", &cached(Format::None, "", true), "lrclib").state, LyricsState::Instrumental);
         // LRC that holds only instrumental markers is no use for karaoke.
-        assert_eq!(to_event("k", &cached(Format::Lrc, "[00:01.00]\n[00:02.00]", false), "lrclib").state, LyricsState::Unsynced);
+        assert_eq!(
+            to_event("k", &cached(Format::Lrc, "[00:01.00]\n[00:02.00]", false), "lrclib").state,
+            LyricsState::Unsynced
+        );
     }
 }

@@ -343,7 +343,13 @@ impl Settings {
         a.custom.text_color = hex_color(&a.custom.text_color).unwrap_or(dc.text_color);
         a.custom.radius_px = a.custom.radius_px.min(RADIUS_MAX_PX);
         // The name goes into a CSS font-family string: no quotes, braces or statement ends.
-        a.font = a.font.trim().chars().filter(|c| !matches!(c, '"' | '\'' | ';' | '{' | '}' | '\\' | '<' | '>')).take(80).collect();
+        a.font = a
+            .font
+            .trim()
+            .chars()
+            .filter(|c| !matches!(c, '"' | '\'' | ';' | '{' | '}' | '\\' | '<' | '>'))
+            .take(80)
+            .collect();
         if o.monitor_id.as_deref().is_some_and(|m| m.trim().is_empty()) {
             o.monitor_id = None;
         }
@@ -370,7 +376,10 @@ mod tests {
         assert_eq!(Layout::Bar.next(), Layout::Stack);
         assert_eq!(Layout::Minimal.next(), Layout::Karaoke);
         let s: Settings = serde_json::from_str(r#"{"schema_version":1,"overlay":{"anchor":"mr"}}"#).unwrap();
-        assert_eq!((s.overlay.layout, s.overlay.anchor, s.sync.global_offset_ms), (Layout::Karaoke, Anchor::MiddleRight, 0));
+        assert_eq!(
+            (s.overlay.layout, s.overlay.anchor, s.sync.global_offset_ms),
+            (Layout::Karaoke, Anchor::MiddleRight, 0)
+        );
     }
 
     #[test]
