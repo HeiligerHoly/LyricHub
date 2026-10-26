@@ -777,7 +777,7 @@ Mini editor: re-stamp lines in time with a key press, nudge single lines, save a
 | Framework if the spike runs into problems? | Opus decides | Tauri stays the default. A switch to C#/WPF is justified in `docs/en/spike-overlay.md`, without asking the user. |
 | Edit mode via the mouse? | No, only via hotkey and tray | Outside edit mode, the overlay always stays click-through. |
 | Nudge on a song change? (2026-10-25, after Phase 2) | Remember the correction per song | Nudge changes only the song offset of the current song. The next song starts with its own value, a returning song with its stored correction (5.7). |
-| Code hosting? (2026-10-25) | Private GitHub repo `HeiligerHoly/LyricsHub` | All branches and tags are pushed there. Releasing remains a separate decision (14.2). |
+| Code hosting? (2026-10-25) | Private GitHub repo `HeiligerHoly/LyricHub` | All branches and tags are pushed there. Releasing remains a separate decision (14.2). |
 
 ### 14.2 Staying releasable
 

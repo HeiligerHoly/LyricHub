@@ -775,7 +775,7 @@ Mini-Editor: Zeilen per Tastendruck im Takt neu stempeln, einzelne Zeilen nudgen
 | Framework bei Spike-Problemen? | Opus entscheidet | Tauri bleibt Standard. Ein Wechsel auf C#/WPF wird in `docs/spike-overlay.md` begründet, ohne Rückfrage. |
 | Edit-Modus per Maus? | Nein, nur Hotkey und Tray | Das Overlay bleibt außerhalb des Edit-Modus immer klickdurchlässig. |
 | Nudge beim Songwechsel? (2026-10-25, nach Phase 2) | Korrektur pro Song merken | Nudge ändert nur den Song-Offset des laufenden Songs. Der nächste Song startet mit seinem eigenen Wert, ein wiederkehrender Song mit seiner gespeicherten Korrektur (5.7). |
-| Code-Hosting? (2026-10-25) | Privates GitHub-Repo `HeiligerHoly/LyricsHub` | Alle Branches und Tags werden dorthin gepusht. Veröffentlichung bleibt eine eigene Entscheidung (14.2). |
+| Code-Hosting? (2026-10-25) | Privates GitHub-Repo `HeiligerHoly/LyricHub` | Alle Branches und Tags werden dorthin gepusht. Veröffentlichung bleibt eine eigene Entscheidung (14.2). |
 
 ### 14.2 Veröffentlichungsfähig bleiben
 
