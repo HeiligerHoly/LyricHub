@@ -35,7 +35,12 @@ pub fn run() {
     let selftest_mode = std::env::var("LYRICHUB_SELFTEST").ok();
 
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| settings_window::open(app)))
+        // A second start opens the settings of the running instance; a second autostart does nothing.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if !args.iter().any(|a| a == "--minimized") {
+                settings_window::open(app);
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
