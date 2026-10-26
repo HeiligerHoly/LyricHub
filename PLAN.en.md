@@ -295,7 +295,9 @@ Commands (frontend → backend): `get_settings`, `set_settings(patch)`, `nudge_o
 
 ### 5.2 Sign convention for offsets
 
-`display_pos_ms = clock_pos_ms + offset_global + offset_device[current_output] + offset_song[key] + lrc_offset`
+`display_pos_ms = clock_pos_ms − (offset_global + offset_device[current_output] + offset_song[key])`
+
+*Corrected after phase 2: the original formula added the offsets (`clock_pos_ms + …`) and would have shown the lyrics earlier for a positive offset, against the sentence below. The sentence is what is implemented. The LRC tag `[offset:]` (positive = earlier, LRC convention) is already applied to the line times (`lyrics/parser.rs`) and does not belong in this formula. The original stays unchanged in `docs/original-plan/PLAN.en.md`.*
 
 **Positive = lyrics appear later** (so: "lyrics come too early → increase the offset"). In the UI, always phrase it as a sentence: "Lyrics too early? → to the right" („Lyrics zu früh? → nach rechts“), not just as a number.
 

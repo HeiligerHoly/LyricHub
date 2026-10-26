@@ -293,7 +293,9 @@ Commands (Frontend → Backend): `get_settings`, `set_settings(patch)`, `nudge_o
 
 ### 5.2 Vorzeichenkonvention für Offsets
 
-`display_pos_ms = clock_pos_ms + offset_global + offset_device[current_output] + offset_song[key] + lrc_offset`
+`display_pos_ms = clock_pos_ms − (offset_global + offset_device[current_output] + offset_song[key])`
+
+*Korrigiert nach Phase 2: Die ursprüngliche Formel addierte die Offsets (`clock_pos_ms + …`) und hätte bei positivem Offset die Lyrics früher gezeigt, gegen den Satz darunter. Umgesetzt ist der Satz. Das LRC-Tag `[offset:]` (positiv = früher, LRC-Konvention) steckt schon in den Zeilenzeiten (`lyrics/parser.rs`) und gehört nicht in diese Formel. Das Original steht unverändert in `docs/original-plan/PLAN.md`.*
 
 **Positiv = Lyrics erscheinen später** (also: "Lyrics kommen zu früh → Offset erhöhen"). In der UI immer als Satz formulieren: "Lyrics zu früh? → nach rechts", nicht nur als Zahl.
 
