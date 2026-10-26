@@ -1,7 +1,7 @@
 # Third-party notices
 
 LyricHub's binary and installer contain software and data from third parties. This file lists
-them with their licences: the dictionary and font the app embeds, the JavaScript in its pages,
+them with their licenses: the dictionary and font the app embeds, the JavaScript in its pages,
 the installer, and every Rust crate compiled into the Windows build. The Rust part is generated
 with `cargo about` (see `tools/licenses/README.md`); the other sections are kept by hand in
 the template there.
@@ -239,9 +239,9 @@ SOFTWARE.
 
 The installer is built with NSIS through the Tauri bundler. It contains the NSIS installer stub
 and plug-ins, and Tauri's `nsis_tauri_utils` plug-in (MIT OR Apache-2.0, part of the Tauri
-project, whose licence texts are the ones of the `tauri` crates below). When the WebView2
+project, whose license texts are the ones of the `tauri` crates below). When the WebView2
 Runtime is missing, the installer downloads Microsoft's WebView2 bootstrapper at install time;
-it is not part of the installer and comes under Microsoft's own licence terms.
+it is not part of the installer and comes under Microsoft's own license terms.
 
 ### NSIS
 
@@ -394,8 +394,8 @@ Igor Pavlov and Amir Szekely, the authors of the LZMA compression module for NSI
 
 ## Rust crates
 
-Crates compiled into the Windows build, grouped by licence. Where a crate offers a choice, the
-first licence of the accepted list in `tools/licenses/about.toml` is the one shown.
+Crates compiled into the Windows build, grouped by license. Where a crate offers a choice, the
+first license of the accepted list in `tools/licenses/about.toml` is the one shown.
 
 {{#each overview}}
 - {{{name}}}: {{count}} crates

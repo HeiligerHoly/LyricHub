@@ -111,3 +111,5 @@ Rust-Unit-Tests (LRC-Parser, geschätzte Wortzeiten, Playback-Clock mit Quellen-
 ## Hinweise
 
 Lyrics sind urheberrechtlich geschützt. LyricHub zeigt sie nur an und verteilt sie nicht weiter. Quelle der Lyrics ist [LRCLIB](https://lrclib.net), eine von der Community gepflegte Datenbank; LyricHub fragt sie mit eigenem User-Agent an und speichert Ergebnisse lokal, um sie nicht bei jeder Wiederholung erneut abzufragen. Die Test-Fixtures im Repository enthalten erfundenen Text.
+
+Die Lizenzen der Drittanbieter (Rust-Crates, npm-Pakete, das IPADIC-Wörterbuch, die Schrift Inter und NSIS) stehen in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); der Installer legt die Datei neben `lyrichub.exe`.
