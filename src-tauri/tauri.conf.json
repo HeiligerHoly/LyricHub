@@ -37,7 +37,19 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
+    "publisher": "LyricHub",
+    "shortDescription": "Spotify lyrics as a karaoke overlay over games",
+    "longDescription": "Windows overlay that shows the current Spotify song with synced, karaoke-style lyrics from LRCLIB over games.",
+    "category": "Music",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["German", "English"],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
