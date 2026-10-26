@@ -31,7 +31,7 @@ Checked in `tao/src/platform_impl/windows/window_state.rs`, confirmed in the sel
 
 ## Self-test (automatic)
 
-`tools/overlay-spike/run-spike.ps1` builds the app and starts the self-test in three scenarios. The reports are in `../spike-overlay-*.json`.
+`tools/overlay-spike/run-spike.ps1` builds the app and starts the self-test in three scenarios. The reports are in `docs/spike-overlay-*.json`.
 
 | Scenario | Production path | Focus test meaningful | Overlay above game |
 |---|---|---|---|

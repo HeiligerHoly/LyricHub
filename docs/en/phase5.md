@@ -34,8 +34,8 @@
 | Track change: title | ≤ 300 ms | **met**: 7–10 ms after the SMTC event | [phase1.md](phase1.md) |
 | Track change: lyrics from the cache | ≤ 100 ms | **met**: about 3 ms | [phase2.md](phase2.md) |
 | Track change: lyrics online | ≤ 1.5 s | **partly**: 76 % of 135 lookups. Direct hits 120 ms median; fallback searches at LRCLIB 1.5–2.3 s (median 818 ms, p95 2.3 s) | Logs, see below |
-| Focus | never take focus, input keeps working | **met**: focus steps in run-spike, edit mode test 13/13, the user's Notepad test with song changes, Ctrl+Alt+L and edit mode | `../spike-overlay-*.json` |
-| Visibility over borderless games, also with Topmost reassert | visible | **met**: `game-aggressive` 15/15, overlay on top in 120 of 120 samples, reasserted 12 times in 6 s. The user checked real games (borderless, exclusive fullscreen) and fullscreen video in Phase 0/1 | `../spike-overlay-game-aggressive.json`, [spike-overlay.md](spike-overlay.md) |
+| Focus | never take focus, input keeps working | **met**: focus steps in run-spike, edit mode test 13/13, the user's Notepad test with song changes, Ctrl+Alt+L and edit mode | `docs/spike-overlay-*.json` |
+| Visibility over borderless games, also with Topmost reassert | visible | **met**: `game-aggressive` 15/15, overlay on top in 120 of 120 samples, reasserted 12 times in 6 s. The user checked real games (borderless, exclusive fullscreen) and fullscreen video in Phase 0/1 | `docs/spike-overlay-game-aggressive.json`, [spike-overlay.md](spike-overlay.md) |
 | CPU paused | < 0.5 % | **met**: 0.03 % of all cores (release, 30 s) | `measure-cpu.ps1` |
 | CPU playing | < 2 % | **met**: 0.48 % of all cores (release, 60 s) | `measure-cpu.ps1` |
 | RAM | < 200 MB private | **met**: 179 MB for LyricHub and all WebView2 processes, release, playback | see below |

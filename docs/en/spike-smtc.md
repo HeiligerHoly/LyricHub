@@ -18,7 +18,7 @@
 | Active run | 240 s; the tool controls Spotify via SMTC: every 40 s a seek by +30 s, then a 3 s pause |
 | Passive run | 360 s, reading only, normal playback across three songs |
 
-The raw data is stored locally in `../spike-smtc-active.csv` and `../spike-smtc-passive.csv` and is not checked in.
+The raw data is stored locally in `docs/spike-smtc-active.csv` and `docs/spike-smtc-passive.csv` and is not checked in.
 
 PowerShell instead of Rust is equivalent here. Spotify generates the timeline values itself; the reader affects neither the cadence nor the jitter. The Rust binding via the `windows` crate will be built in Phase 1.
 

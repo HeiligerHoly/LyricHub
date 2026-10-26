@@ -31,7 +31,7 @@ Before Phase 4, the romaji display came from `claude/unruffled-dirac-66618b` int
 | Design review against 9.1–9.6 | **met**, see the table below. All layouts and themes checked by screenshot over a real desktop (Steam, Explorer). Found and fixed along the way: outline and shadow were missing in Minimal and Neon, because the scale `--s` was only set on the plate. | Screenshots (not in the repo; they show third-party windows) |
 | No layout per frame | **met**: 6 layouts and 38 style recalculations in 30 s of playback, 0.2 layouts per second (one per frame would be 30). | `node tools/overlay-spike/layout-count.mjs 30` |
 | In-game FPS test without measurable loss | **dropped** (user decision: "We don't need an FPS test, that's fine" („FPS-Test brauchen wir nicht, das passt“)). Indications: CPU 0.48 % of all cores, fill only on the compositor. | – |
-| `run-spike.ps1` green | plain 13/13, game-once 15/15, game-aggressive 13/14 (known worst case from Phase 0: "Edit mode catches clicks" („Edit-Modus fängt Klicks ab“) with aggressive Topmost) | `../spike-overlay-*.json` |
+| `run-spike.ps1` green | plain 13/13, game-once 15/15, game-aggressive 13/14 (known worst case from Phase 0: "Edit mode catches clicks" („Edit-Modus fängt Klicks ab“) with aggressive Topmost) | `docs/spike-overlay-*.json` |
 | Edit mode still intact | 13 of 13 | `edit-mode-test.ps1` |
 | CPU ≤ 2 % while the fill runs | **met**: 7.7 % of one core = 0.48 % of 16 cores over 60 s, Japanese song with romaji | `measure-cpu.ps1 -Seconds 60` |
 | Unit tests | 90 green (new: 5 for word estimation, settings validation extended) | `cargo test` |
