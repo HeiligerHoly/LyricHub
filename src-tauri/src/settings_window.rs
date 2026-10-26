@@ -6,6 +6,12 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub const LABEL: &str = "main";
 
+/// Same arguments as the overlay window in tauri.conf.json: both webviews share one WebView2
+/// environment, which refuses a second window with different arguments. Tauri's defaults plus
+/// `--disable-gpu-rasterization`, which keeps the GPU process about 14 MB smaller (the overlay
+/// rasterises only on line changes; the fill runs on the compositor). See docs/phase5.md.
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu-rasterization";
+
 /// Shows and focuses the settings window, creating it if needed. The overlay never gets
 /// focus; this window may, because the user asked for it.
 pub fn open(app: &AppHandle) {
@@ -25,6 +31,7 @@ pub fn open(app: &AppHandle) {
             .center()
             // Same colour as the page, so opening does not flash white.
             .background_color(Color(17, 19, 24, 255))
+            .additional_browser_args(BROWSER_ARGS)
             .build();
         match built {
             Ok(w) => {

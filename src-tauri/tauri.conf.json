@@ -28,7 +28,8 @@
         "focus": false,
         "focusable": false,
         "visible": false,
-        "backgroundThrottling": "disabled"
+        "backgroundThrottling": "disabled",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu-rasterization"
       }
     ],
     "security": {
