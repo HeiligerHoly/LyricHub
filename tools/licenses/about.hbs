@@ -4,7 +4,8 @@ LyricHub's binary and installer contain software and data from third parties. Th
 them with their licenses: the dictionary and font the app embeds, the JavaScript in its pages,
 the installer, and every Rust crate compiled into the Windows build. The Rust part is generated
 with `cargo about` (see `tools/licenses/README.md`); the other sections are kept by hand in
-the template there.
+the template there. LyricHub itself is licensed under MIT with the Commons Clause (`LICENSE`;
+the installer puts it next to `lyrichub.exe` as `LICENSE.txt`).
 
 ## Data and fonts
 

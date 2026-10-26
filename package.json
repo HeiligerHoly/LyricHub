@@ -4,7 +4,7 @@
   "description": "Game overlay that shows Spotify lyrics karaoke-style, in sync with the audio",
   "private": true,
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",

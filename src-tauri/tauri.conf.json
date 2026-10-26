@@ -44,7 +44,7 @@
     "shortDescription": "Spotify lyrics as a karaoke overlay over games",
     "longDescription": "Windows overlay that shows the current Spotify song with synced, karaoke-style lyrics from LRCLIB over games.",
     "category": "Music",
-    "resources": { "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md" },
+    "resources": { "../LICENSE": "LICENSE.txt", "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md" },
     "windows": {
       "nsis": {
         "installMode": "currentUser",
