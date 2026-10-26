@@ -1,6 +1,6 @@
 {
   "name": "lyrichub",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Game overlay that shows Spotify lyrics karaoke-style, in sync with the audio",
   "private": true,
   "type": "module",
