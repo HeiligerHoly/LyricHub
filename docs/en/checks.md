@@ -17,7 +17,7 @@
 | SQL | All queries use parameters; no commands built from strings. |
 | Games | No DLL injection, no hooks inside the game process: the WinEvent hooks run outside of it (`WINEVENT_OUTOFCONTEXT`). |
 | Rust dependencies | `cargo audit`: 558 crates, **0 vulnerabilities**. 5 warnings (unmaintained or unsound: `glib`, `zbus_names`, `zvariant`, `zvariant_derive`, `proc-macro-error`) concern only Tauri's Linux part and are not in the Windows build (`cargo tree --target x86_64-pc-windows-msvc`). |
-| npm dependencies | What ships in the app (`npm audit --omit=dev`): **0 vulnerabilities**. 3 low-severity issues in `cookie` via `@sveltejs/kit` concern only the build tools; the app uses no server rendering and no cookies. |
+| npm dependencies | What ships in the app (`npm audit --omit=dev`): **0 vulnerabilities**. In the build tools, 2 low-severity issues remain in `@sveltejs/kit` itself (form actions, cache headers of prerendered pages); the app uses no server rendering and no forms. `cookie` is raised to 0.7.2 by an override. |
 | Secrets and personal data in the repository | No keys, tokens or passwords. Paths only through `%APPDATA%`/`%LOCALAPPDATA%`. **Note:** older versions of the spike reports in the Git history contain the window title of a Discord server. Before publishing, create a fresh repository or clean the history (the user's decision). |
 | Debug access | The DevTools port exists only if you set it yourself through an environment variable (development); it is off in release. |
 | Installer | Current user only, no administrator. Not signed: SmartScreen warns about an unknown publisher. |

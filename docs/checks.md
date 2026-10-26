@@ -15,7 +15,7 @@
 | SQL | Alle Abfragen mit Parametern, keine aus Strings zusammengesetzten Befehle. |
 | Spiele | Keine DLL-Injection, keine Hooks im Spielprozess: Die WinEvent-Hooks laufen außerhalb des Spielprozesses (`WINEVENT_OUTOFCONTEXT`). |
 | Rust-Abhängigkeiten | `cargo audit`: 558 Crates, **0 Sicherheitslücken**. 5 Warnungen (nicht mehr gepflegt bzw. unsicher: `glib`, `zbus_names`, `zvariant`, `zvariant_derive`, `proc-macro-error`) betreffen nur den Linux-Teil von Tauri und kommen im Windows-Build nicht vor (`cargo tree --target x86_64-pc-windows-msvc`). |
-| npm-Abhängigkeiten | Was in die App kommt (`npm audit --omit=dev`): **0 Lücken**. 3 Lücken mit niedrigem Schweregrad in `cookie` über `@sveltejs/kit` betreffen nur die Build-Werkzeuge; die App nutzt kein Server-Rendering und keine Cookies. |
+| npm-Abhängigkeiten | Was in die App kommt (`npm audit --omit=dev`): **0 Lücken**. Bei den Build-Werkzeugen bleiben 2 Lücken mit niedrigem Schweregrad in `@sveltejs/kit` selbst (Formular-Aktionen, Cache-Header vorgerenderter Seiten); die App nutzt kein Server-Rendering und keine Formulare. `cookie` ist per Override auf 0.7.2 gehoben. |
 | Geheimnisse und persönliche Daten im Repo | Keine Schlüssel, Tokens oder Passwörter. Pfade nur über `%APPDATA%`/`%LOCALAPPDATA%`. **Achtung:** Ältere Fassungen der Spike-Berichte in der Git-Historie enthalten den Fenstertitel eines Discord-Servers. Vor einer Veröffentlichung das Repo neu anlegen oder die Historie bereinigen (Entscheidung des Nutzers). |
 | Debug-Zugang | Den DevTools-Port gibt es nur, wenn man ihn über eine Umgebungsvariable selbst setzt (Entwicklung); im Release ist er aus. |
 | Installer | Nur aktueller Benutzer, kein Administrator. Nicht signiert: SmartScreen warnt vor einem unbekannten Herausgeber. |
