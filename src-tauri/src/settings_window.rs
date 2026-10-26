@@ -7,10 +7,13 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 pub const LABEL: &str = "main";
 
 /// Same arguments as the overlay window in tauri.conf.json: both webviews share one WebView2
-/// environment, which refuses a second window with different arguments. Tauri's defaults plus
-/// `--disable-gpu-rasterization`, which keeps the GPU process about 14 MB smaller (the overlay
-/// rasterises only on line changes; the fill runs on the compositor). See docs/phase5.md.
-pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu-rasterization";
+/// environment, which refuses a second window with different arguments. Tauri's defaults plus:
+/// `--disable-gpu-rasterization` keeps the GPU process about 14 MB smaller (the overlay
+/// rasterises only on line changes; the fill runs on the compositor), see docs/phase5.md;
+/// `--disable-component-update` stops WebView2 from downloading about 60 MB of components
+/// LyricHub never uses (Widevine DRM, filter lists, speech); `--disk-cache-size` keeps the
+/// HTTP cache small, since every page comes from the app itself.
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu-rasterization --disable-component-update --disk-cache-size=1048576";
 
 /// Shows and focuses the settings window, creating it if needed. The overlay never gets
 /// focus; this window may, because the user asked for it.

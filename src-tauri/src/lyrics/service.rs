@@ -29,6 +29,9 @@ pub struct Request {
     pub force: bool,
 }
 
+/// Lyrics of songs not played for a year leave the cache (LRCLIB has them if they come back).
+const CACHE_MAX_AGE_S: i64 = 365 * 86_400;
+
 pub struct LyricsService {
     tx: Sender<Request>,
 }
@@ -40,7 +43,14 @@ impl LyricsService {
             .name("lyrics".into())
             .spawn(move || {
                 let cache = match Cache::open(&cache_path) {
-                    Ok(c) => Some(c),
+                    Ok(c) => {
+                        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+                        match c.prune(now, CACHE_MAX_AGE_S) {
+                            Ok(n) => tracing::info!(removed = n, "lyrics cache pruned"),
+                            Err(e) => tracing::warn!(error = %e, "lyrics cache prune failed"),
+                        }
+                        Some(c)
+                    }
                     Err(e) => {
                         tracing::error!(path = %cache_path.display(), error = %e, "lyrics cache unavailable, working without");
                         None

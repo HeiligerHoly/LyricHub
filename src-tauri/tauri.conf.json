@@ -29,7 +29,7 @@
         "focusable": false,
         "visible": false,
         "backgroundThrottling": "disabled",
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu-rasterization"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu-rasterization --disable-component-update --disk-cache-size=1048576"
       }
     ],
     "security": {

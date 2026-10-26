@@ -10,10 +10,30 @@ pub fn log_dir() -> PathBuf {
     crate::paths::data_dir().join("logs")
 }
 
+/// Self-test reports pile up during development: keep the newest few.
+const SELFTEST_REPORTS_KEPT: usize = 10;
+
+fn prune_reports(dir: &std::path::Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let mut reports: Vec<(std::time::SystemTime, PathBuf)> = entries
+        .filter_map(Result::ok)
+        .filter(|e| e.file_name().to_string_lossy().starts_with("selftest-"))
+        .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
+        .collect();
+    reports.sort_by(|a, b| b.0.cmp(&a.0));
+    for (_, path) in reports.into_iter().skip(SELFTEST_REPORTS_KEPT) {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 pub fn init() {
     let dir = log_dir();
     let _ = std::fs::create_dir_all(&dir);
-    let filter = EnvFilter::try_from_env("LYRICHUB_LOG").unwrap_or_else(|_| EnvFilter::new("info,lyrichub_lib=debug"));
+    // Release builds log info and up (about a quarter of the size); development builds also
+    // the clock decisions. LYRICHUB_LOG overrides both.
+    let default = if cfg!(debug_assertions) { "info,lyrichub_lib=debug" } else { "info" };
+    let filter = EnvFilter::try_from_env("LYRICHUB_LOG").unwrap_or_else(|_| EnvFilter::new(default));
+    prune_reports(&dir);
     let stdout = fmt::layer().with_writer(std::io::stdout);
 
     let file = RollingFileAppender::builder()

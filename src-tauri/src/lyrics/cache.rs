@@ -73,7 +73,10 @@ impl Cache {
 
     fn init(conn: Connection) -> rusqlite::Result<Self> {
         conn.execute_batch(
+            // Small write-ahead log: checkpoint every 200 pages and truncate it to 1 MB afterwards.
             "PRAGMA journal_mode = WAL;
+             PRAGMA wal_autocheckpoint = 200;
+             PRAGMA journal_size_limit = 1048576;
              CREATE TABLE IF NOT EXISTS tracks (
                key TEXT PRIMARY KEY, title TEXT NOT NULL, artist TEXT NOT NULL, album TEXT,
                duration_ms INTEGER, last_seen INTEGER NOT NULL);
@@ -92,6 +95,22 @@ impl Cache {
             conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         }
         Ok(Self { conn })
+    }
+
+    /// Removes lyrics and tracks not played for `max_age_s` and expired misses, so the cache
+    /// does not grow forever. Song and device offsets stay: they are the user's corrections.
+    /// Returns how many lyrics went.
+    pub fn prune(&self, now: i64, max_age_s: i64) -> rusqlite::Result<usize> {
+        let cutoff = now - max_age_s;
+        let lyrics = self.conn.execute(
+            "DELETE FROM lyrics WHERE key IN (SELECT key FROM tracks WHERE last_seen < ?1)
+                OR (key NOT IN (SELECT key FROM tracks) AND fetched_at < ?1)",
+            [cutoff],
+        )?;
+        self.conn.execute("DELETE FROM tracks WHERE last_seen < ?1", [cutoff])?;
+        self.conn.execute("DELETE FROM negative_cache WHERE until < ?1", [now])?;
+        self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
+        Ok(lyrics)
     }
 
     pub fn touch_track(&self, key: &str, title: &str, artist: &str, album: Option<&str>, duration_ms: Option<u32>, now: i64) -> rusqlite::Result<()> {
@@ -206,6 +225,23 @@ mod tests {
 
     fn cached(format: Format) -> Cached {
         Cached { source: "lrclib".into(), source_id: Some(42), format, raw: "[00:01.00]a".into(), instrumental: false, fetched_at: 100 }
+    }
+
+    #[test]
+    fn prune_drops_old_lyrics_but_keeps_offsets() {
+        let c = Cache::in_memory().unwrap();
+        let day = 86_400;
+        let cached = |at| Cached { source: "lrclib".into(), source_id: Some(1), format: Format::Lrc, raw: "[00:01.00]x".into(), instrumental: false, fetched_at: at };
+        c.touch_track("old", "Old", "A", None, None, 0).unwrap();
+        c.put("old", &cached(0)).unwrap();
+        c.touch_track("new", "New", "A", None, None, 400 * day).unwrap();
+        c.put("new", &cached(400 * day)).unwrap();
+        c.set_song_offset("old", 120).unwrap();
+        c.put_negative_for("gone", 0, 10).unwrap();
+        assert_eq!(c.prune(400 * day, 365 * day).unwrap(), 1);
+        assert!(matches!(c.get("old", 400 * day).unwrap(), Lookup::Miss));
+        assert!(matches!(c.get("new", 400 * day).unwrap(), Lookup::Hit(_)));
+        assert_eq!(c.song_offset("old").unwrap(), 120);
     }
 
     #[test]

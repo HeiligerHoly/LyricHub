@@ -31,6 +31,7 @@ pub fn run() {
     logging::init();
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "LyricHub starting");
 
+    paths::drop_webview_components();
     let autostarted = std::env::args().any(|a| a == "--minimized");
     let selftest_mode = std::env::var("LYRICHUB_SELFTEST").ok();
 
