@@ -75,6 +75,7 @@
 - The self-test's Topmost check overflowed without a fixed interval (`u64::MAX + 50`) and aborted in the debug build.
 - In Neon and Minimal, the edit mode toolbar inherited the outline and shadow of the lyrics; "Save" („Speichern“) was hard to read (reported by the user).
 - Glass Light at low opacity (see above).
+- After the tag: `taskkill` without /F closed only the overlay window. LyricHub kept running without an overlay and wrote a warning to the log twice per second. Now a close request to the overlay quits the app like "Quit" („Beenden“) in the tray.
 
 ## Open items
 

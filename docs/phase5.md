@@ -73,6 +73,7 @@
 - Der Topmost-Check des Selbsttests lief ohne festes Intervall über (`u64::MAX + 50`) und brach im Debug-Build ab.
 - Die Werkzeugleiste des Edit-Modus erbte bei Neon und Minimal Kontur und Schatten der Lyrics; „Speichern“ war schlecht lesbar (Hinweis des Nutzers).
 - Glass Light bei niedriger Deckkraft (siehe oben).
+- Nach dem Tag: `taskkill` ohne /F schloss nur das Overlay-Fenster. LyricHub lief ohne Overlay weiter und schrieb zweimal pro Sekunde eine Warnung ins Log. Jetzt beendet eine Schließen-Anfrage an das Overlay die App wie „Beenden“ im Tray.
 
 ## Offene Punkte
 

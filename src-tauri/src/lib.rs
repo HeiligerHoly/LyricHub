@@ -127,6 +127,16 @@ pub fn run() {
                 let app: AppHandle = window.app_handle().clone();
                 std::thread::spawn(move || overlay::force_relayout(&app));
             }
+            // The overlay has no frame and never the focus, so a close request comes from outside,
+            // e.g. `taskkill` without /F. Closing only the overlay would leave the app running
+            // without it; quit like the tray does instead.
+            if window.label() == overlay::LABEL
+                && let WindowEvent::CloseRequested { api, .. } = event
+            {
+                api.prevent_close();
+                tracing::info!("overlay close requested from outside, quitting");
+                window.app_handle().exit(0);
+            }
             // The appearance page may close with the window: end its preview.
             if window.label() == settings_window::LABEL && matches!(event, WindowEvent::Destroyed) {
                 let app: AppHandle = window.app_handle().clone();
