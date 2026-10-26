@@ -128,6 +128,24 @@ struct LyricsSummary {
 
 /// Writes the last 60 s and the current state to `logs/diagnostics-<unix>.json` (PLAN.md 5.9).
 /// Contains timings, settings and the song title, never lyrics text.
+const LOG_TAIL_LINES: usize = 400;
+
+/// The last lines of the newest log file.
+fn log_tail(lines: usize) -> Vec<String> {
+    let newest = std::fs::read_dir(crate::logging::log_dir())
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_name().to_string_lossy().starts_with("lyrichub"))
+        .max_by_key(|e| e.metadata().and_then(|m| m.modified()).ok());
+    let Some(text) = newest.and_then(|e| std::fs::read_to_string(e.path()).ok()) else { return Vec::new() };
+    let all: Vec<&str> = text.lines().collect();
+    all[all.len().saturating_sub(lines)..].iter().map(|l| (*l).to_owned()).collect()
+}
+
+/// Writes everything a bug report needs into `logs/diagnostics-<unix>.json`: versions,
+/// settings, monitors, overlay and guard state, shortcuts, Sync Lab and the log tail.
 pub fn export(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     let unix = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     let state = app.state::<NowPlayingState>();
@@ -148,6 +166,10 @@ pub fn export(app: &AppHandle) -> Result<std::path::PathBuf, String> {
         "devices": crate::audio_devices::list(app),
         "settings": app.state::<SettingsState>().get(),
         "overlay": crate::overlay::diagnostics(app),
+        "monitors": crate::overlay::window::list_monitors(),
+        "hotkeys": crate::hotkeys::status(app),
+        // The logs never contain lyrics (PLAN.md 7.4), so the tail can go along.
+        "log_tail": log_tail(LOG_TAIL_LINES),
     });
     let path = crate::logging::log_dir().join(format!("diagnostics-{unix}.json"));
     let text = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;

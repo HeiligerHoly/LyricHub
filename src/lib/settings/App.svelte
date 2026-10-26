@@ -5,7 +5,7 @@
   import { onMount } from "svelte";
   import { setLanguage, t, type Key } from "$lib/shared/i18n.svelte";
   import { ipc, on, subscribe } from "$lib/shared/ipc";
-  import type { NowPlaying, Settings, SettingsPatch } from "$lib/shared/types";
+  import type { HotkeyStatus, LyricsEvent, NowPlaying, Settings, SettingsPatch } from "$lib/shared/types";
   import NowPlayingCard from "./NowPlayingCard.svelte";
   import OverlayPage from "./pages/OverlayPage.svelte";
   import AppearancePage from "./pages/AppearancePage.svelte";
@@ -30,11 +30,17 @@
   let editing = $state(false);
   let version = $state("");
   let error = $state<string | null>(null);
+  let hotkeys = $state<HotkeyStatus[]>([]);
+  let lyricsState = $state<LyricsEvent | null>(null);
+  // Problems worth a banner (PLAN.md 9.6: details in the settings, never big in the game).
+  const hotkeyProblem = $derived(hotkeys.some((h) => h.state !== "ok" && h.state !== "off"));
+  const lyricsOffline = $derived(!!lyricsState && !!now.track && lyricsState.key === now.track.key && lyricsState.state === "error");
 
   /** Takes new settings and follows their interface language. */
   function applySettings(s: Settings) {
     setLanguage(s.behavior.language);
     settings = s;
+    ipc.hotkeyStatus().then((h) => (hotkeys = h));
   }
 
   async function update(patch: SettingsPatch) {
@@ -51,7 +57,9 @@
     ipc.getNowPlaying().then((n) => (now = n));
     ipc.getOverlayLayout().then((l) => (editing = !!l?.edit));
     ipc.appInfo().then((i) => (version = i.version));
+    ipc.getLyrics().then((l) => (lyricsState = l));
     return subscribe(
+      on("lyrics", (l) => (lyricsState = l)),
       on("settings", applySettings),
       on("track", (t) => (now = { ...now, track: t })),
       on("playback", (p) => (now = { ...now, status: p.status })),
@@ -215,5 +223,18 @@
   }
   .error {
     color: var(--fail);
+  }
+  .banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border: 1px solid rgba(240, 179, 90, 0.4);
+    border-radius: 10px;
+    background: rgba(240, 179, 90, 0.08);
+    color: #f0b35a;
+    font-size: 13px;
   }
 </style>
