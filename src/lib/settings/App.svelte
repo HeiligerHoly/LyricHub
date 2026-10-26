@@ -71,7 +71,7 @@
 <div class="app">
   <aside class="side">
     <div class="brand">
-      <span class="logo" aria-hidden="true">♪</span>
+      <img class="logo" src="/favicon.png" alt="" aria-hidden="true" />
       <span>LyricHub</span>
     </div>
     <NowPlayingCard {now} />
@@ -189,13 +189,9 @@
     font-weight: 650;
   }
   .logo {
-    display: grid;
-    place-items: center;
+    display: block;
     width: 28px;
     height: 28px;
-    border-radius: 8px;
-    background: var(--accent);
-    color: var(--accent-ink);
   }
   nav {
     display: grid;
