@@ -125,6 +125,7 @@ export const en: Record<Key, string> = {
   "appearance.opacity": "Plate opacity",
   "appearance.opacity.value": "{pct}% · higher reads better over bright game scenes",
   "appearance.opacity.none": "This theme has no plate",
+  "appearance.opacity.min": "this theme uses at least {pct}% so the text stays readable",
   "appearance.font": "Font",
   "appearance.font.bundled": "Inter (bundled)",
   "appearance.font.missing": "{font} (not installed)",

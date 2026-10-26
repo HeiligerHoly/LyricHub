@@ -29,6 +29,8 @@ export interface ThemeLook {
 const WHITE: Rgb = [255, 255, 255];
 const INK: Rgb = [17, 17, 17];
 const YELLOW = parseHex(DEFAULT_ACCENT)!;
+export const GLASS_LIGHT_MIN_OPACITY = 0.7;
+export const MONO_MIN_OPACITY = 0.85;
 /** Amber that keeps 4.5:1 on a light plate. */
 const AMBER: Rgb = [154, 103, 0];
 
@@ -37,14 +39,15 @@ export function look(a: AppearanceSettings, layout: Layout | undefined): ThemeLo
   let t: ThemeLook;
   switch (a.theme) {
     case "glass_light":
-      t = { plate: WHITE, plateAlpha: a.plate_opacity, radius: 14, text: INK, outline: false, fallbackAccent: AMBER, accentAllowed: true, neon: false };
+      // Dark text needs the light plate: at least 70 % (PLAN.md 9.5), or it vanishes over a dark game.
+      t = { plate: WHITE, plateAlpha: Math.max(GLASS_LIGHT_MIN_OPACITY, a.plate_opacity), radius: 14, text: INK, outline: false, fallbackAccent: AMBER, accentAllowed: true, neon: false };
       break;
     case "neon":
       t = { plate: null, plateAlpha: 0, radius: 14, text: WHITE, outline: true, fallbackAccent: YELLOW, accentAllowed: true, neon: true };
       break;
     case "mono":
       // Black plate, at least 85 % opaque, white fill: contrast comes from brightness alone.
-      t = { plate: [0, 0, 0], plateAlpha: Math.max(0.85, a.plate_opacity), radius: 10, text: WHITE, outline: false, fallbackAccent: WHITE, accentAllowed: false, neon: false };
+      t = { plate: [0, 0, 0], plateAlpha: Math.max(MONO_MIN_OPACITY, a.plate_opacity), radius: 10, text: WHITE, outline: false, fallbackAccent: WHITE, accentAllowed: false, neon: false };
       break;
     case "custom":
       t = {

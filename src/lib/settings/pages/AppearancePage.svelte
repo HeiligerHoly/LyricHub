@@ -4,6 +4,7 @@
   // shows sample lines in the current look (live preview); every change applies at once.
   // Sliders and colour pickers send at most one patch per 60 ms.
   import { onMount, untrack } from "svelte";
+  import { GLASS_LIGHT_MIN_OPACITY, MONO_MIN_OPACITY } from "$lib/overlay/theme";
   import { t, type Key } from "$lib/shared/i18n.svelte";
   import { ipc } from "$lib/shared/ipc";
   import { RADIUS_MAX_PX, type AppearanceSettings, type FontList, type Settings, type SettingsPatch, type Theme } from "$lib/shared/types";
@@ -140,7 +141,11 @@
         send({ plate_opacity: a.plate_opacity });
       }}
     />
-    <span class="value">{hasPlate ? t("appearance.opacity.value", { pct: Math.round(a.plate_opacity * 100) }) : t("appearance.opacity.none")}</span>
+    <span class="value">
+      {hasPlate ? t("appearance.opacity.value", { pct: Math.round(a.plate_opacity * 100) }) : t("appearance.opacity.none")}
+      {#if a.theme === "glass_light" && a.plate_opacity < GLASS_LIGHT_MIN_OPACITY}· {t("appearance.opacity.min", { pct: GLASS_LIGHT_MIN_OPACITY * 100 })}{/if}
+      {#if a.theme === "mono" && a.plate_opacity < MONO_MIN_OPACITY}· {t("appearance.opacity.min", { pct: MONO_MIN_OPACITY * 100 })}{/if}
+    </span>
   </div>
 
   <label class="label" for="font">{t("appearance.font")}</label>

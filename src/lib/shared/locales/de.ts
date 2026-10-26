@@ -126,6 +126,7 @@ export const de = {
   "appearance.opacity": "Deckkraft der Platte",
   "appearance.opacity.value": "{pct} % · höher liest sich über hellen Spielszenen besser",
   "appearance.opacity.none": "dieses Theme hat keine Platte",
+  "appearance.opacity.min": "dieses Theme nutzt mindestens {pct} %, damit die Schrift lesbar bleibt",
   "appearance.font": "Schrift",
   "appearance.font.bundled": "Inter (mitgeliefert)",
   "appearance.font.missing": "{font} (nicht installiert)",
