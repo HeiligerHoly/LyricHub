@@ -32,7 +32,7 @@ Download `LyricHub_<version>_x64-setup.exe` from the [releases](https://github.c
 
 ## Requirements for building
 
-- Windows 11 (Windows 10 from 2004 should work)
+- Windows 11 (tested); Windows 10 from version 2004 is not tested
 - Node.js 20 or newer
 - Rust (stable, MSVC toolchain) via rustup
 - Visual Studio Build Tools with the C++ workload and the Windows SDK
@@ -56,19 +56,20 @@ npx tauri build        # release build and installer (NSIS)
 
 The app starts in the tray. A left click on the tray icon shows or hides the overlay; the right-click menu opens the edit mode and the settings. The settings window only exists while it is open. With `--minimized` (as the autostart uses it) no window opens.
 
-Default shortcuts; change or turn them off under Settings → Hotkeys:
+Default shortcuts; all eight global ones can be changed or turned off under Settings → Hotkeys:
 
 | Shortcut | Action |
 |---|---|
 | Ctrl+Alt+L | Overlay on/off |
 | Ctrl+Alt+E | Edit mode: drag the overlay, scale at the corners, change the width at the sides |
-| Enter / Esc | In the edit mode: save / cancel (registered only then) |
+| Enter / Esc | In the edit mode: save / cancel (fixed, registered only then) |
 | Ctrl+Alt+K | Switch layout (Karaoke, Bar, Stack, Minimal) |
 | Ctrl+Alt+R | Japanese lines in romaji (Hepburn) and back |
-| Ctrl+Alt+, / Ctrl+Alt+. | Lyrics of the current song 100 ms earlier / later (with Shift 25 ms); LyricHub keeps the value per song |
-| Space / Esc | During calibration or the sync log: tap at each line start you hear / end the measurement (registered only then) |
+| Ctrl+Alt+, / Ctrl+Alt+. | Lyrics of the current song 100 ms earlier / later; LyricHub keeps the value per song |
+| Ctrl+Alt+Shift+, / Ctrl+Alt+Shift+. | The same in 25 ms steps |
+| Space / Esc | During calibration or the sync log: tap at each line start you hear / end the measurement (fixed, registered only then) |
 
-The game keeps the focus in the edit mode; the overlay never takes keyboard input. If a game moves over the overlay, LyricHub puts it back on top at once (window-order events, no injection); if that fails, the tray names the covering window. "Only with a fullscreen app" (Settings → Overlay) hides the overlay on the desktop.
+The game keeps the focus in the edit mode; the overlay never takes keyboard input. If a game moves over the overlay, LyricHub puts it back on top at once (window-order events, no injection); if that fails, the tray names the covering window. "Only with a fullscreen app" (Settings → Overlay) shows the overlay only while a game or video runs fullscreen (borderless or exclusive) and hides it as soon as a normal window or the desktop is in front; the edit mode and the appearance preview stay visible. In a tested game the overlay was also visible in exclusive fullscreen; if a game hides it anyway, the tray shows a hint, and the game's borderless window mode helps. When Spotify pauses, the overlay dims after 2 s and fades out after 10 s ("Hide when paused after" under Settings → Overlay, 0 = never).
 
 Appearance (Settings → Appearance): themes Glass Dark, Glass Light, Neon, Mono and a custom one; accent colour from the cover (checked for contrast against the plate) or fixed; opacity, font (Inter is bundled) and "Reduce motion". While the page is open, the overlay shows sample lines in the chosen look.
 
@@ -106,7 +107,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, ads and podcasts, shortcuts): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB.
+93 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, ads and podcasts, shortcuts): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB.
 
 ## Notes
 

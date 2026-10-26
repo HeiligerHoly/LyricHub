@@ -32,7 +32,7 @@ Wer den fertigen Dateien nicht traut, kann alles selbst nachvollziehen oder nach
 
 ## Voraussetzungen zum Bauen
 
-- Windows 11 (Windows 10 ab 2004 sollte gehen)
+- Windows 11 (getestet); Windows 10 ab Version 2004 ist nicht getestet
 - Node.js 20 oder neuer
 - Rust (stable, MSVC-Toolchain) über rustup
 - Visual Studio Build Tools mit C++-Workload und Windows SDK
@@ -56,19 +56,20 @@ npx tauri build        # Release-Build und Installer (NSIS)
 
 Die App startet im Tray. Linksklick auf das Tray-Icon blendet das Overlay ein und aus, das Rechtsklick-Menü öffnet den Edit-Modus und die Einstellungen. Das Einstellungsfenster existiert nur, solange es offen ist. Mit `--minimized` (so startet der Autostart) öffnet sich kein Fenster.
 
-Standard-Kürzel; unter Einstellungen → Hotkeys lassen sie sich ändern oder abschalten:
+Standard-Kürzel; alle acht globalen lassen sich unter Einstellungen → Hotkeys ändern oder abschalten:
 
 | Kürzel | Funktion |
 |---|---|
 | Strg+Alt+L | Overlay ein/aus |
 | Strg+Alt+E | Edit-Modus: Overlay ziehen, an den Ecken skalieren, an den Seiten die Breite ändern |
-| Enter / Esc | im Edit-Modus speichern / abbrechen (nur dann registriert) |
+| Enter / Esc | im Edit-Modus speichern / abbrechen (fest, nur dann registriert) |
 | Strg+Alt+K | Layout wechseln (Karaoke, Leiste, Stapel, Minimal) |
 | Strg+Alt+R | Japanische Zeilen in Romaji (Hepburn) und zurück |
-| Strg+Alt+, / Strg+Alt+. | Lyrics des laufenden Songs 100 ms früher / später (mit Umschalt 25 ms); LyricHub merkt sich den Wert pro Song |
-| Leertaste / Esc | während Kalibrierung oder Sync-Protokoll: Tap beim hörbaren Zeilenbeginn / Messung beenden (nur dann registriert) |
+| Strg+Alt+, / Strg+Alt+. | Lyrics des laufenden Songs 100 ms früher / später; LyricHub merkt sich den Wert pro Song |
+| Strg+Alt+Umschalt+, / Strg+Alt+Umschalt+. | dasselbe in 25-ms-Schritten |
+| Leertaste / Esc | während Kalibrierung oder Sync-Protokoll: Tap beim hörbaren Zeilenbeginn / Messung beenden (fest, nur dann registriert) |
 
-Das Spiel behält im Edit-Modus den Fokus; das Overlay nimmt nie Tastatureingaben an. Setzt sich ein Spiel über das Overlay, holt LyricHub es sofort zurück (Ereignisse der Fensterreihenfolge, keine Injection); gelingt das nicht, nennt der Tray das verdeckende Fenster. „Nur bei Vollbild-App zeigen“ (Einstellungen → Overlay) blendet das Overlay auf dem Desktop aus.
+Das Spiel behält im Edit-Modus den Fokus; das Overlay nimmt nie Tastatureingaben an. Setzt sich ein Spiel über das Overlay, holt LyricHub es sofort zurück (Ereignisse der Fensterreihenfolge, keine Injection); gelingt das nicht, nennt der Tray das verdeckende Fenster. „Nur bei Vollbild-App zeigen“ (Einstellungen → Overlay) zeigt das Overlay nur, solange ein Spiel oder Video im Vollbild läuft (randlos oder exklusiv), und blendet es aus, sobald ein normales Fenster oder der Desktop vorne ist; Edit-Modus und Vorschau der Darstellung bleiben sichtbar. In einem getesteten Spiel war das Overlay auch im exklusiven Vollbild zu sehen; verdeckt ein Spiel es trotzdem, zeigt der Tray einen Hinweis, und der Modus „Randloses Fenster“ im Spiel hilft. Pausiert Spotify, wird das Overlay nach 2 s gedimmt und nach 10 s ausgeblendet („Bei Pause ausblenden nach“ unter Einstellungen → Overlay, 0 = nie).
 
 Darstellung (Einstellungen → Darstellung): Themes Glass Dark, Glass Light, Neon, Mono und ein eigenes; Akzentfarbe aus dem Cover (mit Kontrastprüfung gegen die Platte) oder fest; Deckkraft, Schrift (Inter ist mitgeliefert) und „Bewegung reduzieren“. Solange die Seite offen ist, zeigt das Overlay Beispielzeilen im gewählten Look. Die Sprache (System, Deutsch, Englisch) steht unter Verhalten.
 
@@ -106,7 +107,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-Rust-Unit-Tests (LRC-Parser, geschätzte Wortzeiten, Playback-Clock mit Quellen-Fusion, Offsets, Tap-Auswertung, Matcher, LRCLIB-Client gegen aufgezeichnete Antworten, Cache, Geometrie, Settings-Store mit Migration, SMTC-Songwechsel-Erkennung, Werbung und Podcasts, Kürzel): `cargo test` in `src-tauri`. Live-Anfragen an LRCLIB machen die Tests nicht.
+93 Rust-Unit-Tests (LRC-Parser, geschätzte Wortzeiten, Playback-Clock mit Quellen-Fusion, Offsets, Tap-Auswertung, Matcher, LRCLIB-Client gegen aufgezeichnete Antworten, Cache, Geometrie, Settings-Store mit Migration, SMTC-Songwechsel-Erkennung, Werbung und Podcasts, Kürzel): `cargo test` in `src-tauri`. Live-Anfragen an LRCLIB machen die Tests nicht.
 
 ## Hinweise
 
