@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- LyricHub tray icon: "Half-Lit Notes" (app-icon.svg) with a wider, brighter rim. The
+       app icon's 6 px rim shrinks to a tenth of a pixel in the tray, and the dark half of the
+       tile then melts into a dark taskbar (contrast 1.03:1). This rim is 64 of 1024 px, about
+       one pixel at 16 px, and lifts the edge to 3.5:1 in colour and 2.5:1 in grey. Only the
+       tray uses it; tray.rs loads the pre-rendered sizes in icons/tray/. -->
+  <defs>
+    <linearGradient id="lh-bg" gradientUnits="userSpaceOnUse" x1="48" y1="0" x2="976" y2="0">
+      <stop offset="0" stop-color="#ffd86f"/>
+      <stop offset="0.583" stop-color="#ff9a3d"/>
+      <stop offset="0.593" stop-color="#343b6c"/>
+      <stop offset="1" stop-color="#171a32"/>
+    </linearGradient>
+    <linearGradient id="lh-glyph" gradientUnits="userSpaceOnUse" x1="48" y1="0" x2="976" y2="0">
+      <stop offset="0" stop-color="#1c1428"/>
+      <stop offset="0.583" stop-color="#1c1428"/>
+      <stop offset="0.593" stop-color="#ffc24a"/>
+      <stop offset="1" stop-color="#ffe49c"/>
+    </linearGradient>
+    <linearGradient id="lh-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="216" fill="url(#lh-bg)"/>
+  <rect x="48" y="48" width="928" height="928" rx="216" fill="url(#lh-sheen)"/>
+  <rect x="80" y="80" width="864" height="864" rx="184" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="64"/>
+  <g fill="url(#lh-glyph)">
+    <rect x="343" y="180" width="506" height="139" rx="38"/>
+    <rect x="343" y="230" width="94" height="526"/>
+    <rect x="755" y="230" width="94" height="526"/>
+    <ellipse cx="308" cy="740" rx="132" ry="99" transform="rotate(-20 308 740)"/>
+    <ellipse cx="720" cy="740" rx="132" ry="99" transform="rotate(-20 720 740)"/>
+  </g>
+</svg>

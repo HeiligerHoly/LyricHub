@@ -37,6 +37,37 @@ pub struct TrayItems {
     player_present: std::sync::atomic::AtomicBool,
 }
 
+/// Tray variant of the app icon (icons/tray.svg): the same motif with a wider, brighter rim,
+/// so the dark half of the tile stays apart from a dark taskbar. Pre-rendered for 100 % to
+/// 300 % scaling; Windows would blur a single large bitmap down to 16 px.
+const TRAY_ICONS: [(i32, &[u8]); 6] = [
+    (16, include_bytes!("../icons/tray/16.png")),
+    (20, include_bytes!("../icons/tray/20.png")),
+    (24, include_bytes!("../icons/tray/24.png")),
+    (32, include_bytes!("../icons/tray/32.png")),
+    (40, include_bytes!("../icons/tray/40.png")),
+    (48, include_bytes!("../icons/tray/48.png")),
+];
+
+/// The tray variant at the size of a small icon for the system DPI, or the next larger one.
+fn tray_icon() -> Option<Image<'static>> {
+    use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetSystemMetricsForDpi};
+    use windows::Win32::UI::WindowsAndMessaging::SM_CXSMICON;
+    // SAFETY: plain system queries.
+    let wanted = unsafe { GetSystemMetricsForDpi(SM_CXSMICON, GetDpiForSystem()) };
+    let (size, bytes) = TRAY_ICONS.iter().find(|(s, _)| *s >= wanted).unwrap_or(&TRAY_ICONS[TRAY_ICONS.len() - 1]);
+    match Image::from_bytes(bytes) {
+        Ok(image) => {
+            tracing::debug!(wanted, size, "tray icon size");
+            Some(image.to_owned())
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "tray icon unreadable, using the window icon");
+            None
+        }
+    }
+}
+
 /// Grey copy of an RGBA icon (luminance, alpha kept, a little dimmed).
 fn greyscale(icon: &Image<'_>) -> Image<'static> {
     let rgba: Vec<u8> = icon
@@ -196,11 +227,15 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 });
             }
         });
-    if let Some(icon) = app.default_window_icon() {
+    let icon = tray_icon().or_else(|| app.default_window_icon().map(|i| i.clone().to_owned()));
+    if let Some(icon) = &icon {
         builder = builder.icon(icon.clone());
     }
     builder.build(app)?;
-    let icons = app.default_window_icon().map(|i| (i.clone().to_owned(), greyscale(i)));
+    let icons = icon.map(|i| {
+        let grey = greyscale(&i);
+        (i, grey)
+    });
     app.manage(TrayItems {
         overlay_visible: visible,
         edit,
