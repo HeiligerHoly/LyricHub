@@ -6,12 +6,12 @@ Windows-Overlay, das den laufenden Spotify-Song und karaoke-artig mitlaufende Ly
 
 Stand: Phase 5 (`v0.5.0-phase5`), Robustheit und Release. Das Overlay zeigt die synchronen Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit einer Karaoke-Füllung, die Wort für Wort läuft, dazu Cover, Titel und Artist; Position und Größe lassen sich im Edit-Modus direkt am Bildschirm einstellen. Vier Layouts, fünf Themes mit Akzentfarbe aus dem Albumcover, Deutsch und Englisch. Das Overlay bleibt auch über Spielen oben, die sich selbst nach vorne setzen, und lässt sich auf Vollbild-Apps beschränken. Korrekturen gelten pro Song, Ausgabegeräte haben eigene Offsets, und ein Kalibrier-Assistent und das Sync Lab helfen beim Einstellen. Japanische Zeilen lassen sich in Romaji anzeigen ([docs/romaji.md](docs/romaji.md)). Ergebnisse in [docs/phase5.md](docs/phase5.md) und die Sicherheits-, Performance- und Speicherplatz-Prüfungen in [docs/checks.md](docs/checks.md), [docs/phase4.md](docs/phase4.md), [docs/phase3.md](docs/phase3.md) mit dem Messbericht [docs/sync-report.md](docs/sync-report.md), dazu [docs/phase2.md](docs/phase2.md) und [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md).
 
-![Overlay im Layout Karaoke, Theme Glass Dark](docs/img/overlay-karaoke.png)
+![Overlay im Layout Karaoke, Theme Glass Dark](docs/img/de/overlay-karaoke.png)
 
 | | |
 |---|---|
-| ![Layout Stapel, Theme Glass Light](docs/img/overlay-stack-light.png) | ![Layout Minimal, Theme Neon](docs/img/overlay-minimal-neon.png) |
-| ![Einstellungen → Darstellung](docs/img/settings-appearance.png) | ![Einstellungen → Hotkeys](docs/img/settings-hotkeys.png) |
+| ![Layout Stapel, Theme Glass Light](docs/img/de/overlay-stack-light.png) | ![Layout Minimal, Theme Neon](docs/img/de/overlay-minimal-neon.png) |
+| ![Einstellungen → Darstellung](docs/img/de/settings-appearance.png) | ![Einstellungen → Hotkeys](docs/img/de/settings-hotkeys.png) |
 
 Die Bilder zeigen Beispielzeilen; Liedtexte stehen nicht im Repository.
 
