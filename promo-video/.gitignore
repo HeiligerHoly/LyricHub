@@ -1,0 +1,6 @@
+node_modules/
+out/
+# Audio stays local: the music licence forbids passing the file on by itself, and voice-overs are
+# personal. README.md says where the files come from.
+public/music/
+public/vo/

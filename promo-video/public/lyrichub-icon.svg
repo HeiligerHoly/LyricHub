@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- LyricHub app icon "Half-Lit Notes", source for `npx tauri icon`: a beamed double note on a
+       tile that the karaoke fill runs through. Left of the fill edge the tile is amber and the
+       note dark, right of it the tile is dark and the note amber. The thin light rim keeps the
+       dark half apart from a dark taskbar. No brand colours. -->
+  <defs>
+    <linearGradient id="lh-bg" gradientUnits="userSpaceOnUse" x1="48" y1="0" x2="976" y2="0">
+      <stop offset="0" stop-color="#ffd86f"/>
+      <stop offset="0.583" stop-color="#ff9a3d"/>
+      <stop offset="0.593" stop-color="#343b6c"/>
+      <stop offset="1" stop-color="#171a32"/>
+    </linearGradient>
+    <linearGradient id="lh-glyph" gradientUnits="userSpaceOnUse" x1="48" y1="0" x2="976" y2="0">
+      <stop offset="0" stop-color="#1c1428"/>
+      <stop offset="0.583" stop-color="#1c1428"/>
+      <stop offset="0.593" stop-color="#ffc24a"/>
+      <stop offset="1" stop-color="#ffe49c"/>
+    </linearGradient>
+    <linearGradient id="lh-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="216" fill="url(#lh-bg)"/>
+  <rect x="48" y="48" width="928" height="928" rx="216" fill="url(#lh-sheen)"/>
+  <rect x="51" y="51" width="922" height="922" rx="213" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="6"/>
+  <g fill="url(#lh-glyph)">
+    <rect x="343" y="180" width="506" height="139" rx="38"/>
+    <rect x="343" y="230" width="94" height="526"/>
+    <rect x="755" y="230" width="94" height="526"/>
+    <ellipse cx="308" cy="740" rx="132" ry="99" transform="rotate(-20 308 740)"/>
+    <ellipse cx="720" cy="740" rx="132" ry="99" transform="rotate(-20 720 740)"/>
+  </g>
+</svg>
