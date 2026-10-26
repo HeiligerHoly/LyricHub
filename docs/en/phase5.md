@@ -3,7 +3,7 @@
 *English translation of [phase5.md](../phase5.md).*
 
 > Date: 2026-10-26 · Reference: [PLAN.md](../../PLAN.en.md) 10 (Phase 5), 2, 6.3, 6.4, 9.6–9.8, 14.2
-> Result: **Phase 5 built and tested** (tag `v0.5.0-phase5`). The overlay stays on top even against a game that brings itself to the front every 500 ms: `game-aggressive` is green for the first time. Added: shortcuts that can be changed and turned off, an app icon of its own and an NSIS installer without administrator rights. The release build needs 179 MB of private memory and 0.48 % CPU. Still open is the installer test on another PC; a friend of the user is doing it.
+> Result: **Phase 5 built and tested** (tag `v0.5.0-phase5`). The overlay stays on top even against a game that brings itself to the front every 500 ms: `game-aggressive` is green for the first time. Added: shortcuts that can be changed and turned off, an app icon of its own and an NSIS installer without administrator rights. The release build needs 179 MB of private memory and 0.48 % CPU. The user confirmed the installer test on another PC on 2026-10-26.
 
 ## What was built
 
@@ -57,7 +57,7 @@
 | Item | Status |
 |---|---|
 | All acceptance criteria from section 2 met and documented | Met except for two items: p95 accepted by the user; online lyrics 76 % under 1.5 s, depending on LRCLIB. Sleep not tested live. |
-| Installer tested on a fresh profile | **open**: the user passes the installer on to a friend. Checklist in the handover to the user. |
+| Installer tested on a fresh profile | **met**: on another PC, confirmed by the user on 2026-10-26. Checklist: `docs/installer-test.md`. |
 
 ## Deviations from the plan
 
@@ -79,7 +79,6 @@
 
 ## Open items
 
-- Installer test by the user's friend.
 - Test sleep live once (go to sleep, wake up, play a song; `resumed from sleep` in the log).
 - The settings pages "Lyrics" (clear cache, import LRC) and "Connection" („Verbindung“) (9.7, items 1 and 5) do not exist; the Web API has been dropped.
-- `npm audit`: three low-severity vulnerabilities in `cookie` via `@sveltejs/kit` (a fix would need Kit 3).
+- `npm audit`: two low-severity vulnerabilities in `@sveltejs/kit` itself that do not affect LyricHub (form actions; cache headers for prerendered pages, which only a server sends); the fix would need Kit 3. `cookie` is raised to 0.7.2 by an override.

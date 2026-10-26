@@ -1,7 +1,7 @@
 # Phase 5 – Robustheit und Release
 
 > Datum: 2026-10-26 · Bezug: PLAN.md 10 (Phase 5), 2, 6.3, 6.4, 9.6–9.8, 14.2
-> Ergebnis: **Phase 5 gebaut und geprüft** (Tag `v0.5.0-phase5`). Das Overlay bleibt auch gegen ein Spiel oben, das sich alle 500 ms selbst nach vorne setzt: `game-aggressive` ist zum ersten Mal grün. Dazu kommen Kürzel, die sich ändern und abschalten lassen, ein eigenes App-Icon und ein NSIS-Installer ohne Administratorrechte. Der Release-Build braucht 179 MB privaten Speicher und 0,48 % CPU. Offen ist der Installer-Test auf einem fremden PC; ihn macht ein Freund des Nutzers.
+> Ergebnis: **Phase 5 gebaut und geprüft** (Tag `v0.5.0-phase5`). Das Overlay bleibt auch gegen ein Spiel oben, das sich alle 500 ms selbst nach vorne setzt: `game-aggressive` ist zum ersten Mal grün. Dazu kommen Kürzel, die sich ändern und abschalten lassen, ein eigenes App-Icon und ein NSIS-Installer ohne Administratorrechte. Der Release-Build braucht 179 MB privaten Speicher und 0,48 % CPU. Den Installer-Test auf einem fremden PC hat der Nutzer am 2026-10-26 bestätigt.
 
 ## Was gebaut wurde
 
@@ -55,7 +55,7 @@
 | Punkt | Stand |
 |---|---|
 | Alle Akzeptanzkriterien aus Abschnitt 2 erfüllt und belegt | Bis auf zwei Punkte erfüllt: p95 vom Nutzer akzeptiert; Online-Lyrics zu 76 % unter 1,5 s, abhängig von LRCLIB. Schlafmodus nicht live geprüft. |
-| Installer auf frischem Profil getestet | **offen**: Der Nutzer gibt den Installer an einen Freund weiter. Prüfliste in der Übergabe an den Nutzer. |
+| Installer auf frischem Profil getestet | **erfüllt**: auf einem anderen PC, vom Nutzer am 2026-10-26 bestätigt. Prüfliste: `docs/installer-test.md`. |
 
 ## Abweichungen vom Plan
 
@@ -77,7 +77,6 @@
 
 ## Offene Punkte
 
-- Installer-Test durch den Freund des Nutzers.
 - Schlafmodus einmal live prüfen (Energie sparen, aufwachen, Song abspielen; im Log `resumed from sleep`).
 - Einstellungsseiten „Lyrics“ (Cache leeren, LRC importieren) und „Verbindung“ (9.7, Punkte 1 und 5) gibt es nicht; die Web API ist gestrichen.
-- `npm audit`: drei Lücken mit niedrigem Schweregrad in `cookie` über `@sveltejs/kit` (Fix bräuchte Kit 3).
+- `npm audit`: zwei Lücken mit niedrigem Schweregrad in `@sveltejs/kit` selbst, die LyricHub nicht betreffen (Formular-Aktionen; Cache-Header für vorgerenderte Seiten, die nur ein Server ausliefert); der Fix bräuchte Kit 3. `cookie` ist per Override auf 0.7.2 gehoben.
