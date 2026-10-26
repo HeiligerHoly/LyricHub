@@ -787,6 +787,8 @@ Eine spätere kostenlose Veröffentlichung soll nicht verbaut werden. Deshalb gi
 - Lizenz-Disclaimer für Lyrics (7.4) und eine Open-Source-Lizenz für den Code früh festlegen. Abhängigkeiten nur mit kompatiblen Lizenzen (MIT, Apache-2.0, BSD; OFL für Fonts).
 - Code-Signing, Auto-Update und Store-Veröffentlichung werden erst nach der Veröffentlichungsentscheidung nötig.
 
+**Lizenz entschieden (2026-10-26)**: MIT mit Commons Clause (`LICENSE`), quelloffen (source available) statt Open Source. Nutzen, verändern und weitergeben ist erlaubt, verkaufen nicht.
+
 ### 14.3 Noch offen
 
 Keine blockierenden Fragen. Opus fragt nur nach, wenn Spike 0 oder Spike B ein Ergebnis liefert, das eine dieser Entscheidungen berührt, zum Beispiel den Wechsel auf Desktop-Spotify.

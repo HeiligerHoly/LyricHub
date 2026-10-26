@@ -112,4 +112,10 @@ Rust-Unit-Tests (LRC-Parser, geschätzte Wortzeiten, Playback-Clock mit Quellen-
 
 Lyrics sind urheberrechtlich geschützt. LyricHub zeigt sie nur an und verteilt sie nicht weiter. Quelle der Lyrics ist [LRCLIB](https://lrclib.net), eine von der Community gepflegte Datenbank; LyricHub fragt sie mit eigenem User-Agent an und speichert Ergebnisse lokal, um sie nicht bei jeder Wiederholung erneut abzufragen. Die Test-Fixtures im Repository enthalten erfundenen Text.
 
-Die Lizenzen der Drittanbieter (Rust-Crates, npm-Pakete, das IPADIC-Wörterbuch, die Schrift Inter und NSIS) stehen in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); der Installer legt die Datei neben `lyrichub.exe`.
+LyricHub ist nicht mit Spotify AB verbunden und wird von Spotify weder unterstützt noch gesponsert. Spotify ist eine Marke von Spotify AB.
+
+## Lizenz
+
+LyricHub ist quelloffen (source available) unter der MIT-Lizenz mit der Commons Clause ([LICENSE](LICENSE)). Jeder darf es nutzen, verändern und weitergeben, auch beim Streamen. Verkaufen ist nicht erlaubt, auch nicht als bezahlter Dienst, dessen Wert ganz oder im Wesentlichen aus LyricHub kommt.
+
+Fremde Komponenten behalten ihre eigenen Lizenzen. Sie stehen in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), die der Installer zusammen mit der Lizenz neben `lyrichub.exe` legt.

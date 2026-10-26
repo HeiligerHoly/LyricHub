@@ -789,6 +789,8 @@ A later free release must not be ruled out. Therefore:
 - Settle the license disclaimer for lyrics (7.4) and an open-source license for the code early. Dependencies only with compatible licenses (MIT, Apache-2.0, BSD; OFL for fonts).
 - Code signing, auto-update and Store publication only become necessary after the release decision.
 
+**License decided (2026-10-26)**: MIT with the Commons Clause (`LICENSE`), source available rather than open source. Using, changing and passing it on is allowed, selling is not.
+
 ### 14.3 Still open
 
 No blocking questions. Opus only asks if Spike 0 or Spike B produces a result that affects one of these decisions, for example the switch to desktop Spotify.
