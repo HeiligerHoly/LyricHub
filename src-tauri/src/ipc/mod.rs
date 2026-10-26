@@ -34,7 +34,10 @@ pub fn settings_changed(app: &AppHandle, before: &Settings, after: &Settings) {
     if before.behavior.autostart != after.behavior.autostart {
         apply_autostart(app, after.behavior.autostart);
     }
-    if before.behavior.language != after.behavior.language {
+    if before.hotkeys != after.hotkeys {
+        crate::hotkeys::apply_settings(app);
+    }
+    if before.behavior.language != after.behavior.language || before.hotkeys != after.hotkeys {
         crate::tray::apply_language(app);
     }
 }

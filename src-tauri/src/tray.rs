@@ -60,30 +60,43 @@ fn layout_label(lang: Lang, l: Layout) -> &'static str {
     }
 }
 
-fn edit_label(lang: Lang, editing: bool) -> &'static str {
+/// " (Strg+Alt+L)" for a configured shortcut (Settings → Hotkeys), nothing when it is off.
+fn combo(app: &AppHandle, lang: Lang, pick_combo: impl Fn(&crate::settings::HotkeySettings) -> &str) -> String {
+    let hotkeys = app.state::<SettingsState>().get().hotkeys;
+    let c = pick_combo(&hotkeys).trim().to_owned();
+    if c.is_empty() {
+        return String::new();
+    }
+    match lang {
+        Lang::De => format!(" ({})", c.replace("Ctrl", "Strg")),
+        Lang::En => format!(" ({c})"),
+    }
+}
+
+fn edit_label(app: &AppHandle, lang: Lang, editing: bool) -> String {
     if editing {
-        pick(lang, "Edit-Modus speichern (Enter)", "Save edit mode (Enter)")
+        pick(lang, "Edit-Modus speichern (Enter)", "Save edit mode (Enter)").to_owned()
     } else {
-        pick(lang, "Position und Größe ändern (Strg+Alt+E)", "Change position and size (Ctrl+Alt+E)")
+        pick(lang, "Position und Größe ändern", "Change position and size").to_owned() + &combo(app, lang, |h| &h.edit)
     }
 }
 
 struct Texts {
-    visible: &'static str,
-    nudge_back: &'static str,
-    nudge_forward: &'static str,
-    layout: &'static str,
+    visible: String,
+    nudge_back: String,
+    nudge_forward: String,
+    layout: String,
     settings: &'static str,
     selftest: &'static str,
     quit: &'static str,
 }
 
-fn texts(lang: Lang) -> Texts {
+fn texts(app: &AppHandle, lang: Lang) -> Texts {
     Texts {
-        visible: pick(lang, "Overlay anzeigen (Strg+Alt+L)", "Show overlay (Ctrl+Alt+L)"),
-        nudge_back: pick(lang, "Song: Lyrics früher, −100 ms (Strg+Alt+,)", "Song: lyrics earlier, −100 ms (Ctrl+Alt+,)"),
-        nudge_forward: pick(lang, "Song: Lyrics später, +100 ms (Strg+Alt+.)", "Song: lyrics later, +100 ms (Ctrl+Alt+.)"),
-        layout: pick(lang, "Layout (Strg+Alt+K)", "Layout (Ctrl+Alt+K)"),
+        visible: pick(lang, "Overlay anzeigen", "Show overlay").to_owned() + &combo(app, lang, |h| &h.toggle),
+        nudge_back: pick(lang, "Song: Lyrics früher, −100 ms", "Song: lyrics earlier, −100 ms").to_owned() + &combo(app, lang, |h| &h.nudge_earlier),
+        nudge_forward: pick(lang, "Song: Lyrics später, +100 ms", "Song: lyrics later, +100 ms").to_owned() + &combo(app, lang, |h| &h.nudge_later),
+        layout: "Layout".to_owned() + &combo(app, lang, |h| &h.layout),
         settings: pick(lang, "Einstellungen …", "Settings …"),
         selftest: pick(lang, "Overlay-Selbsttest ausführen", "Run overlay self-test"),
         quit: pick(lang, "Beenden", "Quit"),
@@ -101,18 +114,18 @@ fn layout_id(l: Layout) -> &'static str {
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let lang = i18n::current(app);
-    let t = texts(lang);
-    let visible = CheckMenuItem::with_id(app, "overlay_visible", t.visible, true, true, None::<&str>)?;
-    let edit = MenuItem::with_id(app, "edit_mode", edit_label(lang, false), true, None::<&str>)?;
-    let nudge_back = MenuItem::with_id(app, "nudge_minus", t.nudge_back, true, None::<&str>)?;
-    let nudge_forward = MenuItem::with_id(app, "nudge_plus", t.nudge_forward, true, None::<&str>)?;
+    let t = texts(app, lang);
+    let visible = CheckMenuItem::with_id(app, "overlay_visible", &t.visible, true, true, None::<&str>)?;
+    let edit = MenuItem::with_id(app, "edit_mode", edit_label(app, lang, false), true, None::<&str>)?;
+    let nudge_back = MenuItem::with_id(app, "nudge_minus", &t.nudge_back, true, None::<&str>)?;
+    let nudge_forward = MenuItem::with_id(app, "nudge_plus", &t.nudge_forward, true, None::<&str>)?;
     let current = app.state::<SettingsState>().get().overlay.layout;
     let mut layouts = Vec::new();
     for l in Layout::ALL {
         layouts.push((l, CheckMenuItem::with_id(app, layout_id(l), layout_label(lang, l), true, l == current, None::<&str>)?));
     }
     let layout_refs: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = layouts.iter().map(|(_, i)| i as &dyn tauri::menu::IsMenuItem<Wry>).collect();
-    let layout_menu = Submenu::with_items(app, t.layout, true, &layout_refs)?;
+    let layout_menu = Submenu::with_items(app, &t.layout, true, &layout_refs)?;
     let settings = MenuItem::with_id(app, "open_settings", t.settings, true, None::<&str>)?;
     let selftest = MenuItem::with_id(app, "overlay_selftest", t.selftest, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", t.quit, true, None::<&str>)?;
@@ -238,20 +251,20 @@ pub fn sync_overlay_visible(app: &AppHandle, visible: bool) {
 pub fn sync_edit_mode(app: &AppHandle, editing: bool) {
     if let Some(items) = app.try_state::<TrayItems>() {
         items.editing.store(editing, std::sync::atomic::Ordering::SeqCst);
-        let _ = items.edit.set_text(edit_label(i18n::current(app), editing));
+        let _ = items.edit.set_text(edit_label(app, i18n::current(app), editing));
     }
 }
 
-/// Writes every menu text again in the current interface language.
+/// Writes every menu text again: interface language and shortcuts may have changed.
 pub fn apply_language(app: &AppHandle) {
     let Some(items) = app.try_state::<TrayItems>() else { return };
     let lang = i18n::current(app);
-    let t = texts(lang);
-    let _ = items.overlay_visible.set_text(t.visible);
-    let _ = items.edit.set_text(edit_label(lang, items.editing.load(std::sync::atomic::Ordering::SeqCst)));
-    let _ = items.nudge_back.set_text(t.nudge_back);
-    let _ = items.nudge_forward.set_text(t.nudge_forward);
-    let _ = items.layout_menu.set_text(t.layout);
+    let t = texts(app, lang);
+    let _ = items.overlay_visible.set_text(&t.visible);
+    let _ = items.edit.set_text(edit_label(app, lang, items.editing.load(std::sync::atomic::Ordering::SeqCst)));
+    let _ = items.nudge_back.set_text(&t.nudge_back);
+    let _ = items.nudge_forward.set_text(&t.nudge_forward);
+    let _ = items.layout_menu.set_text(&t.layout);
     let _ = items.settings.set_text(t.settings);
     let _ = items.selftest.set_text(t.selftest);
     let _ = items.quit.set_text(t.quit);

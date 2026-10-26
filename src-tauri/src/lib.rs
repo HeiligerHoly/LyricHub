@@ -48,6 +48,7 @@ pub fn run() {
         ))
         .plugin(hotkeys::plugin())
         .manage(overlay::OverlayState::default())
+        .manage(hotkeys::HotkeyState::default())
         .manage(settings::SettingsState::load())
         .manage(app_state::NowPlayingState::default())
         .manage(sync_lab::SyncLabState::default())
@@ -87,6 +88,8 @@ pub fn run() {
             ipc::commands::toggle_overlay,
             ipc::commands::set_overlay_preview,
             ipc::commands::list_fonts,
+            ipc::commands::hotkey_status,
+            ipc::commands::suspend_hotkeys,
             ipc::commands::overlay_diagnostics,
             ipc::commands::run_overlay_selftest,
             ipc::commands::app_info,
@@ -94,7 +97,7 @@ pub fn run() {
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
-            hotkeys::register_defaults(&handle);
+            hotkeys::apply_settings(&handle);
             tray::create(&handle)?;
             overlay::setup(&handle)?;
             ipc::apply_autostart(&handle, handle.state::<settings::SettingsState>().get().behavior.autostart);

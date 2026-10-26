@@ -111,12 +111,32 @@ export interface SyncSettings {
 }
 export const OFFSET_LIMIT_MS = 5000;
 
+/** Global shortcuts like "Ctrl+Alt+L"; "" turns one off (hotkeys.rs). */
+export interface HotkeySettings {
+  toggle: string;
+  edit: string;
+  layout: string;
+  romaji: string;
+  nudge_earlier: string;
+  nudge_later: string;
+  nudge_earlier_fine: string;
+  nudge_later_fine: string;
+}
+export type HotkeyAction = keyof HotkeySettings;
+
+export interface HotkeyStatus {
+  action: HotkeyAction;
+  combo: string;
+  state: "ok" | "off" | "invalid" | "duplicate" | "reserved" | "taken";
+}
+
 export interface Settings {
   schema_version: number;
   overlay: OverlaySettings;
   appearance: AppearanceSettings;
   sync: SyncSettings;
   behavior: BehaviorSettings;
+  hotkeys: HotkeySettings;
 }
 
 /** JSON Merge Patch for `set_settings`: `null` resets a field to its default. */
@@ -125,6 +145,7 @@ export type SettingsPatch = {
   appearance?: { [K in keyof AppearanceSettings]?: (K extends "custom" ? Partial<CustomTheme> : AppearanceSettings[K]) | null };
   sync?: { [K in keyof SyncSettings]?: SyncSettings[K] | null };
   behavior?: { [K in keyof BehaviorSettings]?: BehaviorSettings[K] | null };
+  hotkeys?: { [K in keyof HotkeySettings]?: string | null };
 };
 
 /** Offset parts (sync/offsets.rs); positive shows the lyrics later. */

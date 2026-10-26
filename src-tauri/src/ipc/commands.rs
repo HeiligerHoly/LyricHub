@@ -194,6 +194,19 @@ pub async fn toggle_overlay(app: AppHandle) -> bool {
     overlay::toggle(&app)
 }
 
+/// What became of each configured shortcut (registered, off, taken by another program …).
+#[tauri::command]
+pub fn hotkey_status(app: AppHandle) -> Vec<crate::hotkeys::HotkeyStatus> {
+    crate::hotkeys::status(&app)
+}
+
+/// Pauses all shortcuts while the hotkeys page records a new combination.
+#[tauri::command]
+pub async fn suspend_hotkeys(app: AppHandle, suspended: bool) -> Vec<crate::hotkeys::HotkeyStatus> {
+    crate::hotkeys::suspend(&app, suspended);
+    crate::hotkeys::status(&app)
+}
+
 /// Installed font families and whether a Japanese UI font is there (PLAN.md 9.5).
 #[tauri::command]
 pub async fn list_fonts() -> crate::fonts::FontList {

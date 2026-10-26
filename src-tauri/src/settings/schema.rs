@@ -16,6 +16,7 @@ pub struct Settings {
     pub appearance: AppearanceSettings,
     pub sync: SyncSettings,
     pub behavior: BehaviorSettings,
+    pub hotkeys: HotkeySettings,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -29,6 +30,7 @@ impl Default for Settings {
             appearance: AppearanceSettings::default(),
             sync: SyncSettings::default(),
             behavior: BehaviorSettings::default(),
+            hotkeys: HotkeySettings::default(),
             extra: Map::new(),
         }
     }
@@ -284,6 +286,40 @@ pub struct BehaviorSettings {
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
+}
+
+/// Global shortcuts (PLAN.md 9.7, page "Hotkeys"), written like "Ctrl+Alt+L"; empty turns
+/// one off. hotkeys.rs parses and registers them.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct HotkeySettings {
+    pub toggle: String,
+    pub edit: String,
+    pub layout: String,
+    pub romaji: String,
+    pub nudge_earlier: String,
+    pub nudge_later: String,
+    pub nudge_earlier_fine: String,
+    pub nudge_later_fine: String,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
+
+impl Default for HotkeySettings {
+    fn default() -> Self {
+        Self {
+            toggle: "Ctrl+Alt+L".into(),
+            edit: "Ctrl+Alt+E".into(),
+            layout: "Ctrl+Alt+K".into(),
+            romaji: "Ctrl+Alt+R".into(),
+            nudge_earlier: "Ctrl+Alt+,".into(),
+            nudge_later: "Ctrl+Alt+.".into(),
+            nudge_earlier_fine: "Ctrl+Alt+Shift+,".into(),
+            nudge_later_fine: "Ctrl+Alt+Shift+.".into(),
+            extra: Map::new(),
+        }
+    }
 }
 
 impl Settings {

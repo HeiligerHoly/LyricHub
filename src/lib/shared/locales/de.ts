@@ -7,6 +7,7 @@ export const de = {
   "nav.appearance": "Darstellung",
   "nav.sync": "Synchronisation",
   "nav.behavior": "Verhalten",
+  "nav.hotkeys": "Hotkeys",
   "nav.diagnostics": "Diagnose",
 
   // Shared by several places
@@ -298,6 +299,35 @@ export const de = {
   "diag.selftest.check": "Prüfung",
   "diag.selftest.result": "Ergebnis",
   "diag.selftest.detail": "Detail",
+  // Settings → Hotkeys
+  "hotkeys.intro": "Globale Tastenkürzel, die auch im Spiel wirken. Kollidiert eines mit einem Spiel, hier ändern oder ausschalten. Ein Kürzel braucht Strg, Alt, Umschalt oder Win, außer F1 bis F12.",
+  "hotkeys.action.toggle": "Overlay ein/aus",
+  "hotkeys.action.edit": "Edit-Modus (noch einmal: speichern)",
+  "hotkeys.action.layout": "Layout wechseln",
+  "hotkeys.action.romaji": "Romaji ein/aus",
+  "hotkeys.action.nudge_earlier": "Song: Lyrics 100 ms früher",
+  "hotkeys.action.nudge_later": "Song: Lyrics 100 ms später",
+  "hotkeys.action.nudge_earlier_fine": "Song: Lyrics 25 ms früher",
+  "hotkeys.action.nudge_later_fine": "Song: Lyrics 25 ms später",
+  "hotkeys.off": "aus",
+  "hotkeys.recording": "Tasten drücken … (Esc bricht ab)",
+  "hotkeys.change": "Ändern",
+  "hotkeys.turnOff": "Aus",
+  "hotkeys.default": "Standard",
+  "hotkeys.resetAll": "Alle auf Standard",
+  "hotkeys.needsModifier": "Ein Kürzel braucht Strg, Alt, Umschalt oder Win (außer F1 bis F12), und die Taste muss unterstützt sein.",
+  "hotkeys.state.invalid": "ungültig",
+  "hotkeys.state.duplicate": "doppelt vergeben",
+  "hotkeys.state.reserved": "reserviert",
+  "hotkeys.state.taken": "von einem anderen Programm belegt",
+  "hotkeys.state.ok": "aktiv",
+  "hotkeys.state.off": "aus",
+  "hotkeys.fixed.title": "Feste Tasten",
+  "hotkeys.fixed.edit": "Im Edit-Modus: Enter speichert, Esc bricht ab.",
+  "hotkeys.fixed.measure": "Während Kalibrierung und Sync-Protokoll: Leertaste tippt, Esc beendet. Nur dann sind diese Tasten belegt.",
+  // Settings window banners
+  "app.problem.hotkeys": "Einige Tastenkürzel sind nicht aktiv (belegt oder ungültig).",
+  "app.problem.lyricsOffline": "LRCLIB ist gerade nicht erreichbar. LyricHub versucht es im Hintergrund erneut; bereits geladene Songs kommen aus dem Cache.",
 } as const;
 
 export type Key = keyof typeof de;

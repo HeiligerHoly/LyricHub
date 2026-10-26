@@ -12,12 +12,14 @@
   import BehaviorPage from "./pages/BehaviorPage.svelte";
   import DiagnosticsPage from "./pages/DiagnosticsPage.svelte";
   import SyncPage from "./pages/SyncPage.svelte";
+  import HotkeysPage from "./pages/HotkeysPage.svelte";
 
-  type PageId = "overlay" | "appearance" | "sync" | "behavior" | "diagnostics";
+  type PageId = "overlay" | "appearance" | "sync" | "behavior" | "diagnostics" | "hotkeys";
   const pages: { id: PageId; labelKey: Key }[] = [
     { id: "overlay", labelKey: "nav.overlay" },
     { id: "appearance", labelKey: "nav.appearance" },
     { id: "sync", labelKey: "nav.sync" },
+    { id: "hotkeys", labelKey: "nav.hotkeys" },
     { id: "behavior", labelKey: "nav.behavior" },
     { id: "diagnostics", labelKey: "nav.diagnostics" },
   ];
@@ -77,6 +79,15 @@
     {#if error}
       <p class="error" role="alert">{error}</p>
     {/if}
+    {#if hotkeyProblem && page !== "hotkeys"}
+      <p class="banner" role="status">
+        {t("app.problem.hotkeys")}
+        <button onclick={() => (page = "hotkeys")}>{t("nav.hotkeys")}</button>
+      </p>
+    {/if}
+    {#if lyricsOffline}
+      <p class="banner" role="status">{t("app.problem.lyricsOffline")}</p>
+    {/if}
     {#if settings}
       {#if page === "overlay"}
         <OverlayPage {settings} {update} {editing} />
@@ -84,6 +95,8 @@
         <AppearancePage {settings} {update} />
       {:else if page === "sync"}
         <SyncPage {settings} {update} {now} />
+      {:else if page === "hotkeys"}
+        <HotkeysPage {settings} {update} />
       {:else if page === "behavior"}
         <BehaviorPage {settings} {update} />
       {:else}
