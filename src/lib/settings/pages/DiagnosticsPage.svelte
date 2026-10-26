@@ -131,6 +131,14 @@
       <dd class="mono">{diag.ex_style_text}</dd>
       <dt>{t("diag.window.foreground")}</dt>
       <dd>{diag.foreground_title || "–"}{diag.foreground_is_overlay ? ` ${t("diag.window.foregroundIsOverlay")}` : ""}</dd>
+      <dt>{t("diag.window.screen")}</dt>
+      <dd>{t(`diag.window.screen.${diag.guard.screen}`)}{diag.auto_hidden ? ` · ${t("diag.window.autoHidden")}` : ""}</dd>
+      <dt>{t("diag.window.guard")}</dt>
+      <dd>
+        {t("diag.window.guard.value", { n: diag.guard.reasserts })}{diag.guard.covered_by
+          ? ` · ${t("diag.window.guard.covered", { window: diag.guard.covered_by })}`
+          : ""}
+      </dd>
     </dl>
   {/if}
   <div class="actions">

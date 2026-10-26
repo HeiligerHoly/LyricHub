@@ -123,6 +123,8 @@ pub struct OverlaySettings {
     pub scale: f64,
     /// Fade the overlay out this many seconds into a pause; 0 keeps it visible.
     pub hide_after_pause_s: u32,
+    /// Show the overlay only while a fullscreen app (game, video) is in the foreground.
+    pub only_fullscreen: bool,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -146,6 +148,7 @@ impl Default for OverlaySettings {
             width_pct: 35.0,
             scale: 1.0,
             hide_after_pause_s: 10,
+            only_fullscreen: false,
             extra: Map::new(),
         }
     }

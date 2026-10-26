@@ -17,8 +17,9 @@ param(
   [switch]$SkipBuild,
   # Run only these scenarios, e.g. -Only game-aggressive
   [string[]]$Only = @('plain', 'game-once', 'game-aggressive'),
-  # Overlay topmost reassert interval under test (watchdog default 2000)
-  [int]$TopmostMs = 2000
+  # 0 = production z-order guard (default). A value > 0 re-asserts on that fixed interval
+  # instead, the Spike B comparison (results get a -topmost<ms> suffix).
+  [int]$TopmostMs = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -48,7 +49,7 @@ function Invoke-SelfTest([string]$Name, $FakeReassertMs) {
   }
   $stdout = Join-Path $env:TEMP "lyrichub-selftest-$Name.out"
   $env:LYRICHUB_SELFTEST = 'exit'
-  $env:LYRICHUB_TOPMOST_MS = "$TopmostMs"
+  if ($TopmostMs -gt 0) { $env:LYRICHUB_TOPMOST_MS = "$TopmostMs" }
   try {
     $p = Start-Process $exe -PassThru -NoNewWindow -RedirectStandardOutput $stdout
     if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "self-test '$Name' timed out" }
@@ -60,7 +61,7 @@ function Invoke-SelfTest([string]$Name, $FakeReassertMs) {
   $line = Get-Content $stdout | Where-Object { $_ -like 'SELFTEST_RESULT *' } | Select-Object -Last 1
   if (-not $line) { throw "no SELFTEST_RESULT in output of '$Name' (see $stdout)" }
   $json = $line.Substring('SELFTEST_RESULT '.Length)
-  $suffix = if ($TopmostMs -ne 2000) { "-topmost$TopmostMs" } else { '' }
+  $suffix = if ($TopmostMs -gt 0) { "-topmost$TopmostMs" } else { '' }
   $target = Join-Path $docs "spike-overlay-$Name$suffix.json"
   [System.IO.File]::WriteAllText($target, $json, (New-Object System.Text.UTF8Encoding($false)))
   $r = $json | ConvertFrom-Json

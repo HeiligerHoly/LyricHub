@@ -11,6 +11,7 @@
 //! as Spotify publishes it, even if `MediaPropertiesChanged` arrives late.
 
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -46,6 +47,14 @@ const SMTC_CONFIDENCE: f32 = 0.8;
 const EPOCH_DIFF_TICKS: i64 = 116_444_736_000_000_000;
 
 type WinResult<T> = windows::core::Result<T>;
+
+/// Set after the PC woke up: WinRT event subscriptions may be dead, so the worker drops the
+/// session manager and connects again.
+static RECONNECT: AtomicBool = AtomicBool::new(false);
+
+pub fn request_reconnect() {
+    RECONNECT.store(true, Ordering::SeqCst);
+}
 
 pub struct SmtcSource {
     filter: String,
@@ -164,6 +173,11 @@ impl Worker {
     fn run(mut self) {
         tracing::info!(filter = %self.filter, "smtc source started");
         loop {
+            if RECONNECT.swap(false, Ordering::SeqCst) && self.manager.is_some() {
+                tracing::info!("smtc reconnecting");
+                self.bound = None;
+                self.manager = None;
+            }
             if self.manager.is_none() {
                 if let Err(e) = self.connect() {
                     tracing::warn!(error = %e, "smtc session manager unavailable, retrying in 5 s");

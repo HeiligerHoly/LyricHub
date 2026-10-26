@@ -55,6 +55,8 @@ export interface OverlaySettings {
   width_pct: number;
   scale: number;
   hide_after_pause_s: number;
+  /** Show the overlay only while a fullscreen app is in the foreground. */
+  only_fullscreen: boolean;
 }
 
 /** Interface language; "system" follows the Windows display language. */
@@ -334,6 +336,17 @@ export interface OverlayDiagnostics {
   app_window: boolean;
   foreground_is_overlay: boolean;
   foreground_title: string;
+  /** Hidden by "only with a fullscreen app". */
+  auto_hidden: boolean;
+  guard: GuardStatus;
+}
+
+/** Z-order guard (overlay/guard.rs). */
+export interface GuardStatus {
+  screen: "normal" | "borderless" | "exclusive";
+  covered: boolean;
+  covered_by: string | null;
+  reasserts: number;
 }
 
 export interface SelfTestStep {

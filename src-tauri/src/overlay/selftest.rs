@@ -228,12 +228,13 @@ pub fn run(app: &AppHandle) -> Report {
     // ---- Topmost against a fake game that holds the topmost band itself ----
     c.group = "topmost";
     if let Some(game) = fake_game {
-        // Reassert interval under test; the watchdog default is 2 s. Override with
-        // LYRICHUB_TOPMOST_MS to measure how often the overlay must re-assert.
-        let reassert_ms: u64 = std::env::var("LYRICHUB_TOPMOST_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(2000);
+        // Production path: the z-order guard (guard.rs) reacts to the game's re-asserts. The
+        // Spike B comparison with a fixed interval stays available through LYRICHUB_TOPMOST_MS.
+        let reassert_ms: Option<u64> = std::env::var("LYRICHUB_TOPMOST_MS").ok().and_then(|v| v.parse().ok());
+        let reasserts_before = super::guard::status().reasserts;
         let (mut above, mut total, mut since) = (0u32, 0u32, u64::MAX);
         for _ in 0..120 {
-            if since >= reassert_ms {
+            if reassert_ms.is_some_and(|ms| since >= ms) {
                 win32::reassert_topmost(overlay, false);
                 since = 0;
             }
@@ -245,10 +246,15 @@ pub fn run(app: &AppHandle) -> Report {
             }
         }
         let share = if total > 0 { 100.0 * above as f64 / total as f64 } else { 0.0 };
+        let how = match reassert_ms {
+            Some(ms) => format!("Reassert alle {ms} ms"),
+            None => "Wächter".to_owned(),
+        };
+        let reasserts = super::guard::status().reasserts - reasserts_before;
         c.push(
-            &format!("Overlay über Fake-Game (6 s, Reassert alle {reassert_ms} ms)"),
-            if share >= 95.0 { "pass" } else if total == 0 { "fail" } else { "info" },
-            format!("{share:.0} % der Proben oben ({above}/{total})"),
+            &format!("Overlay über Fake-Game (6 s, {how})"),
+            if share >= 95.0 { "pass" } else { "fail" },
+            format!("{share:.0} % der Proben oben ({above}/{total}), {reasserts} Mal nachgesetzt"),
         );
         c.click_through("Klicks landen im Fake-Game", true);
     } else {

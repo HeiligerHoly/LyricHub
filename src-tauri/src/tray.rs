@@ -25,6 +25,13 @@ pub struct TrayItems {
     selftest: MenuItem<Wry>,
     quit: MenuItem<Wry>,
     layouts: Vec<(Layout, CheckMenuItem<Wry>)>,
+    /// Disabled first entry for a hint (overlay covered, exclusive fullscreen); only in the
+    /// menu while there is one.
+    menu: Menu<Wry>,
+    hint: MenuItem<Wry>,
+    hint_text: std::sync::Mutex<Option<String>>,
+    /// Song line of the tooltip, kept so a hint can be added to it.
+    song_line: std::sync::Mutex<Option<String>>,
     /// Coloured and grey icon; grey while Spotify is not running (PLAN.md 5.5).
     icons: Option<(Image<'static>, Image<'static>)>,
     player_present: std::sync::atomic::AtomicBool,
@@ -109,6 +116,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let settings = MenuItem::with_id(app, "open_settings", t.settings, true, None::<&str>)?;
     let selftest = MenuItem::with_id(app, "overlay_selftest", t.selftest, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", t.quit, true, None::<&str>)?;
+    let hint = MenuItem::with_id(app, "hint", "", false, None::<&str>)?;
     let separator = || PredefinedMenuItem::separator(app);
     let menu = Menu::with_items(
         app,
@@ -191,6 +199,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         selftest,
         quit,
         layouts,
+        menu,
+        hint,
+        hint_text: None.into(),
+        song_line: None.into(),
         icons,
         player_present: true.into(),
     });
@@ -248,12 +260,48 @@ pub fn apply_language(app: &AppHandle) {
     }
 }
 
-/// "LyricHub – Title – Artist", or a status line when nothing plays.
+/// "LyricHub – Title – Artist", or a status line when nothing plays; a hint goes first.
 pub fn set_tooltip(app: &AppHandle, line: Option<&str>) {
-    let mut text = match line {
+    if let Some(items) = app.try_state::<TrayItems>() {
+        *items.song_line.lock().unwrap() = line.map(str::to_owned);
+    }
+    refresh_tooltip(app);
+}
+
+/// Shows a hint in the tooltip and as the first, disabled menu entry, or removes it.
+pub fn set_hint(app: &AppHandle, hint: Option<String>) {
+    let Some(items) = app.try_state::<TrayItems>() else { return };
+    let before = std::mem::replace(&mut *items.hint_text.lock().unwrap(), hint.clone());
+    if before == hint {
+        return;
+    }
+    match (&before, &hint) {
+        (None, Some(text)) => {
+            let _ = items.hint.set_text(text);
+            let _ = items.menu.insert(&items.hint, 0);
+        }
+        (Some(_), Some(text)) => {
+            let _ = items.hint.set_text(text);
+        }
+        (Some(_), None) => {
+            let _ = items.menu.remove(&items.hint);
+        }
+        (None, None) => {}
+    }
+    refresh_tooltip(app);
+}
+
+fn refresh_tooltip(app: &AppHandle) {
+    let Some(items) = app.try_state::<TrayItems>() else { return };
+    let song = items.song_line.lock().unwrap().clone();
+    let hint = items.hint_text.lock().unwrap().clone();
+    let mut text = match song {
         Some(l) => format!("LyricHub – {l}"),
         None => format!("LyricHub – {}", pick(i18n::current(app), "Spotify spielt nichts", "Spotify is not playing")),
     };
+    if let Some(h) = hint {
+        text = format!("{h}\n{text}");
+    }
     if text.chars().count() > TOOLTIP_MAX {
         text = text.chars().take(TOOLTIP_MAX - 1).collect::<String>() + "…";
     }

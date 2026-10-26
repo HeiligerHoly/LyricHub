@@ -204,6 +204,18 @@
     />
     <span class="value">{t("overlayPage.pause.value")}</span>
   </div>
+
+  <label class="label" for="fullscreen">{t("overlayPage.onlyFullscreen")}</label>
+  <div class="slider">
+    <input
+      id="fullscreen"
+      class="check"
+      type="checkbox"
+      checked={o.only_fullscreen}
+      onchange={(e) => set("only_fullscreen", (e.currentTarget as HTMLInputElement).checked)}
+    />
+    <span class="value">{t("overlayPage.onlyFullscreen.value")}</span>
+  </div>
 </section>
 
 <section class="card actions">

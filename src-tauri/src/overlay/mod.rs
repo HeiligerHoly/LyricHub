@@ -1,5 +1,5 @@
 //! Overlay window control (PLAN.md 6): placement from the settings, show/hide without
-//! activation, the edit mode, a style watchdog and diagnostics.
+//! activation, the edit mode, a style watchdog, the z-order guard (guard.rs) and diagnostics.
 //!
 //! Rule for the overlay window: after creation, never call Tauri setters that change window
 //! flags (`show`, `hide`, `set_ignore_cursor_events`, `set_always_on_top`, ...). tao rewrites
@@ -17,6 +17,7 @@
 //! thread waits for the main thread. Handlers therefore never lock `View` directly; they
 //! spawn a thread that calls `relayout`.
 
+pub mod guard;
 pub mod selftest;
 pub mod win32;
 pub mod window;
@@ -55,7 +56,10 @@ type Bounds = (i32, i32, i32, i32);
 #[derive(Default)]
 pub struct OverlayState {
     hwnd: AtomicIsize,
+    /// The user wants the overlay (tray, Ctrl+Alt+L).
     visible: AtomicBool,
+    /// Hidden by "only with a fullscreen app" while `visible` stays as the user set it.
+    auto_hidden: AtomicBool,
     click_through: AtomicBool,
     watchdog_paused: AtomicBool,
     view: Mutex<View>,
@@ -67,6 +71,10 @@ impl OverlayState {
     }
     pub fn is_visible(&self) -> bool {
         self.visible.load(Ordering::SeqCst)
+    }
+    /// Visible as the user wants and not held back by the fullscreen rule.
+    pub fn is_shown(&self) -> bool {
+        self.is_visible() && !self.auto_hidden.load(Ordering::SeqCst)
     }
     pub fn is_click_through(&self) -> bool {
         self.click_through.load(Ordering::SeqCst)
@@ -170,6 +178,8 @@ pub struct OverlayDiagnostics {
     pub app_window: bool,
     pub foreground_is_overlay: bool,
     pub foreground_title: String,
+    pub auto_hidden: bool,
+    pub guard: guard::GuardStatus,
 }
 
 pub fn window(app: &AppHandle) -> Option<WebviewWindow> {
@@ -191,6 +201,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     show(app);
     tracing::info!(style = %win32::describe_ex_style(win32::ex_style(hwnd)), "overlay shown");
     spawn_watchdog(app.clone());
+    guard::spawn(app.clone());
     Ok(())
 }
 
@@ -340,9 +351,11 @@ pub fn show(app: &AppHandle) {
     if h.is_null() {
         return;
     }
-    win32::show_no_activate(h);
-    win32::reassert_topmost(h, false);
     state.visible.store(true, Ordering::SeqCst);
+    if !state.auto_hidden.load(Ordering::SeqCst) || state.is_editing() {
+        win32::show_no_activate(h);
+        win32::reassert_topmost(h, false);
+    }
     state.view.lock().unwrap().show_seq += 1;
     relayout(app);
     crate::tray::sync_overlay_visible(app, true);
@@ -386,6 +399,28 @@ pub fn set_preview(app: &AppHandle, preview: bool) {
     relayout(app);
 }
 
+/// "Only with a fullscreen app" (guard.rs): hides or shows the window without changing what
+/// the user chose. The edit mode and the settings preview always stay visible.
+pub fn set_auto_hidden(app: &AppHandle, hidden: bool) {
+    let state = app.state::<OverlayState>();
+    let h = state.hwnd();
+    let hidden = hidden && !state.is_editing() && !state.view.lock().unwrap().preview;
+    if h.is_null() || state.auto_hidden.swap(hidden, Ordering::SeqCst) == hidden {
+        return;
+    }
+    tracing::info!(hidden, "overlay hidden or shown by the fullscreen rule");
+    if !state.is_visible() {
+        return;
+    }
+    if hidden {
+        win32::hide(h);
+    } else {
+        win32::show_no_activate(h);
+        win32::reassert_topmost(h, false);
+        relayout(app);
+    }
+}
+
 // ---- Edit mode (PLAN.md 9.6) ----
 
 /// Starts the edit mode: overlay over the whole monitor, click-through off, Enter/Esc
@@ -405,10 +440,13 @@ pub fn enter_edit(app: &AppHandle) {
         view.edit = Some(EditSession { geometry: app.state::<SettingsState>().get().overlay, seq });
     }
     set_click_through(app, false);
-    if state.is_visible() {
+    if state.is_shown() {
         relayout(app);
     } else {
         show(app);
+        // Held back by the fullscreen rule: the edit mode needs the window anyway.
+        win32::show_no_activate(state.hwnd());
+        win32::reassert_topmost(state.hwnd(), false);
     }
     crate::hotkeys::set_edit_keys(app, true);
     crate::tray::sync_edit_mode(app, true);
@@ -528,6 +566,8 @@ pub fn diagnostics(app: &AppHandle) -> OverlayDiagnostics {
         app_window: win32::has(s, win32::EX_APPWINDOW),
         foreground_is_overlay: fg == h && !h.is_null(),
         foreground_title: win32::window_title(fg),
+        auto_hidden: state.auto_hidden.load(Ordering::SeqCst),
+        guard: guard::status(),
     }
 }
 
@@ -545,7 +585,8 @@ fn spawn_watchdog(app: AppHandle) {
                     continue;
                 }
                 let h = state.hwnd();
-                if h.is_null() || !state.is_visible() {
+                // Hidden by the user or by the fullscreen rule (the edit mode is never held back).
+                if h.is_null() || !(state.is_shown() || state.is_editing()) {
                     continue;
                 }
                 let click_through = state.is_click_through();
