@@ -1,6 +1,6 @@
 [package]
 name = "lyrichub"
-version = "1.0.0"
+version = "1.0.1"
 description = "Game overlay that shows Spotify lyrics karaoke-style, in sync with the audio"
 authors = ["HeiligerHoly"]
 license-file = "../LICENSE"
