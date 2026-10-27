@@ -2,13 +2,25 @@
 
 **English** · [Deutsch](README.de.md)
 
-A Windows overlay that shows the current Spotify song with karaoke-style lyrics over games, in sync with what you hear. The full plan is in [PLAN.en.md](PLAN.en.md) (German original: [PLAN.md](PLAN.md)).
+Synced, karaoke-style lyrics of the song playing in Spotify, on top of your games. Free for Windows, no Spotify login.
 
 [![LyricHub promo video: lyrics over your games](docs/img/promo-video.jpg)](https://youtu.be/lT9tKeel5nE)
 
-▶ [Watch the promo video on YouTube](https://youtu.be/lT9tKeel5nE) (5:47, English). It was made in code with Remotion; the project is in [promo-video/](promo-video/).
+**[Download the latest version](https://github.com/HeiligerHoly/LyricHub/releases/latest)** · [Promo video](https://youtu.be/lT9tKeel5nE) (5:47) · [FAQ](docs/en/faq.md) · [Support on Ko-fi](https://ko-fi.com/heiliger)
 
-Status: `v1.0.0`, the first public release (2026-10-26). The overlay shows the synced lyrics of the current Spotify song from [LRCLIB](https://lrclib.net) with a karaoke fill that moves word by word, plus cover, title and artist; position and size can be set right on the screen in the edit mode. Four layouts, five themes with an accent colour taken from the album cover, German and English. The overlay stays on top even over games that push themselves to the front, and it can be limited to fullscreen apps. Corrections are kept per song, every output device has its own offset, and a calibration assistant and the Sync Lab help with the setup. Japanese lines can be shown in romaji ([docs/en/romaji.md](docs/en/romaji.md)). Results in [docs/en/phase5.md](docs/en/phase5.md) and the security, performance and disk checks in [docs/en/checks.md](docs/en/checks.md), [docs/en/phase4.md](docs/en/phase4.md), [docs/en/phase3.md](docs/en/phase3.md) with the measurement report [docs/en/sync-report.md](docs/en/sync-report.md), plus [docs/en/phase2.md](docs/en/phase2.md) and [docs/en/phase1.md](docs/en/phase1.md); the phase 0 spikes are in [docs/en/spike-smtc.md](docs/en/spike-smtc.md) and [docs/en/spike-overlay.md](docs/en/spike-overlay.md).
+> **Vibe-coded and source available.** AI wrote the plan and the code; a human tested and signed off every phase (see the [disclaimer](#disclaimer-vibe-coded)). Free to use and share, not for sale ([license](#license)). The full plan is in [PLAN.en.md](PLAN.en.md) (German original: [PLAN.md](PLAN.md)).
+
+## Features
+
+- Synced lyrics of the current Spotify song from [LRCLIB](https://lrclib.net), with a karaoke fill that moves word by word, plus cover, title and artist.
+- Position and size are set right on the screen in the edit mode.
+- Four layouts and five themes, with an accent colour taken from the album cover.
+- Stays on top even over games that push themselves to the front, and can be limited to fullscreen apps.
+- Corrections are kept per song, every output device has its own offset, and a calibration assistant and the Sync Lab help with the setup.
+- Japanese lines can be shown in romaji ([docs/en/romaji.md](docs/en/romaji.md)).
+- German and English interface. It follows the Windows display language and can be switched under Settings → Behavior → Language.
+
+Current version: `1.0.0` (2026-10-26), the first public release. Changes are in [CHANGELOG.md](CHANGELOG.md). The promo video was made in code with Remotion; the project is in [promo-video/](promo-video/).
 
 ![Overlay, layout Karaoke, theme Glass Dark](docs/img/overlay-karaoke.png)
 
@@ -17,7 +29,7 @@ Status: `v1.0.0`, the first public release (2026-10-26). The overlay shows the s
 | ![Layout Stack, theme Glass Light](docs/img/overlay-stack-light.png) | ![Layout Minimal, theme Neon](docs/img/overlay-minimal-neon.png) |
 | ![Settings → Appearance](docs/img/settings-appearance.png) | ![Settings → Hotkeys](docs/img/settings-hotkeys.png) |
 
-The pictures show sample lines; the repository contains no song lyrics. The interface follows the Windows display language (German or English) and can be switched under Settings → Behavior → Language.
+The pictures show sample lines; the repository contains no song lyrics.
 
 ## Disclaimer: vibe-coded
 
@@ -28,6 +40,7 @@ If you do not trust the binaries, you can follow or rebuild everything yourself:
 - [docs/original-plan/](docs/original-plan/): the plan as it was written before the first line of code (German and English). With it you can build LyricHub from scratch, with an AI assistant or by hand.
 - [PLAN.en.md](PLAN.en.md) / [PLAN.md](PLAN.md): the same plan with all later decisions and the result of each phase.
 - [docs/en/](docs/en/) (German: [docs/](docs/)): the report of each phase, with measurements and deviations from the plan.
+- Results and checks: [phase 5](docs/en/phase5.md), the security, performance and disk checks in [docs/en/checks.md](docs/en/checks.md), the sync measurement in [docs/en/sync-report.md](docs/en/sync-report.md), the phases [4](docs/en/phase4.md), [3](docs/en/phase3.md), [2](docs/en/phase2.md) and [1](docs/en/phase1.md), and the phase 0 spikes [SMTC](docs/en/spike-smtc.md) and [overlay](docs/en/spike-overlay.md).
 - All of the code is here; build the installer yourself with `npx tauri build` (see below).
 
 ## Install
@@ -111,13 +124,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-93 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, ads and podcasts, shortcuts): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB.
+94 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, ads and podcasts, shortcuts, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. One more test needs a desktop session and runs with `cargo test -- --ignored`.
 
 ## Notes
 
-Lyrics are protected by copyright. LyricHub only displays them and does not redistribute them. The lyrics come from [LRCLIB](https://lrclib.net), a community-maintained database; LyricHub queries it with its own user agent and stores the results locally, so it does not ask again for every repeat. The test fixtures in the repository contain invented text.
+Lyrics are protected by copyright. LyricHub only displays them and does not redistribute them. The lyrics come from [LRCLIB](https://lrclib.net), a community-maintained database; LyricHub queries it with its own user agent, which links to this repository, and stores the results locally, so it does not ask again for every repeat. The test fixtures in the repository contain invented text.
 
 LyricHub is not affiliated with, endorsed or sponsored by Spotify AB. Spotify is a trademark of Spotify AB.
+
+## Support
+
+LyricHub is free and stays free. If you want to say thanks, you can buy me a coffee on [Ko-fi](https://ko-fi.com/heiliger). It is a thank-you, not a purchase: there are no perks and no paid version. Report bugs and ideas through the [issue forms](https://github.com/HeiligerHoly/LyricHub/issues/new/choose); for pull requests see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+The lyrics come from [LRCLIB](https://lrclib.net), a free community service; it deserves support too.
 
 ## License
 

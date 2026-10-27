@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in LyricHub does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please never paste song lyrics here, not even in screenshots. Song titles are fine when they matter.
+  - type: input
+    id: version
+    attributes:
+      label: LyricHub version
+      description: The settings window shows it at the bottom left, for example 1.0.0.
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: For example "Windows 11 24H2". Press Win+R and type `winver` to see it.
+    validations:
+      required: true
+  - type: dropdown
+    id: spotify
+    attributes:
+      label: Spotify app
+      options:
+        - Spotify from the Microsoft Store
+        - Spotify from spotify.com
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Game and display mode
+      description: If it happens in a game, which one, and does it run borderless, windowed or in exclusive fullscreen?
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics export
+      description: Settings → Diagnostics → Export diagnostics writes a file to `%APPDATA%\LyricHub\logs`. Drag it in here. Song titles, artists and albums are hidden in it.
+  - type: checkboxes
+    id: lyrics
+    attributes:
+      label: Lyrics
+      options:
+        - label: My report, screenshots and attachments contain no song lyrics.
+          required: true

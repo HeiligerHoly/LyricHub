@@ -2,13 +2,25 @@
 
 [English](README.md) · **Deutsch**
 
-Windows-Overlay, das den laufenden Spotify-Song und karaoke-artig mitlaufende Lyrics über Spielen anzeigt, synchron zum hörbaren Ton. Der vollständige Plan steht in [PLAN.md](PLAN.md) (englisch: [PLAN.en.md](PLAN.en.md)).
+Synchrone Lyrics im Karaoke-Stil zum Song, der gerade in Spotify läuft, direkt über Spielen. Kostenlos für Windows, ohne Spotify-Login.
 
 [![LyricHub-Promovideo: Lyrics über deinen Spielen](docs/img/promo-video.jpg)](https://youtu.be/lT9tKeel5nE)
 
-▶ [Promovideo auf YouTube ansehen](https://youtu.be/lT9tKeel5nE) (5:47, englisch). Es ist mit Remotion im Code entstanden; das Projekt liegt in [promo-video/](promo-video/).
+**[Neueste Version herunterladen](https://github.com/HeiligerHoly/LyricHub/releases/latest)** · [Promovideo](https://youtu.be/lT9tKeel5nE) (5:47, englisch) · [FAQ](docs/faq.md) · [Auf Ko-fi unterstützen](https://ko-fi.com/heiliger)
 
-Stand: `v1.0.0`, das erste öffentliche Release (2026-10-26). Das Overlay zeigt die synchronen Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit einer Karaoke-Füllung, die Wort für Wort läuft, dazu Cover, Titel und Artist; Position und Größe lassen sich im Edit-Modus direkt am Bildschirm einstellen. Vier Layouts, fünf Themes mit Akzentfarbe aus dem Albumcover, Deutsch und Englisch. Das Overlay bleibt auch über Spielen oben, die sich selbst nach vorne setzen, und lässt sich auf Vollbild-Apps beschränken. Korrekturen gelten pro Song, Ausgabegeräte haben eigene Offsets, und ein Kalibrier-Assistent und das Sync Lab helfen beim Einstellen. Japanische Zeilen lassen sich in Romaji anzeigen ([docs/romaji.md](docs/romaji.md)). Ergebnisse in [docs/phase5.md](docs/phase5.md) und die Sicherheits-, Performance- und Speicherplatz-Prüfungen in [docs/checks.md](docs/checks.md), [docs/phase4.md](docs/phase4.md), [docs/phase3.md](docs/phase3.md) mit dem Messbericht [docs/sync-report.md](docs/sync-report.md), dazu [docs/phase2.md](docs/phase2.md) und [docs/phase1.md](docs/phase1.md), die Spikes aus Phase 0 in [docs/spike-smtc.md](docs/spike-smtc.md) und [docs/spike-overlay.md](docs/spike-overlay.md).
+> **Vibe-coded und source available.** KI hat Plan und Code geschrieben; ein Mensch hat jede Phase getestet und abgenommen (siehe den [Hinweis](#hinweis-vibe-coded)). Kostenlos nutzen und weitergeben, nicht verkaufen ([Lizenz](#lizenz)). Der vollständige Plan steht in [PLAN.md](PLAN.md) (englisch: [PLAN.en.md](PLAN.en.md)).
+
+## Funktionen
+
+- Synchrone Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit einer Karaoke-Füllung, die Wort für Wort läuft, dazu Cover, Titel und Artist.
+- Position und Größe lassen sich im Edit-Modus direkt am Bildschirm einstellen.
+- Vier Layouts und fünf Themes mit Akzentfarbe aus dem Albumcover.
+- Bleibt auch über Spielen oben, die sich selbst nach vorne setzen, und lässt sich auf Vollbild-Apps beschränken.
+- Korrekturen gelten pro Song, Ausgabegeräte haben eigene Offsets, und ein Kalibrier-Assistent und das Sync Lab helfen beim Einstellen.
+- Japanische Zeilen lassen sich in Romaji anzeigen ([docs/romaji.md](docs/romaji.md)).
+- Deutsche und englische Oberfläche. Sie folgt der Windows-Anzeigesprache und lässt sich unter Einstellungen → Verhalten → Sprache umstellen.
+
+Aktuelle Version: `1.0.0` (2026-10-26), das erste öffentliche Release. Änderungen stehen in [CHANGELOG.md](CHANGELOG.md) (englisch). Das Promovideo ist mit Remotion im Code entstanden; das Projekt liegt in [promo-video/](promo-video/).
 
 ![Overlay im Layout Karaoke, Theme Glass Dark](docs/img/de/overlay-karaoke.png)
 
@@ -28,6 +40,7 @@ Wer den fertigen Dateien nicht traut, kann alles selbst nachvollziehen oder nach
 - [docs/original-plan/](docs/original-plan/): der Plan, wie er vor der ersten Codezeile geschrieben wurde (Deutsch und Englisch). Mit ihm lässt sich LyricHub von Grund auf neu bauen, mit einem KI-Assistenten oder von Hand.
 - [PLAN.md](PLAN.md) / [PLAN.en.md](PLAN.en.md): derselbe Plan mit allen späteren Entscheidungen und dem Ergebnis jeder Phase.
 - [docs/](docs/) (englisch: [docs/en/](docs/en/)): Berichte jeder Phase mit Messwerten und Abweichungen vom Plan.
+- Ergebnisse und Prüfungen: [Phase 5](docs/phase5.md), die Sicherheits-, Performance- und Speicherplatz-Prüfungen in [docs/checks.md](docs/checks.md), der Messbericht in [docs/sync-report.md](docs/sync-report.md), die Phasen [4](docs/phase4.md), [3](docs/phase3.md), [2](docs/phase2.md) und [1](docs/phase1.md) und die Spikes aus Phase 0 zu [SMTC](docs/spike-smtc.md) und [Overlay](docs/spike-overlay.md).
 - Der gesamte Code steht hier; der Installer lässt sich mit `npx tauri build` selbst bauen (siehe unten).
 
 ## Installieren
@@ -111,16 +124,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-93 Rust-Unit-Tests (LRC-Parser, geschätzte Wortzeiten, Playback-Clock mit Quellen-Fusion, Offsets, Tap-Auswertung, Matcher, LRCLIB-Client gegen aufgezeichnete Antworten, Cache, Geometrie, Settings-Store mit Migration, SMTC-Songwechsel-Erkennung, Werbung und Podcasts, Kürzel): `cargo test` in `src-tauri`. Live-Anfragen an LRCLIB machen die Tests nicht.
+94 Rust-Unit-Tests (LRC-Parser, geschätzte Wortzeiten, Playback-Clock mit Quellen-Fusion, Offsets, Tap-Auswertung, Matcher, LRCLIB-Client gegen aufgezeichnete Antworten, Cache, Geometrie, Settings-Store mit Migration, SMTC-Songwechsel-Erkennung, Werbung und Podcasts, Kürzel, Diagnose-Export ohne Songangaben): `cargo test` in `src-tauri`. Live-Anfragen an LRCLIB machen die Tests nicht. Ein weiterer Test braucht eine Desktop-Sitzung und läuft mit `cargo test -- --ignored`.
 
 ## Hinweise
 
-Lyrics sind urheberrechtlich geschützt. LyricHub zeigt sie nur an und verteilt sie nicht weiter. Quelle der Lyrics ist [LRCLIB](https://lrclib.net), eine von der Community gepflegte Datenbank; LyricHub fragt sie mit eigenem User-Agent an und speichert Ergebnisse lokal, um sie nicht bei jeder Wiederholung erneut abzufragen. Die Test-Fixtures im Repository enthalten erfundenen Text.
+Lyrics sind urheberrechtlich geschützt. LyricHub zeigt sie nur an und verteilt sie nicht weiter. Quelle der Lyrics ist [LRCLIB](https://lrclib.net), eine von der Community gepflegte Datenbank; LyricHub fragt sie mit eigenem User-Agent samt Link auf dieses Repository an und speichert Ergebnisse lokal, um sie nicht bei jeder Wiederholung erneut abzufragen. Die Test-Fixtures im Repository enthalten erfundenen Text.
 
 LyricHub ist nicht mit Spotify AB verbunden und wird von Spotify weder unterstützt noch gesponsert. Spotify ist eine Marke von Spotify AB.
 
+## Unterstützen
+
+LyricHub ist kostenlos und bleibt es. Wer Danke sagen will, kann mir auf [Ko-fi](https://ko-fi.com/heiliger) einen Kaffee spendieren. Das ist ein Dankeschön, kein Kauf: Es gibt keine Extras und keine bezahlte Version. Fehler und Ideen bitte über die [Issue-Formulare](https://github.com/HeiligerHoly/LyricHub/issues/new/choose) melden; für Pull Requests siehe [CONTRIBUTING.md](CONTRIBUTING.md) (englisch).
+
+Die Lyrics kommen von [LRCLIB](https://lrclib.net), einem kostenlosen Community-Dienst; der verdient auch Unterstützung.
+
 ## Lizenz
 
-LyricHub ist quelloffen (source available) unter der MIT-Lizenz mit der Commons Clause ([LICENSE](LICENSE)). Jeder darf es nutzen, verändern und weitergeben, auch beim Streamen. Verkaufen ist nicht erlaubt, auch nicht als bezahlter Dienst, dessen Wert ganz oder im Wesentlichen aus LyricHub kommt.
+LyricHub ist „source available“ (der Quellcode ist öffentlich) unter der MIT-Lizenz mit der Commons Clause ([LICENSE](LICENSE)). Jeder darf es nutzen, verändern und weitergeben, auch beim Streamen. Verkaufen ist nicht erlaubt, auch nicht als bezahlter Dienst, dessen Wert ganz oder im Wesentlichen aus LyricHub kommt.
 
 Fremde Komponenten behalten ihre eigenen Lizenzen. Sie stehen in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), die der Installer zusammen mit der Lizenz neben `lyrichub.exe` legt.
