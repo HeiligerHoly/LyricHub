@@ -127,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-94 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, ads and podcasts, shortcuts, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. One more test needs a desktop session and runs with `cargo test -- --ignored`.
+96 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, ads and podcasts, shortcuts with AltGr detection, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. One more test needs a desktop session and runs with `cargo test -- --ignored`.
 
 ## Notes
 
