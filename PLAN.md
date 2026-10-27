@@ -740,6 +740,15 @@ Mit Loopback-Audio (13.2) und dem bekannten Lyrics-Text lässt sich per Forced A
 ### 13.4 Player-agnostisch durch SMTC (hoher Nutzen, geringer Aufwand)
 Da SMTC generisch ist, funktioniert die Pipeline mit minimalen Anpassungen auch für YouTube Music, Apple Music, Tidal, Browser-Player. Nur den Session-Filter konfigurierbar machen ("Bevorzugter Player"). Spotify bleibt Standard.
 
+**Für v1.1 eingeplant (2026-10-27), zunächst experimentell.** Ein Spike mit Zen und YouTube Music ([docs/spike-browser.md](docs/spike-browser.md)) zeigt: Ereignisse kommen so schnell wie bei Spotify, der Korrektursprung liegt bei \|p95\| 75 ms (Kriterium aus 5.8: unter 150 ms). Umfang für v1.1:
+
+- Einstellung "Player" statt des festen Filters auf `Spotify` (`lib.rs`), Spotify bleibt Standard. Browser melden nur eine Kennung (`F0DC299D809B9700`), deshalb zeigt die Auswahl die erkannten Sitzungen mit ihrem laufenden Titel.
+- Browser-Sitzungen nur nach Einschalten nutzen und Lyrics nur suchen, wenn Länge und Titel nach Musik aussehen. Browser melden auch Videos als "Music", und ohne Filter gingen alle Videotitel an LRCLIB.
+- Titel bereinigen ("(Official Video)", "Artist - Song") für Seiten wie youtube.com.
+- Offset pro Player, wie heute pro Ausgabegerät.
+- Sync Lab zeigt die Update-Kadenz pro Quelle; Lücken bis 60 s sind bei Browsern normal.
+- Vorher messen: Chromium-Browser (Edge, Chrome) und normale YouTube-Videos, die im Spike keine Position lieferten.
+
 ### 13.5 Streaming-Ausgabe (mittlerer Nutzen, geringer Aufwand)
 Lokaler HTTP-Server liefert dieselbe Overlay-Seite als OBS-Browser-Source (mit Chroma-Key-Modus oder transparentem Hintergrund). Streamer bekommen Lyrics im Stream, ohne dass das Spiel-Overlay gecaptured werden muss.
 

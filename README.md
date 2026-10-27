@@ -40,7 +40,7 @@ If you do not trust the binaries, you can follow or rebuild everything yourself:
 - [docs/original-plan/](docs/original-plan/): the plan as it was written before the first line of code (German and English). With it you can build LyricHub from scratch, with an AI assistant or by hand.
 - [PLAN.en.md](PLAN.en.md) / [PLAN.md](PLAN.md): the same plan with all later decisions and the result of each phase.
 - [docs/en/](docs/en/) (German: [docs/](docs/)): the report of each phase, with measurements and deviations from the plan.
-- Results and checks: [phase 5](docs/en/phase5.md), the security, performance and disk checks in [docs/en/checks.md](docs/en/checks.md), the sync measurement in [docs/en/sync-report.md](docs/en/sync-report.md), the phases [4](docs/en/phase4.md), [3](docs/en/phase3.md), [2](docs/en/phase2.md) and [1](docs/en/phase1.md), and the phase 0 spikes [SMTC](docs/en/spike-smtc.md) and [overlay](docs/en/spike-overlay.md).
+- Results and checks: [phase 5](docs/en/phase5.md), the security, performance and disk checks in [docs/en/checks.md](docs/en/checks.md), the sync measurement in [docs/en/sync-report.md](docs/en/sync-report.md), the phases [4](docs/en/phase4.md), [3](docs/en/phase3.md), [2](docs/en/phase2.md) and [1](docs/en/phase1.md), the phase 0 spikes [SMTC](docs/en/spike-smtc.md) and [overlay](docs/en/spike-overlay.md), and the [browser spike](docs/en/spike-browser.md) for v1.1.
 - All of the code is here; build the installer yourself with `npx tauri build` (see below).
 
 ## Install
@@ -100,6 +100,9 @@ Settings live in `%APPDATA%\LyricHub\settings.json`; the lyrics cache and the so
 # Spike A: measure the Spotify timeline through the Windows media session
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\smtc-probe\smtc-probe.ps1 -DurationSec 360
 python tools\smtc-probe\analyze.py docs\spike-smtc.csv
+
+# List every media session Windows knows, for example to find a browser's session ID for -AppFilter
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\smtc-probe\list-sessions.ps1
 
 # Spike B: build the app and run the overlay self-test in three scenarios
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\overlay-spike\run-spike.ps1
