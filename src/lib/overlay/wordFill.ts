@@ -2,7 +2,7 @@
 // ones from Enhanced LRC, else an estimate by letter count (lyrics/words.rs). Here they become
 // keyframe stops for the fill: at each word's start the fill stands at the word's left edge, at
 // its end at its right edge. The fill still runs as one compositor animation per layer.
-import type { Word } from "$lib/shared/types";
+import type { Word } from "#lib/shared/types.js";
 
 /** Share of the line's fill time (`offset`) and share of the text width (`ratio`). */
 export interface FillStop {

@@ -5,9 +5,9 @@
   // needs Ctrl, Alt, Shift or Win, except F1–F12. The backend reports which ones it could
   // register (another program may own one).
   import { onMount } from "svelte";
-  import { lang, t, type Key } from "$lib/shared/i18n.svelte";
-  import { ipc } from "$lib/shared/ipc";
-  import type { HotkeyAction, HotkeySettings, HotkeyStatus, Settings, SettingsPatch } from "$lib/shared/types";
+  import { lang, t, type Key } from "#lib/shared/i18n.svelte.js";
+  import { ipc } from "#lib/shared/ipc.js";
+  import type { HotkeyAction, HotkeySettings, HotkeyStatus, Settings, SettingsPatch } from "#lib/shared/types.js";
 
   let { settings, update }: { settings: Settings; update: (patch: SettingsPatch) => Promise<void> } = $props();
 

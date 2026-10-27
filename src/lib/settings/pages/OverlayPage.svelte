@@ -5,8 +5,8 @@
   // patch per 60 ms. "Nur bei Vollbild-App zeigen" follows with the fullscreen detection
   // (Phase 5).
   import { onMount, untrack } from "svelte";
-  import { num, t } from "$lib/shared/i18n.svelte";
-  import { ipc } from "$lib/shared/ipc";
+  import { num, t } from "#lib/shared/i18n.svelte.js";
+  import { ipc } from "#lib/shared/ipc.js";
   import {
     LAYOUTS,
     SCALE_MAX,
@@ -17,7 +17,7 @@
     type OverlaySettings,
     type Settings,
     type SettingsPatch,
-  } from "$lib/shared/types";
+  } from "#lib/shared/types.js";
   import AnchorPicker from "../AnchorPicker.svelte";
 
   interface Props {

@@ -4,7 +4,7 @@
 //
 // A new anchor that differs from the local prediction by less than 300 ms is blended in over
 // 300 ms instead of jumping, so the fill never steps back for small corrections.
-import type { ClockEvent } from "$lib/shared/types";
+import type { ClockEvent } from "#lib/shared/types.js";
 
 const BLEND_MS = 300;
 

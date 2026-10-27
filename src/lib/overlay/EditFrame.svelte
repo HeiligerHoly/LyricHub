@@ -2,9 +2,9 @@
   // Edit-mode chrome (PLAN.md 9.6): dashed frame with drag area, corner handles (scale) and
   // side handles (width), nine snap markers on the monitor and a toolbar. The overlay window
   // covers the whole monitor while this is shown, so clientX/Y are monitor coordinates.
-  import { num, t } from "$lib/shared/i18n.svelte";
-  import type { EditLayout } from "$lib/shared/types";
-  import { MIN_WIDTH_CSS, SCALE_MAX, SCALE_MIN } from "$lib/shared/types";
+  import { num, t } from "#lib/shared/i18n.svelte.js";
+  import type { EditLayout } from "#lib/shared/types.js";
+  import { MIN_WIDTH_CSS, SCALE_MAX, SCALE_MIN } from "#lib/shared/types.js";
   import {
     anchorAt,
     clampBox,

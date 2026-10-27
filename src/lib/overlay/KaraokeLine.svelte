@@ -14,7 +14,7 @@
   // shadow whose opacity fades in over 120 ms at the word start and out over 300 ms after its
   // end (PLAN.md 9.4). Opacity runs on the compositor; an animated text-shadow would repaint.
   import { onMount, tick, untrack } from "svelte";
-  import type { Word } from "$lib/shared/types";
+  import type { Word } from "#lib/shared/types.js";
   import type { LocalClock } from "./clock";
   import { langOf } from "./lyricsTimeline";
   import { charRanges, fillStops, pieces } from "./wordFill";

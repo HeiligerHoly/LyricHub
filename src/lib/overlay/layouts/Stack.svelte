@@ -2,7 +2,7 @@
   // Layout "Stack" (PLAN.md 9.2): small header, then the previous line dimmed, the current line
   // with the fill and the next two lines dimmed. On a line change the list scrolls up softly
   // (220 ms); every row has a fixed height, so the window keeps its size.
-  import type { Align, Line, TrackInfo } from "$lib/shared/types";
+  import type { Align, Line, TrackInfo } from "#lib/shared/types.js";
   import type { LocalClock } from "../clock";
   import { langOf, shownText } from "../lyricsTimeline";
   import ActiveRow from "./ActiveRow.svelte";

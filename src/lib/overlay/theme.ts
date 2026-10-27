@@ -8,7 +8,7 @@
 //  Custom                plate, colours, outline and radius from the settings
 //
 // The layout "Minimal" always drops the plate and outlines the text (PLAN.md 9.2).
-import { DEFAULT_ACCENT, type AppearanceSettings, type Layout } from "$lib/shared/types";
+import { DEFAULT_ACCENT, type AppearanceSettings, type Layout } from "#lib/shared/types.js";
 import { parseHex, rgba, toHsl, type Rgb } from "./color";
 
 export interface ThemeLook {

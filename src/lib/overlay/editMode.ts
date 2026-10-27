@@ -1,7 +1,7 @@
 // Edit-mode geometry (PLAN.md 9.6): dragging with snap points, proportional scaling from the
 // corners and width from the sides. All values in CSS px relative to the monitor. The backend
 // turns the final box into anchor and offsets (overlay/window.rs, geometry_from_rect).
-import { ANCHORS, type Anchor } from "$lib/shared/types";
+import { ANCHORS, type Anchor } from "#lib/shared/types.js";
 
 export interface Box {
   x: number;

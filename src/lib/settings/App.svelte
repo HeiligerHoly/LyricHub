@@ -3,9 +3,9 @@
   // Pages: Overlay, Darstellung, Synchronisation, Verhalten, Diagnose. The window exists only
   // while it is open (settings_window.rs). Texts follow behavior.language (i18n.svelte.ts).
   import { onMount } from "svelte";
-  import { setLanguage, t, type Key } from "$lib/shared/i18n.svelte";
-  import { ipc, on, subscribe } from "$lib/shared/ipc";
-  import type { HotkeyStatus, LyricsEvent, NowPlaying, Settings, SettingsPatch } from "$lib/shared/types";
+  import { setLanguage, t, type Key } from "#lib/shared/i18n.svelte.js";
+  import { ipc, on, subscribe } from "#lib/shared/ipc.js";
+  import type { HotkeyStatus, LyricsEvent, NowPlaying, Settings, SettingsPatch } from "#lib/shared/types.js";
   import NowPlayingCard from "./NowPlayingCard.svelte";
   import OverlayPage from "./pages/OverlayPage.svelte";
   import AppearancePage from "./pages/AppearancePage.svelte";

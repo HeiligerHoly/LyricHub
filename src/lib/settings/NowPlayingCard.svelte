@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from "$lib/shared/i18n.svelte";
-  import type { NowPlaying } from "$lib/shared/types";
+  import { t } from "#lib/shared/i18n.svelte.js";
+  import type { NowPlaying } from "#lib/shared/types.js";
 
   let { now }: { now: NowPlaying } = $props();
 </script>

@@ -4,8 +4,8 @@
   // 1.5 s), a hint (4 s) or a note for an instrumental part. Fixed height, so the window keeps
   // its size. Line change (PLAN.md 9.4): 220 ms, the new line fades in from 0.55 and rises a
   // little; the fill itself never eases.
-  import { t } from "$lib/shared/i18n.svelte";
-  import type { Line } from "$lib/shared/types";
+  import { t } from "#lib/shared/i18n.svelte.js";
+  import type { Line } from "#lib/shared/types.js";
   import type { LocalClock } from "../clock";
   import KaraokeLine from "../KaraokeLine.svelte";
   import { shownText, shownWords } from "../lyricsTimeline";

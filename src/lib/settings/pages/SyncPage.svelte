@@ -3,8 +3,8 @@
   // (set by the nudge hotkeys, kept per song), offsets per audio device, the calibration
   // assistant (5.7) and the tap-based sync protocol (11.3), plus the lyrics of the current song.
   import { onMount, untrack } from "svelte";
-  import { t } from "$lib/shared/i18n.svelte";
-  import { ipc, on, subscribe } from "$lib/shared/ipc";
+  import { t } from "#lib/shared/i18n.svelte.js";
+  import { ipc, on, subscribe } from "#lib/shared/ipc.js";
   import {
     OFFSET_LIMIT_MS,
     type AudioDevice,
@@ -15,7 +15,7 @@
     type Settings,
     type SettingsPatch,
     type TapStats,
-  } from "$lib/shared/types";
+  } from "#lib/shared/types.js";
 
   interface Props {
     settings: Settings;

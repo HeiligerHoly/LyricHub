@@ -2,9 +2,9 @@
   // Settings → Verhalten (PLAN.md 9.7): autostart, start minimised, interface language, logs.
   // An update check follows only with a release.
   import { onMount } from "svelte";
-  import { t } from "$lib/shared/i18n.svelte";
-  import { ipc } from "$lib/shared/ipc";
-  import type { AppInfo, Language, Settings, SettingsPatch } from "$lib/shared/types";
+  import { t } from "#lib/shared/i18n.svelte.js";
+  import { ipc } from "#lib/shared/ipc.js";
+  import type { AppInfo, Language, Settings, SettingsPatch } from "#lib/shared/types.js";
 
   let { settings, update }: { settings: Settings; update: (patch: SettingsPatch) => Promise<void> } = $props();
 

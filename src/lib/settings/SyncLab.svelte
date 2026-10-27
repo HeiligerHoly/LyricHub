@@ -4,9 +4,9 @@
   // values, a table view and the diagnostics export. Polls four times a second while the
   // page is visible; nothing runs when the settings window is closed.
   import { onMount } from "svelte";
-  import { t } from "$lib/shared/i18n.svelte";
-  import { formatMs, ipc } from "$lib/shared/ipc";
-  import type { LabEntry, SyncLab } from "$lib/shared/types";
+  import { t } from "#lib/shared/i18n.svelte.js";
+  import { formatMs, ipc } from "#lib/shared/ipc.js";
+  import type { LabEntry, SyncLab } from "#lib/shared/types.js";
 
   const W = 720;
   const H = 200;

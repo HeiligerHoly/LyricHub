@@ -9,6 +9,8 @@ The notable changes of each version. The release notes in [docs/release-notes/](
 - Logs, the Diagnostics page and self-test reports name the program behind a window (for example `Discord.exe`) instead of its title, which could show private things such as chat servers or documents.
 - The diagnostics export hides song titles, artists and albums, so it can go into a public bug report.
 - LRCLIB requests identify LyricHub with a link to this repository.
+- The settings window and the overlay run on SvelteKit 3. The configuration moved from `svelte.config.js` into `vite.config.js`, and imports use `#lib` instead of `$lib`. This fixes two low-severity SvelteKit advisories and makes the old `cookie` override unnecessary. The hourly version check that SvelteKit 3 would start is turned off.
+- promo-video: zod 4.6.6 instead of 4.5.4 (security fix).
 
 ### Added
 

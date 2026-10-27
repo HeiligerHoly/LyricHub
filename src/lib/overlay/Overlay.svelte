@@ -10,8 +10,8 @@
   // (clock.ts), switches lines with one timer per line and lets the compositor run the fill
   // (KaraokeLine.svelte). No IPC and no JavaScript per frame.
   import { onMount, tick } from "svelte";
-  import { setLanguage, t, type Key } from "$lib/shared/i18n.svelte";
-  import { ipc, on, songId, subscribe } from "$lib/shared/ipc";
+  import { setLanguage, t, type Key } from "#lib/shared/i18n.svelte.js";
+  import { ipc, on, songId, subscribe } from "#lib/shared/ipc.js";
   import type {
     AppearanceSettings,
     CalibrationView,
@@ -24,7 +24,7 @@
     PlaybackStatus,
     Settings,
     TrackInfo,
-  } from "$lib/shared/types";
+  } from "#lib/shared/types.js";
   import { coverAccent } from "./accent";
   import { LocalClock } from "./clock";
   import type { Rgb } from "./color";

@@ -1,7 +1,7 @@
 <script lang="ts">
   // 3×3 picker for the nine anchor points (PLAN.md 6.4).
-  import { t } from "$lib/shared/i18n.svelte";
-  import { ANCHORS, type Anchor } from "$lib/shared/types";
+  import { t } from "#lib/shared/i18n.svelte.js";
+  import { ANCHORS, type Anchor } from "#lib/shared/types.js";
 
   let { value, onpick }: { value: Anchor; onpick: (a: Anchor) => void } = $props();
 

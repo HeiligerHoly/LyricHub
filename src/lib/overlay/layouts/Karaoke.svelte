@@ -3,7 +3,7 @@
   // large with the fill, the next line small and dimmed below. Every row has a fixed height, so
   // the window keeps its size while lines change. With romaji on (docs/romaji.md) both rows show
   // the romaji of Japanese lines.
-  import type { Align, Line, TrackInfo } from "$lib/shared/types";
+  import type { Align, Line, TrackInfo } from "#lib/shared/types.js";
   import type { LocalClock } from "../clock";
   import { langOf, shownText } from "../lyricsTimeline";
   import ActiveRow from "./ActiveRow.svelte";

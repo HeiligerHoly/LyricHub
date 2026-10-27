@@ -2,7 +2,7 @@
   // Layout "Minimal" (PLAN.md 9.2): only the active line, without a plate, with outline and
   // shadow (theme.ts drops the plate for this layout). A small row above holds toasts and, while
   // no line is active, the title – artist; it has a fixed height so the window keeps its size.
-  import type { Align, Line, TrackInfo } from "$lib/shared/types";
+  import type { Align, Line, TrackInfo } from "#lib/shared/types.js";
   import type { LocalClock } from "../clock";
   import ActiveRow from "./ActiveRow.svelte";
 

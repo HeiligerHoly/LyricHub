@@ -3,15 +3,15 @@
   // latency, overlay window state and the overlay self-test from Spike B.
   import { onMount } from "svelte";
   import SyncLab from "../SyncLab.svelte";
-  import { lang, t } from "$lib/shared/i18n.svelte";
-  import { formatMs, ipc } from "$lib/shared/ipc";
+  import { lang, t } from "#lib/shared/i18n.svelte.js";
+  import { formatMs, ipc } from "#lib/shared/ipc.js";
   import type {
     LatencySample,
     LyricsEvent,
     NowPlaying,
     OverlayDiagnostics,
     SelfTestReport,
-  } from "$lib/shared/types";
+  } from "#lib/shared/types.js";
 
   let { now }: { now: NowPlaying } = $props();
 

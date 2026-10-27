@@ -1,5 +1,5 @@
 // Helpers to find lines in time and to pick the script of a line.
-import type { Line, Word } from "$lib/shared/types";
+import type { Line, Word } from "#lib/shared/types.js";
 
 /** Index of the line shown at `ms` (last line that has started), -1 before the first one. */
 export function lineIndexAt(lines: Line[], ms: number): number {

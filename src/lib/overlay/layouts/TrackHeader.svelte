@@ -2,9 +2,9 @@
   // Small header of the Karaoke and Stack layouts (PLAN.md 9.2): cover 24 px, title – artist,
   // or a toast in its place. Track change (PLAN.md 9.4): the header fades in over 300 ms and the
   // cover grows from 0.96.
-  import { t } from "$lib/shared/i18n.svelte";
-  import { songId } from "$lib/shared/ipc";
-  import type { TrackInfo } from "$lib/shared/types";
+  import { t } from "#lib/shared/i18n.svelte.js";
+  import { songId } from "#lib/shared/ipc.js";
+  import type { TrackInfo } from "#lib/shared/types.js";
 
   interface Props {
     track: TrackInfo | null;

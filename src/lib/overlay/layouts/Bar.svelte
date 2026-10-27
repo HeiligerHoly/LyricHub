@@ -2,8 +2,8 @@
   // Layout "Bar" (PLAN.md 9.2): one line with cover · title – artist, and from Phase 2 on
   // the current lyric line after a divider (ellipsis, no marquee). Sizes are design sizes at
   // 1080p and scale with --s, which the overlay page sets.
-  import { songId } from "$lib/shared/ipc";
-  import type { Align, TrackInfo } from "$lib/shared/types";
+  import { songId } from "#lib/shared/ipc.js";
+  import type { Align, TrackInfo } from "#lib/shared/types.js";
 
   interface Props {
     track: TrackInfo | null;

@@ -4,10 +4,10 @@
   // shows sample lines in the current look (live preview); every change applies at once.
   // Sliders and colour pickers send at most one patch per 60 ms.
   import { onMount, untrack } from "svelte";
-  import { GLASS_LIGHT_MIN_OPACITY, MONO_MIN_OPACITY } from "$lib/overlay/theme";
-  import { t, type Key } from "$lib/shared/i18n.svelte";
-  import { ipc } from "$lib/shared/ipc";
-  import { RADIUS_MAX_PX, type AppearanceSettings, type FontList, type Settings, type SettingsPatch, type Theme } from "$lib/shared/types";
+  import { GLASS_LIGHT_MIN_OPACITY, MONO_MIN_OPACITY } from "#lib/overlay/theme.js";
+  import { t, type Key } from "#lib/shared/i18n.svelte.js";
+  import { ipc } from "#lib/shared/ipc.js";
+  import { RADIUS_MAX_PX, type AppearanceSettings, type FontList, type Settings, type SettingsPatch, type Theme } from "#lib/shared/types.js";
 
   interface Props {
     settings: Settings;
