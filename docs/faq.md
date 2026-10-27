@@ -32,7 +32,7 @@ Mit Strg+Alt+, oder Strg+Alt+. die Lyrics des laufenden Songs 100 ms früher ode
 
 ## Ein Song zeigt keine Lyrics.
 
-LyricHub holt die Lyrics von LRCLIB, einer von der Community gepflegten Datenbank. Hat LRCLIB keine synchronen Lyrics zu einem Song, sagt LyricHub das kurz und zeigt dann nur den Titel.
+LyricHub holt die Lyrics von LRCLIB, einer von der Community gepflegten Datenbank. Hat LRCLIB keine synchronen Lyrics zu einem Song, schrumpft das Overlay zu einer kleinen Karte mit Cover, Titel und Artist. Beim nächsten Song mit Lyrics wird es wieder groß.
 
 ## Läuft es unter Windows 10?
 

@@ -1,7 +1,8 @@
 <script lang="ts">
   // The large row with the active line and its fill, shared by the Karaoke, Stack and Minimal
   // layouts. Without an active line it shows the state (PLAN.md 9.6): loading dots (at most
-  // 1.5 s), a hint (4 s) or a note for an instrumental part. Fixed height, so the window keeps
+  // 1.5 s) or a note for an instrumental part. A song without synced lyrics gets the compact
+  // card instead (Compact.svelte). Fixed height, so the window keeps
   // its size. Line change (PLAN.md 9.4): 220 ms, the new line fades in from 0.55 and rises a
   // little; the fill itself never eases.
   import { t } from "#lib/shared/i18n.svelte.js";
@@ -17,12 +18,11 @@
     romaji: boolean;
     glow: boolean;
     status: "loading" | "instrumental" | null;
-    hint: string | null;
     clock: LocalClock;
     clockVersion: number;
     staticFill?: number | null;
   }
-  let { active, activeKey, romaji, glow, status, hint, clock, clockVersion, staticFill = null }: Props = $props();
+  let { active, activeKey, romaji, glow, status, clock, clockVersion, staticFill = null }: Props = $props();
 </script>
 
 <div class="row current">
@@ -39,8 +39,6 @@
           {clockVersion}
           {staticFill}
         />
-      {:else if hint}
-        <p class="hint">{hint}</p>
       {:else if status === "loading"}
         <p class="dots" aria-label={t("overlay.loading")}><span></span><span></span><span></span></p>
       {:else if status === "instrumental"}

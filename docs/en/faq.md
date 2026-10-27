@@ -32,7 +32,7 @@ Press Ctrl+Alt+, or Ctrl+Alt+. to move the lyrics of the current song 100 ms ear
 
 ## A song shows no lyrics.
 
-LyricHub gets lyrics from LRCLIB, a community-maintained database. If LRCLIB has no synced lyrics for a song, LyricHub says so briefly and then shows just the title.
+LyricHub gets lyrics from LRCLIB, a community-maintained database. If LRCLIB has no synced lyrics for a song, the overlay shrinks to a small card with cover, title and artist. It grows again with the next song that has lyrics.
 
 ## Does it work on Windows 10?
 

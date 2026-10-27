@@ -23,7 +23,6 @@
     glow?: boolean;
     /** What the active row shows when no line is active. */
     status: "loading" | "instrumental" | null;
-    hint: string | null;
     toast: string | null;
     offline?: boolean;
     clock: LocalClock;
@@ -42,7 +41,6 @@
     romaji,
     glow = true,
     status,
-    hint,
     toast,
     offline = false,
     clock,
@@ -64,7 +62,7 @@
     {/key}
   {/if}
 
-  <ActiveRow {active} {activeKey} {romaji} {glow} {status} {hint} {clock} {clockVersion} {staticFill} />
+  <ActiveRow {active} {activeKey} {romaji} {glow} {status} {clock} {clockVersion} {staticFill} />
 
   <div class="row upcoming">
     {#key next?.start_ms ?? -1}

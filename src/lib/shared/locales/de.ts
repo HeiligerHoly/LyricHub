@@ -54,7 +54,6 @@ export const de = {
   "overlay.idleArtist": "wartet auf Spotify",
   "overlay.calibrate": "Kalibrierung {n}/{needed} · Leertaste beim hörbaren Einsatz der nächsten Zeile · Esc beendet",
   "overlay.protocol": "Sync-Messung · {n} Taps · Leertaste bei jedem hörbaren Zeilenbeginn · Esc beendet",
-  "overlay.noSyncedLyrics": "Keine synchronen Lyrics gefunden",
   "overlay.instrumental": "Instrumental",
   "overlay.loading": "Lyrics werden geladen",
   "overlay.offline": "Lyrics nicht erreichbar",

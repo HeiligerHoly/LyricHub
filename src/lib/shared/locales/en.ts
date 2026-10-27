@@ -54,7 +54,6 @@ export const en: Record<Key, string> = {
   "overlay.idleArtist": "waiting for Spotify",
   "overlay.calibrate": "Calibration {n}/{needed} · Space when you hear the next line start · Esc ends",
   "overlay.protocol": "Sync measurement · {n} taps · Space at every line start you hear · Esc ends",
-  "overlay.noSyncedLyrics": "No synced lyrics found",
   "overlay.instrumental": "Instrumental",
   "overlay.loading": "Loading lyrics",
   "overlay.offline": "Lyrics service unreachable",

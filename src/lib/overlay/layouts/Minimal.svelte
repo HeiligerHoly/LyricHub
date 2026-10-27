@@ -15,7 +15,6 @@
     romaji: boolean;
     glow?: boolean;
     status: "loading" | "instrumental" | null;
-    hint: string | null;
     toast: string | null;
     clock: LocalClock;
     clockVersion: number;
@@ -30,7 +29,6 @@
     romaji,
     glow = true,
     status,
-    hint,
     toast,
     clock,
     clockVersion,
@@ -51,7 +49,7 @@
       <span class="title">{title}{artist ? ` – ${artist}` : ""}</span>
     {/if}
   </div>
-  <ActiveRow {active} {activeKey} {romaji} {glow} {status} {hint} {clock} {clockVersion} {staticFill} />
+  <ActiveRow {active} {activeKey} {romaji} {glow} {status} {clock} {clockVersion} {staticFill} />
 </div>
 
 <style>

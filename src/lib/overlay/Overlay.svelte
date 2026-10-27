@@ -4,13 +4,15 @@
   // mode. The window is as large
   // as the plate; the page reports the plate size and the backend sizes and places the window
   // (overlay/mod.rs). In the edit mode the window covers the monitor and the plate sits at the
-  // draft position.
+  // draft position. A song without synced lyrics, or a podcast episode, shrinks the plate to
+  // a compact card (cover, title, artist); the window keeps its width, so the card sits at the
+  // anchor side of the transparent window.
   //
   // Timing: the backend sends a clock anchor on changes and every 2 s; this page extrapolates
   // (clock.ts), switches lines with one timer per line and lets the compositor run the fill
   // (KaraokeLine.svelte). No IPC and no JavaScript per frame.
   import { onMount, tick } from "svelte";
-  import { setLanguage, t, type Key } from "#lib/shared/i18n.svelte.js";
+  import { setLanguage, t } from "#lib/shared/i18n.svelte.js";
   import { ipc, on, songId, subscribe } from "#lib/shared/ipc.js";
   import type {
     AppearanceSettings,
@@ -31,6 +33,7 @@
   import EditFrame from "./EditFrame.svelte";
   import type { EditChange } from "./editMode";
   import Bar from "./layouts/Bar.svelte";
+  import Compact from "./layouts/Compact.svelte";
   import Karaoke from "./layouts/Karaoke.svelte";
   import Minimal from "./layouts/Minimal.svelte";
   import Stack from "./layouts/Stack.svelte";
@@ -47,9 +50,8 @@
   const REPORT_DEBOUNCE_MS = 50;
   /** Old title comes back if no new one arrives in this time (seek to 0, repeat). */
   const CHANGING_MAX_MS = 700;
-  /** PLAN.md 9.6: loading dots at most 1.5 s, state hints 4 s, nudge toast 1.5 s. */
+  /** PLAN.md 9.6: loading dots at most 1.5 s, nudge toast 1.5 s. */
   const LOADING_MAX_MS = 1500;
-  const STATE_HINT_MS = 4000;
   const TOAST_MS = 1500;
   const NOTICE_MS = 5000;
   /** Room for the soft edge of the fill and a little air next to the longest line. */
@@ -84,8 +86,9 @@
   let clockVersion = $state(0);
   let lineIndex = $state(-1);
   let loadingVisible = $state(false);
-  /** Key, not text, so a language change also reaches a hint that is showing. */
-  let stateHint = $state<Key | null>(null);
+  /** The lyrics of the song are known and none are synced. Kept over a track change until the
+   *  next song's lyrics are known, so a run of such songs does not grow and shrink each time. */
+  let noLyrics = $state(false);
   let toast = $state<string | null>(null);
   let calibration = $state<CalibrationView | null>(null);
   /** Countdown to the next line start while calibrating: restarts per line. */
@@ -104,6 +107,11 @@
     return Math.min(layout.max_width_css, Math.max(base, needed));
   });
   const sample = $derived(!!edit || !!layout?.preview);
+  /** Where a plate narrower than the window sits: on the side of the anchor. */
+  const justify = $derived.by(() => {
+    const align = layout?.align ?? "center";
+    return align === "center" ? "center" : align === "end" ? "flex-end" : "flex-start";
+  });
   const opacity = $derived.by(() => {
     if (sample) return 1;
     if (!track) return hint ? 0.75 : 0;
@@ -156,6 +164,9 @@
   const upcomingLines = $derived(lines && layout?.layout === "stack" ? nextTextLines(lines, lineIndex, 2) : []);
   /** The lyrics service could not be reached (PLAN.md 9.6: a small mark, no text in the game). */
   const offline = $derived(!!lyrics && !!track && lyrics.key === track.key && lyrics.state === "error");
+  /** Nothing to sing along to: the compact card instead of the layout. Podcast episodes get no
+   *  lyrics lookup at all (PLAN.md 5.5). */
+  const compact = $derived(!sample && !measuring && !!track && (noLyrics || track.kind === "podcast"));
   const rowStatus = $derived(sample ? null : loadingVisible ? ("loading" as const) : activeLine && !activeLine.text ? ("instrumental" as const) : null);
   // Derived, so the edit mode and the preview follow a language change.
   const sampleTrack = $derived({ title: t("overlay.sample.title"), artist: t("overlay.sample.artist") });
@@ -277,11 +288,11 @@
   let lastSong = "";
   function applyTrack(t: TrackInfo | null) {
     track = t;
+    if (!t) noLyrics = false;
     const id = songId(t);
     if (id !== lastSong) {
       changing = false;
       if (lyrics && t && lyrics.key !== t.key) lyrics = null;
-      stateHint = null;
       loadingVisible = false;
     }
     if (t && id !== lastSong) {
@@ -292,21 +303,14 @@
   }
 
   let loadingTimer: ReturnType<typeof setTimeout> | undefined;
-  let hintStateTimer: ReturnType<typeof setTimeout> | undefined;
   function applyLyrics(e: LyricsEvent | null) {
     if (!e || (track && e.key !== track.key)) return;
     lyrics = e;
     clearTimeout(loadingTimer);
-    clearTimeout(hintStateTimer);
     loadingVisible = e.state === "loading";
     if (loadingVisible) loadingTimer = setTimeout(() => (loadingVisible = false), LOADING_MAX_MS);
-    stateHint =
-      e.state === "missing" || e.state === "unsynced"
-        ? "overlay.noSyncedLyrics"
-        : e.state === "instrumental"
-          ? "overlay.instrumental"
-          : null;
-    if (stateHint) hintStateTimer = setTimeout(() => (stateHint = null), STATE_HINT_MS);
+    // Unsynced lyrics are not shown either; "error" means the service could not be reached.
+    if (e.state !== "loading") noLyrics = e.state !== "synced";
   }
 
   let settingsSeen = false;
@@ -422,13 +426,24 @@
 <main class="stage" class:edit={!!edit} class:reduced style="{stageStyle}; --s: {uiScale}">
   <div
     class="box"
+    class:spread={!edit}
     style:left="{edit && draft ? draft.x : 0}px"
     style:top="{edit && draft ? draft.y : 0}px"
+    style:justify-content={justify}
     style:opacity
   >
-    <section class="plate" bind:this={plate} style:width="{widthCss}px" style="--s: {uiScale}">
+    <section
+      class="plate"
+      class:compact
+      bind:this={plate}
+      style:width={compact ? null : `${widthCss}px`}
+      style:max-width="{widthCss}px"
+      style="--s: {uiScale}"
+    >
       <div class="content" class:changing={changing && !sample}>
-        {#if layout?.layout === "bar"}
+        {#if compact && track && layout?.layout !== "bar"}
+          <Compact {track} toast={headerNote} {offline} />
+        {:else if layout?.layout === "bar"}
           <Bar
             {track}
             placeholder={sample ? sampleTrack : idleTrack}
@@ -448,7 +463,6 @@
             {romaji}
             glow={!reduced}
             status={rowStatus}
-            hint={sample || !stateHint ? null : t(stateHint)}
             toast={headerNote}
             {offline}
             {clock}
@@ -465,7 +479,6 @@
             {romaji}
             glow={!reduced}
             status={rowStatus}
-            hint={sample || !stateHint ? null : t(stateHint)}
             toast={headerNote}
             {clock}
             {clockVersion}
@@ -482,7 +495,6 @@
             {romaji}
             glow={!reduced}
             status={rowStatus}
-            hint={sample || !stateHint ? null : t(stateHint)}
             toast={headerNote}
             {offline}
             countdown={sample ? null : countdown}
@@ -546,14 +558,28 @@
     position: absolute;
     transition: opacity 400ms ease;
   }
+  /* Outside the edit mode the box spans the window, so a compact plate can sit on the anchor
+     side (justify-content). */
+  .box.spread {
+    right: 0;
+    display: flex;
+  }
 
   /* Theme plate (theme.ts). The window is exactly this plate, so it has no outer margin. */
   .plate {
+    /* A full plate keeps its width even before the window has grown to it; it is measured. */
+    flex: none;
     box-sizing: border-box;
     padding: calc(8px * var(--s)) calc(14px * var(--s));
     border-radius: calc(var(--plate-radius, 14px) * var(--s));
     background: var(--plate-bg, rgba(12, 12, 16, 0.55));
     text-rendering: optimizeLegibility;
+  }
+  /* As wide as cover, title and artist need, at most the normal width; long titles end in an
+     ellipsis. */
+  .plate.compact {
+    flex: 0 1 auto;
+    min-width: 0;
   }
 
   /* Track change, first half (PLAN.md 9.4): the old title fades as soon as the position

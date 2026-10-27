@@ -20,7 +20,6 @@
     romaji: boolean;
     glow?: boolean;
     status: "loading" | "instrumental" | null;
-    hint: string | null;
     toast: string | null;
     offline?: boolean;
     clock: LocalClock;
@@ -38,7 +37,6 @@
     romaji,
     glow = true,
     status,
-    hint,
     toast,
     offline = false,
     clock,
@@ -58,7 +56,7 @@
         <div class="row side">
           {#if previous}<p class="dim" lang={langOf(shownText(previous, romaji))}>{shownText(previous, romaji)}</p>{/if}
         </div>
-        <ActiveRow {active} activeKey="static" {romaji} {glow} {status} {hint} {clock} {clockVersion} {staticFill} />
+        <ActiveRow {active} activeKey="static" {romaji} {glow} {status} {clock} {clockVersion} {staticFill} />
         {#each rest as line, i (i)}
           <div class="row side">
             {#if line}<p class="dim" lang={langOf(shownText(line, romaji))}>{shownText(line, romaji)}</p>{/if}
