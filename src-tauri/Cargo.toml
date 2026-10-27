@@ -2,7 +2,7 @@
 name = "lyrichub"
 version = "1.0.0"
 description = "Game overlay that shows Spotify lyrics karaoke-style, in sync with the audio"
-authors = ["Kiyu"]
+authors = ["HeiligerHoly"]
 license-file = "../LICENSE"
 edition = "2024"
 publish = false
@@ -51,6 +51,7 @@ windows = { version = "0.62.2", features = [
   "Win32_UI_Shell",
   "Win32_Graphics_Dwm",
   "Win32_System_LibraryLoader",
+  "Win32_System_Threading",
   "Media",
   "Media_Control",
   "Foundation",

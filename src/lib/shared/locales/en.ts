@@ -276,7 +276,7 @@ export const en: Record<Key, string> = {
   "diag.window.mode.catches": "Catches clicks",
   "diag.window.bounds": "Window",
   "diag.window.style": "Window style",
-  "diag.window.foreground": "Foreground window",
+  "diag.window.foreground": "Program in front",
   "diag.window.foregroundIsOverlay": "(overlay! error)",
   "diag.window.screen": "Foreground",
   "diag.window.screen.normal": "normal window",

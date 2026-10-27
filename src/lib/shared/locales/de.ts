@@ -277,7 +277,7 @@ export const de = {
   "diag.window.mode.catches": "fängt Klicks",
   "diag.window.bounds": "Fenster",
   "diag.window.style": "Fensterstil",
-  "diag.window.foreground": "Vordergrundfenster",
+  "diag.window.foreground": "Programm im Vordergrund",
   "diag.window.foregroundIsOverlay": "(Overlay! Fehler)",
   "diag.window.screen": "Vordergrund",
   "diag.window.screen.normal": "normales Fenster",

@@ -356,7 +356,7 @@ export interface OverlayDiagnostics {
   layered: boolean;
   app_window: boolean;
   foreground_is_overlay: boolean;
-  foreground_title: string;
+  foreground_app: string;
   /** Hidden by "only with a fullscreen app". */
   auto_hidden: boolean;
   guard: GuardStatus;

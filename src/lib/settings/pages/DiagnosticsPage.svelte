@@ -130,7 +130,7 @@
       <dt>{t("diag.window.style")}</dt>
       <dd class="mono">{diag.ex_style_text}</dd>
       <dt>{t("diag.window.foreground")}</dt>
-      <dd>{diag.foreground_title || "–"}{diag.foreground_is_overlay ? ` ${t("diag.window.foregroundIsOverlay")}` : ""}</dd>
+      <dd>{diag.foreground_app || "–"}{diag.foreground_is_overlay ? ` ${t("diag.window.foregroundIsOverlay")}` : ""}</dd>
       <dt>{t("diag.window.screen")}</dt>
       <dd>{t(`diag.window.screen.${diag.guard.screen}`)}{diag.auto_hidden ? ` · ${t("diag.window.autoHidden")}` : ""}</dd>
       <dt>{t("diag.window.guard")}</dt>

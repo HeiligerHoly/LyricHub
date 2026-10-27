@@ -6,7 +6,8 @@
 //! flag change on a visible window, which can activate the overlay and steal focus from
 //! the game. Spike B compares both approaches (see `selftest.rs`).
 
-use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, POINT, RECT};
+use windows::Win32::Foundation::{COLORREF, CloseHandle, HWND, LPARAM, POINT, RECT};
+use windows::Win32::System::Threading::{OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW};
 use windows::Win32::Graphics::Gdi::{
     BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CAPTUREBLT, CreateCompatibleBitmap, CreateCompatibleDC,
     DIB_RGB_COLORS, DeleteDC, DeleteObject, EnumDisplayMonitors, GetDC, GetDIBits, GetMonitorInfoW, HDC, HMONITOR,
@@ -15,13 +16,13 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, GA_ROOT, GW_HWNDNEXT, GWL_EXSTYLE, GetAncestor, GetForegroundWindow, GetLayeredWindowAttributes,
-    GetWindow, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, HWND_TOPMOST, IsWindowVisible,
+    GetWindow, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, HWND_TOPMOST, IsWindowVisible,
     LAYERED_WINDOW_ATTRIBUTES_FLAGS, LWA_ALPHA, MONITORINFOF_PRIMARY, SW_HIDE, SW_SHOWNOACTIVATE, SWP_ASYNCWINDOWPOS,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SetForegroundWindow,
     SetLayeredWindowAttributes, SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WS_EX_APPWINDOW,
     WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WindowFromPoint,
 };
-use windows::core::{BOOL, HSTRING, PCWSTR};
+use windows::core::{BOOL, HSTRING, PCWSTR, PWSTR};
 
 /// `HWND` wraps a raw pointer and is not `Send`. This copyable handle can cross threads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -200,14 +201,34 @@ pub fn foreground() -> Hwnd {
     Hwnd::from_raw(unsafe { GetForegroundWindow() })
 }
 
-pub fn window_title(h: Hwnd) -> String {
+/// The program that owns a window, as its file name (for example "Discord.exe"). Logs, the
+/// diagnostics page and self-test reports use this instead of window titles, which can show
+/// private things such as chat servers, documents or the song playing.
+pub fn window_program(h: Hwnd) -> String {
     if h.is_null() {
         return String::new();
     }
-    let mut buf = [0u16; 256];
-    // SAFETY: buffer is valid for its full length.
-    let len = unsafe { GetWindowTextW(h.raw(), &mut buf) };
-    String::from_utf16_lossy(&buf[..len.max(0) as usize])
+    let mut pid = 0u32;
+    // SAFETY: out pointer to a local.
+    unsafe { GetWindowThreadProcessId(h.raw(), Some(&mut pid)) };
+    if pid == 0 {
+        return String::new();
+    }
+    // SAFETY: plain query; the handle is closed below.
+    let Ok(process) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else {
+        return format!("pid {pid}");
+    };
+    let mut buf = [0u16; 512];
+    let mut len = buf.len() as u32;
+    // SAFETY: buffer and length describe the same local array; the handle is open.
+    let ok = unsafe { QueryFullProcessImageNameW(process, PROCESS_NAME_WIN32, PWSTR(buf.as_mut_ptr()), &mut len) }.is_ok();
+    // SAFETY: handle from OpenProcess, closed once.
+    let _ = unsafe { CloseHandle(process) };
+    if !ok {
+        return format!("pid {pid}");
+    }
+    let path = String::from_utf16_lossy(&buf[..len as usize]);
+    path.rsplit(['\\', '/']).next().unwrap_or_default().to_string()
 }
 
 pub fn window_rect(h: Hwnd) -> Option<RECT> {
@@ -355,3 +376,17 @@ pub use windows::Win32::UI::WindowsAndMessaging::{
     WS_EX_APPWINDOW as EX_APPWINDOW, WS_EX_LAYERED as EX_LAYERED, WS_EX_NOACTIVATE as EX_NOACTIVATE,
     WS_EX_TOOLWINDOW as EX_TOOLWINDOW, WS_EX_TOPMOST as EX_TOPMOST, WS_EX_TRANSPARENT as EX_TRANSPARENT,
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Needs a desktop session (the taskbar), so it only runs on request: `cargo test -- --ignored`.
+    #[test]
+    #[ignore]
+    fn window_program_names_the_taskbar_owner() {
+        // SAFETY: plain query by class name.
+        let bar = unsafe { FindWindowW(&HSTRING::from("Shell_TrayWnd"), PCWSTR::null()) }.expect("taskbar window");
+        assert_eq!(window_program(Hwnd::from_raw(bar)).to_lowercase(), "explorer.exe");
+    }
+}

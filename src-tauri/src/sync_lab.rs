@@ -127,8 +127,60 @@ struct LyricsSummary {
 }
 
 /// Writes the last 60 s and the current state to `logs/diagnostics-<unix>.json` (PLAN.md 5.9).
-/// Contains timings, settings and the song title, never lyrics text.
+/// Contains timings and settings, never lyrics text; song details are hidden (see `hide_song`).
 const LOG_TAIL_LINES: usize = 400;
+
+/// Song fields the export leaves out, so it can go into a public bug report.
+const SONG_FIELDS: [&str; 5] = ["key", "title", "artist", "album", "art"];
+const HIDDEN: &str = "(hidden)";
+
+/// Replaces song details anywhere in a JSON value.
+fn hide_song(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (k, v) in map.iter_mut() {
+                if SONG_FIELDS.contains(&k.as_str()) && !v.is_null() {
+                    *v = serde_json::Value::from(HIDDEN);
+                } else {
+                    hide_song(v);
+                }
+            }
+        }
+        serde_json::Value::Array(items) => items.iter_mut().for_each(hide_song),
+        _ => {}
+    }
+}
+
+/// Replaces song details in a log line. Values are written as `title=Some Song artist=...`:
+/// a plain value runs until the next ` name=`, a quoted one until its closing quote.
+fn hide_song_in_line(line: &str) -> String {
+    let mut out = line.to_owned();
+    for name in ["key", "title", "artist", "album"] {
+        let needle = format!(" {name}=");
+        let mut from = 0;
+        while let Some(pos) = out[from..].find(&needle) {
+            let start = from + pos + needle.len();
+            let rest = &out[start..];
+            let len = if let Some(quoted) = rest.strip_prefix('"') {
+                quoted.find('"').map_or(rest.len(), |i| i + 2)
+            } else {
+                next_field(rest).unwrap_or(rest.len())
+            };
+            out.replace_range(start..start + len, HIDDEN);
+            from = start + HIDDEN.len();
+        }
+    }
+    out
+}
+
+/// Byte offset of the next ` name=` in a log line, where name is a field identifier.
+fn next_field(rest: &str) -> Option<usize> {
+    rest.match_indices(' ').map(|(i, _)| i).find(|&i| {
+        let tail = &rest[i + 1..];
+        let ident = tail.find('=').map(|e| &tail[..e]);
+        ident.is_some_and(|id| !id.is_empty() && id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'))
+    })
+}
 
 /// The last lines of the newest log file.
 fn log_tail(lines: usize) -> Vec<String> {
@@ -156,20 +208,27 @@ pub fn export(app: &AppHandle) -> Result<std::path::PathBuf, String> {
         lines: l.lines.iter().filter(|x| !x.text.is_empty()).count(),
         lrc_offset_ms: l.lrc_offset_ms,
     });
-    let report = serde_json::json!({
-        "version": env!("CARGO_PKG_VERSION"),
-        "unix_time": unix,
+    let mut song = serde_json::json!({
         "now_playing": state.snapshot(),
         "lyrics": lyrics,
         "sync_lab": snapshot(app),
         "track_change_latencies": state.latencies(),
+    });
+    hide_song(&mut song);
+    let report = serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "unix_time": unix,
+        "now_playing": song["now_playing"],
+        "lyrics": song["lyrics"],
+        "sync_lab": song["sync_lab"],
+        "track_change_latencies": song["track_change_latencies"],
         "devices": crate::audio_devices::list(app),
         "settings": app.state::<SettingsState>().get(),
         "overlay": crate::overlay::diagnostics(app),
         "monitors": crate::overlay::window::list_monitors(),
         "hotkeys": crate::hotkeys::status(app),
-        // The logs never contain lyrics (PLAN.md 7.4), so the tail can go along.
-        "log_tail": log_tail(LOG_TAIL_LINES),
+        // The logs never contain lyrics (PLAN.md 7.4), so the tail can go along without song details.
+        "log_tail": log_tail(LOG_TAIL_LINES).iter().map(|l| hide_song_in_line(l)).collect::<Vec<_>>(),
     });
     let path = crate::logging::log_dir().join(format!("diagnostics-{unix}.json"));
     let text = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
@@ -181,6 +240,20 @@ pub fn export(app: &AppHandle) -> Result<std::path::PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn export_hides_song_details() {
+        let line = r#"INFO lyrichub_lib::sources::smtc: track changed title=Paper Kites Over Town artist=The Invented Band album="Made Up (Deluxe)" duration_ms=180000 via="poll""#;
+        assert_eq!(
+            hide_song_in_line(line),
+            r#"INFO lyrichub_lib::sources::smtc: track changed title=(hidden) artist=(hidden) album=(hidden) duration_ms=180000 via="poll""#
+        );
+        assert_eq!(hide_song_in_line("tap title=Last Field line=3"), "tap title=(hidden) line=3");
+        assert_eq!(hide_song_in_line("song offset set key=band|song|album song_offset_ms=100"), "song offset set key=(hidden) song_offset_ms=100");
+        let mut v = serde_json::json!({ "track": { "title": "Invented", "artist": "Nobody", "album": null, "duration_ms": 1 }, "list": [{ "key": "k" }] });
+        hide_song(&mut v);
+        assert_eq!(v, serde_json::json!({ "track": { "title": "(hidden)", "artist": "(hidden)", "album": null, "duration_ms": 1 }, "list": [{ "key": "(hidden)" }] }));
+    }
 
     #[test]
     fn keeps_60_seconds_and_measures_cadence() {

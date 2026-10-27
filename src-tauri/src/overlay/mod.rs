@@ -177,7 +177,7 @@ pub struct OverlayDiagnostics {
     pub layered: bool,
     pub app_window: bool,
     pub foreground_is_overlay: bool,
-    pub foreground_title: String,
+    pub foreground_app: String,
     pub auto_hidden: bool,
     pub guard: guard::GuardStatus,
 }
@@ -569,7 +569,7 @@ pub fn diagnostics(app: &AppHandle) -> OverlayDiagnostics {
         layered: win32::has(s, win32::EX_LAYERED),
         app_window: win32::has(s, win32::EX_APPWINDOW),
         foreground_is_overlay: fg == h && !h.is_null(),
-        foreground_title: win32::window_title(fg),
+        foreground_app: win32::window_program(fg),
         auto_hidden: state.auto_hidden.load(Ordering::SeqCst),
         guard: guard::status(),
     }

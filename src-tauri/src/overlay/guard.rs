@@ -424,7 +424,8 @@ fn class_name(h: HWND) -> String {
     String::from_utf16_lossy(&buf[..n.max(0) as usize])
 }
 
+/// The program behind a window for the log; never its title, which can show private things.
 fn describe(h: HWND) -> String {
-    let title = win32::window_title(Hwnd::from_raw(h));
-    if title.is_empty() { class_name(h) } else { title }
+    let program = win32::window_program(Hwnd::from_raw(h));
+    if program.is_empty() { class_name(h) } else { program }
 }

@@ -23,9 +23,9 @@ const TIMEOUT_S: u64 = 4;
 const MAX_BODY_BYTES: u64 = 4 * 1024 * 1024;
 const HEDGE_AFTER: Duration = Duration::from_millis(350);
 
-/// LRCLIB asks clients to identify themselves.
+/// LRCLIB asks clients to identify themselves with name, version and a link to the project.
 pub fn user_agent() -> String {
-    format!("LyricHub/{} (Windows desktop lyrics overlay)", env!("CARGO_PKG_VERSION"))
+    format!("LyricHub/{} (https://github.com/HeiligerHoly/LyricHub)", env!("CARGO_PKG_VERSION"))
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq)]

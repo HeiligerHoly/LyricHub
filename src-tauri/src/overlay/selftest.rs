@@ -67,7 +67,7 @@ impl Ctx {
     /// The overlay must never take the foreground from whatever window had it.
     fn focus_kept(&mut self, name: &str) {
         let fg = win32::foreground();
-        let detail = format!("Vordergrund: \"{}\"", win32::window_title(fg));
+        let detail = format!("Vordergrund: \"{}\"", win32::window_program(fg));
         if !self.fg_conclusive {
             self.push(
                 name,
@@ -92,7 +92,7 @@ impl Ctx {
         let (cx, cy) = ((r.left + r.right) / 2, (r.top + r.bottom) / 2);
         let hit = win32::root_window_from_point(cx, cy);
         let through = hit != self.overlay;
-        let detail = format!("Treffer bei ({cx},{cy}): \"{}\"", win32::window_title(hit));
+        let detail = format!("Treffer bei ({cx},{cy}): \"{}\"", win32::window_program(hit));
         self.check(name, through == expect_through, detail);
     }
 }
@@ -121,7 +121,7 @@ pub fn run(app: &AppHandle) -> Report {
         "info",
         format!(
             "Vordergrund: \"{}\", Fake-Game: {}",
-            win32::window_title(fg0),
+            win32::window_program(fg0),
             if fake_game.is_some() { "ja" } else { "nein" }
         ),
     );
@@ -230,7 +230,7 @@ pub fn run(app: &AppHandle) -> Report {
         c.push(
             "Fokus zurückgegeben",
             "info",
-            format!("SetForegroundWindow ok={ok}, Vordergrund jetzt \"{}\"", win32::window_title(win32::foreground())),
+            format!("SetForegroundWindow ok={ok}, Vordergrund jetzt \"{}\"", win32::window_program(win32::foreground())),
         );
     }
 
@@ -286,7 +286,7 @@ pub fn run(app: &AppHandle) -> Report {
     };
     Report {
         unix_time: SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0),
-        foreground_at_start: win32::window_title(fg0),
+        foreground_at_start: win32::window_program(fg0),
         foreground_conclusive: fg_conclusive,
         fake_game_present: fake_game.is_some(),
         passed: count("pass", false),
