@@ -230,6 +230,10 @@ pub fn export(app: &AppHandle) -> Result<std::path::PathBuf, String> {
         "overlay": crate::overlay::diagnostics(app),
         "monitors": crate::overlay::window::list_monitors(),
         "hotkeys": crate::hotkeys::status(app),
+        "plugins": crate::plugins::list(app)
+            .iter()
+            .map(|p| serde_json::json!({ "id": p.id, "version": p.version, "enabled": p.enabled, "state": p.state }))
+            .collect::<Vec<_>>(),
         // The logs never contain lyrics (PLAN.md 7.4), so the tail can go along without song details.
         "log_tail": log_tail(LOG_TAIL_LINES).iter().map(|l| hide_song_in_line(l)).collect::<Vec<_>>(),
     });

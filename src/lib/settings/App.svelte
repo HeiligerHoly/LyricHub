@@ -13,14 +13,16 @@
   import DiagnosticsPage from "./pages/DiagnosticsPage.svelte";
   import SyncPage from "./pages/SyncPage.svelte";
   import HotkeysPage from "./pages/HotkeysPage.svelte";
+  import PluginsPage from "./pages/PluginsPage.svelte";
 
-  type PageId = "overlay" | "appearance" | "sync" | "behavior" | "diagnostics" | "hotkeys";
+  type PageId = "overlay" | "appearance" | "sync" | "behavior" | "plugins" | "diagnostics" | "hotkeys";
   const pages: { id: PageId; labelKey: Key }[] = [
     { id: "overlay", labelKey: "nav.overlay" },
     { id: "appearance", labelKey: "nav.appearance" },
     { id: "sync", labelKey: "nav.sync" },
     { id: "hotkeys", labelKey: "nav.hotkeys" },
     { id: "behavior", labelKey: "nav.behavior" },
+    { id: "plugins", labelKey: "nav.plugins" },
     { id: "diagnostics", labelKey: "nav.diagnostics" },
   ];
 
@@ -107,6 +109,8 @@
         <HotkeysPage {settings} {update} />
       {:else if page === "behavior"}
         <BehaviorPage {settings} {update} />
+      {:else if page === "plugins"}
+        <PluginsPage {settings} />
       {:else}
         <DiagnosticsPage {now} />
       {/if}

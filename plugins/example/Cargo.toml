@@ -1,0 +1,11 @@
+[package]
+name = "lyrichub-plugin-example"
+version = "0.1.0"
+description = "Test plugin for LyricHub's plugin host (PLAN-plugins.md, P1); not shipped"
+authors = ["HeiligerHoly"]
+license-file = "../../LICENSE"
+edition = "2024"
+publish = false
+
+[dependencies]
+serde_json = "1.0.154"

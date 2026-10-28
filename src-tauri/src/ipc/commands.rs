@@ -51,6 +51,43 @@ pub async fn reset_overlay_geometry(app: AppHandle) -> Settings {
     after
 }
 
+/// Installed plugins with their state (PLAN-plugins.md 4.7).
+#[tauri::command]
+pub fn list_plugins(app: AppHandle) -> Vec<crate::plugins::PluginInfo> {
+    crate::plugins::list(&app)
+}
+
+/// Checks a plugin ZIP sent as the raw request body and keeps it for confirmation.
+#[tauri::command]
+pub async fn check_plugin_zip(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<crate::plugins::ZipInfo, String> {
+    let tauri::ipc::InvokeBody::Raw(zip) = request.body() else {
+        return Err("expected the ZIP file".into());
+    };
+    let zip = zip.clone();
+    tauri::async_runtime::spawn_blocking(move || crate::plugins::check_zip(&app, zip)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn install_staged_plugin(app: AppHandle) -> Result<Vec<crate::plugins::PluginInfo>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::plugins::install_staged(&app)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn discard_staged_plugin(app: AppHandle) {
+    crate::plugins::discard_staged(&app);
+}
+
+/// Switching a plugin off waits up to 2 s for it to end, so it runs off the async threads.
+#[tauri::command]
+pub async fn set_plugin_enabled(app: AppHandle, id: String, enabled: bool) -> Result<Vec<crate::plugins::PluginInfo>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::plugins::set_enabled(&app, &id, enabled)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn remove_plugin(app: AppHandle, id: String) -> Result<Vec<crate::plugins::PluginInfo>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::plugins::uninstall(&app, &id)).await.map_err(|e| e.to_string())?
+}
+
 /// Media sessions Windows knows, for the player choice (PLAN.md 13.4).
 #[tauri::command]
 pub async fn list_players() -> Vec<crate::sources::smtc::PlayerSession> {

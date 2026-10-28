@@ -20,6 +20,7 @@ pub struct Settings {
     pub behavior: BehaviorSettings,
     pub hotkeys: HotkeySettings,
     pub player: PlayerSettings,
+    pub plugins: PluginsSettings,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -35,6 +36,7 @@ impl Default for Settings {
             behavior: BehaviorSettings::default(),
             hotkeys: HotkeySettings::default(),
             player: PlayerSettings::default(),
+            plugins: PluginsSettings::default(),
             extra: Map::new(),
         }
     }
@@ -53,6 +55,16 @@ pub struct PlayerSettings {
 }
 
 pub const DEFAULT_PLAYER: &str = "Spotify";
+
+/// Plugins that are switched on (PLAN-plugins.md 4.3); installed ones are off until then.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct PluginsSettings {
+    pub enabled: Vec<String>,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
 
 impl Default for PlayerSettings {
     fn default() -> Self {
@@ -368,6 +380,8 @@ impl Settings {
         for ms in self.sync.player_offsets_ms.values_mut() {
             *ms = (*ms).clamp(-OFFSET_LIMIT_MS, OFFSET_LIMIT_MS);
         }
+        let mut seen = std::collections::BTreeSet::new();
+        self.plugins.enabled.retain(|id| crate::plugins::manifest::valid_id(id) && seen.insert(id.clone()));
         self.player.app_id = self.player.app_id.trim().to_owned();
         if self.player.app_id.is_empty() {
             // An empty filter would match every session.

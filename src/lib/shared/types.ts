@@ -122,6 +122,40 @@ export interface PlayerSettings {
 }
 export const DEFAULT_PLAYER = "Spotify";
 
+/** Plugins that are switched on (PLAN-plugins.md 4.3). */
+export interface PluginsSettings {
+  enabled: string[];
+}
+
+/** An installed plugin (`list_plugins`, plugins/mod.rs). */
+export interface PluginInfo {
+  id: string;
+  name: string;
+  version: string;
+  description: Record<string, string>;
+  permissions: string[];
+  homepage: string | null;
+  enabled: boolean;
+  state: "off" | "starting" | "running" | "restarting" | "incompatible" | "failed" | "invalid";
+  /** Why it failed; for "restarting" "attempt/seconds". */
+  detail: string | null;
+  status_text: string | null;
+  progress: number | null;
+}
+
+/** A checked plugin ZIP, shown for confirmation (`check_plugin_zip`). */
+export interface ZipInfo {
+  id: string;
+  name: string;
+  version: string;
+  description: Record<string, string>;
+  permissions: string[];
+  sha256: string;
+  bytes: number;
+  compatible: boolean;
+  installed_version: string | null;
+}
+
 /** A media session Windows knows (`list_players`, sources/smtc.rs). */
 export interface PlayerSession {
   app_id: string;
@@ -160,6 +194,7 @@ export interface Settings {
   behavior: BehaviorSettings;
   hotkeys: HotkeySettings;
   player: PlayerSettings;
+  plugins: PluginsSettings;
 }
 
 /** JSON Merge Patch for `set_settings`: `null` resets a field to its default. */
@@ -170,6 +205,7 @@ export type SettingsPatch = {
   behavior?: { [K in keyof BehaviorSettings]?: BehaviorSettings[K] | null };
   hotkeys?: { [K in keyof HotkeySettings]?: string | null };
   player?: { [K in keyof PlayerSettings]?: PlayerSettings[K] | null };
+  plugins?: { [K in keyof PluginsSettings]?: PluginsSettings[K] | null };
 };
 
 /** Offset parts (sync/offsets.rs); positive shows the lyrics later. */

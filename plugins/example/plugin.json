@@ -1,0 +1,14 @@
+{
+  "id": "lyrichub-example",
+  "name": "Example (test)",
+  "version": "0.1.0",
+  "api": 1,
+  "executable": "lyrichub-plugin-example.exe",
+  "capabilities": [],
+  "permissions": [],
+  "homepage": "https://github.com/HeiligerHoly/LyricHub",
+  "description": {
+    "de": "Test-Plugin für den Plugin-Host. Tut nichts außer zu antworten.",
+    "en": "Test plugin for the plugin host. Does nothing but answer."
+  }
+}

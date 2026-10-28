@@ -1,7 +1,7 @@
 # LyricHub – Plan: Plugin-Support und Plugin „Align“
 
 > Stand: 2026-10-28 · Basis: v1.0.1 plus die lokalen Commits zu Füll-Schalter und Wortschätzung · Zielversion: 1.2.0 (nach 1.1.0 mit Browser-Support)
-> Status: **P0 erledigt (2026-10-28, [docs/spike-align.md](docs/spike-align.md)): Genauigkeit erfüllt das Gate deutlich, Rechenzeit auf der CPU nicht.** Der Nutzer hat P1–P4 mit Option B freigegeben, nach dem Release 1.1.0 (Abschnitt 8).
+> Status: **P0 erledigt (2026-10-28, [docs/spike-align.md](docs/spike-align.md)): Genauigkeit erfüllt das Gate deutlich, Rechenzeit auf der CPU nicht.** Der Nutzer hat P1–P4 mit Option B freigegeben, nach dem Release 1.1.0 (Abschnitt 8). **P1 erledigt (2026-10-28, [docs/plugin-host.md](docs/plugin-host.md)).**
 
 ## 1. Kurzfassung
 

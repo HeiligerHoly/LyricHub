@@ -21,11 +21,13 @@ import type {
   OverlayLayout,
   PlaybackEvent,
   PlayerSession,
+  PluginInfo,
   SelfTestReport,
   Settings,
   SettingsPatch,
   SyncLab,
   TrackInfo,
+  ZipInfo,
 } from "./types";
 
 export const ipc = {
@@ -35,6 +37,13 @@ export const ipc = {
   resetOverlayGeometry: () => invoke<Settings>("reset_overlay_geometry"),
   listMonitors: () => invoke<Monitor[]>("list_monitors"),
   listPlayers: () => invoke<PlayerSession[]>("list_players"),
+  listPlugins: () => invoke<PluginInfo[]>("list_plugins"),
+  /** The ZIP goes as the raw request body, not as JSON. */
+  checkPluginZip: (zip: Uint8Array) => invoke<ZipInfo>("check_plugin_zip", zip),
+  installStagedPlugin: () => invoke<PluginInfo[]>("install_staged_plugin"),
+  discardStagedPlugin: () => invoke<void>("discard_staged_plugin"),
+  setPluginEnabled: (id: string, enabled: boolean) => invoke<PluginInfo[]>("set_plugin_enabled", { id, enabled }),
+  removePlugin: (id: string) => invoke<PluginInfo[]>("remove_plugin", { id }),
   getNowPlaying: () => invoke<NowPlaying>("get_now_playing"),
   trackLatencies: () => invoke<LatencySample[]>("track_latencies"),
   getLyrics: () => invoke<LyricsEvent | null>("get_lyrics"),
@@ -83,6 +92,7 @@ interface EventPayloads {
   calibration: CalibrationView;
   settings: Settings;
   "overlay-layout": OverlayLayout;
+  plugins: PluginInfo[];
 }
 
 export function on<E extends keyof EventPayloads>(

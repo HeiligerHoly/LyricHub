@@ -410,7 +410,7 @@ Igor Pavlov and Amir Szekely, the authors of the LZMA compression module for NSI
 Crates compiled into the Windows build, grouped by license. Where a crate offers a choice, the
 first license of the accepted list in `tools/licenses/about.toml` is the one shown.
 
-- MIT License: 276 crates
+- MIT License: 278 crates
 - Unicode License v3: 20 crates
 - Apache License 2.0: 7 crates
 - BSD 3-Clause "New" or "Revised" License: 5 crates
@@ -4812,6 +4812,7 @@ Used by:
 - [syn 3.0.9](https://github.com/dtolnay/syn)
 - [thiserror-impl 2.0.21](https://github.com/dtolnay/thiserror)
 - [thiserror 2.0.21](https://github.com/dtolnay/thiserror)
+- [typed-path 0.13.0](https://github.com/chipsenkbeil/typed-path)
 - [typeid 1.0.3](https://github.com/dtolnay/typeid)
 - [unicode-ident 1.0.27](https://github.com/dtolnay/unicode-ident)
 - [zmij 1.0.23](https://github.com/dtolnay/zmij)
@@ -4932,6 +4933,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 Used by:
 
 - [tracing-core 0.1.36](https://github.com/tokio-rs/tracing)
+- [zip 9.1.3](https://github.com/zip-rs/zip2)
 
 ```
 The MIT License (MIT)

@@ -13,6 +13,7 @@ mod logging;
 mod lyrics;
 mod overlay;
 mod paths;
+mod plugins;
 mod settings;
 mod settings_window;
 mod sources;
@@ -52,6 +53,7 @@ pub fn run() {
         .manage(sync_lab::SyncLabState::default())
         .manage(audio_devices::AudioDeviceState::default())
         .manage(calibration::CalibrationState::default())
+        .manage(plugins::PluginsState::default())
         .invoke_handler(tauri::generate_handler![
             ipc::commands::get_settings,
             ipc::commands::set_settings,
@@ -60,6 +62,12 @@ pub fn run() {
             ipc::commands::list_monitors,
             ipc::commands::get_now_playing,
             ipc::commands::list_players,
+            ipc::commands::list_plugins,
+            ipc::commands::check_plugin_zip,
+            ipc::commands::install_staged_plugin,
+            ipc::commands::discard_staged_plugin,
+            ipc::commands::set_plugin_enabled,
+            ipc::commands::remove_plugin,
             ipc::commands::track_latencies,
             ipc::commands::get_lyrics,
             ipc::commands::get_clock,
@@ -104,6 +112,7 @@ pub fn run() {
             // the settings name another player.
             let player = handle.state::<settings::SettingsState>().get().player.app_id;
             app_state::start(handle.clone(), sources::smtc::SmtcSource::new(player).spawn());
+            plugins::init(&handle);
             audio_devices::spawn_watcher(handle.clone());
 
             if let Some(mode) = selftest_mode.clone() {
@@ -150,8 +159,11 @@ pub fn run() {
     app.run(|_app, event| {
         // Closing the settings window destroys it; the app lives on in the tray. Only an
         // explicit exit (tray "Beenden", code set) ends the process.
-        if let RunEvent::ExitRequested { code: None, api, .. } = event {
-            api.prevent_exit();
+        match event {
+            RunEvent::ExitRequested { code: None, api, .. } => api.prevent_exit(),
+            // Plugins get their shutdown; the job object ends them in any case (plugins/process.rs).
+            RunEvent::Exit => plugins::shutdown_all(_app),
+            _ => {}
         }
     });
 }

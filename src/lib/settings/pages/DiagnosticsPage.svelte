@@ -3,13 +3,14 @@
   // latency, overlay window state and the overlay self-test from Spike B.
   import { onMount } from "svelte";
   import SyncLab from "../SyncLab.svelte";
-  import { lang, t } from "#lib/shared/i18n.svelte.js";
+  import { lang, t, type Key } from "#lib/shared/i18n.svelte.js";
   import { formatMs, ipc } from "#lib/shared/ipc.js";
   import type {
     LatencySample,
     LyricsEvent,
     NowPlaying,
     OverlayDiagnostics,
+    PluginInfo,
     SelfTestReport,
   } from "#lib/shared/types.js";
 
@@ -20,12 +21,14 @@
   let report = $state<SelfTestReport | null>(null);
   let running = $state(false);
   let lyrics = $state<LyricsEvent | null>(null);
+  let plugins = $state<PluginInfo[]>([]);
 
   async function refresh() {
     try {
       diag = await ipc.overlayDiagnostics();
       latencies = (await ipc.trackLatencies()).slice().reverse();
       lyrics = await ipc.getLyrics();
+      plugins = await ipc.listPlugins();
     } catch {
       diag = null;
     }
@@ -69,6 +72,20 @@
       <dd>{now.track.art ? `${Math.round((now.track.art.url.length * 3) / 4 / 1024)} KB` : t("diag.cover.none")}</dd>
     {/if}
   </dl>
+</section>
+
+<section class="card">
+  <h2>{t("diag.plugins")}</h2>
+  {#if plugins.length}
+    <dl class="kv">
+      {#each plugins as p (p.id)}
+        <dt>{p.name}</dt>
+        <dd>{p.version} · {t(`plugins.state.${p.state}` as Key)}{p.detail && p.state !== "restarting" ? ` · ${p.detail}` : ""}</dd>
+      {/each}
+    </dl>
+  {:else}
+    <p class="muted">{t("diag.plugins.none")}</p>
+  {/if}
 </section>
 
 <SyncLab />
