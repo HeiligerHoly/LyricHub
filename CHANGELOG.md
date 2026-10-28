@@ -2,11 +2,18 @@
 
 The notable changes of each version. The release notes in [docs/release-notes/](docs/release-notes/) have the details.
 
-## Unreleased
+## 1.1.0 – 2026-10-28
+
+See [docs/release-notes/v1.1.0.md](docs/release-notes/v1.1.0.md).
 
 ### Added
 
+- Experimental browser support: Settings → Behavior → Player follows a browser instead of Spotify, picked from the media sessions Windows knows. YouTube Music works in Edge and Firefox-based browsers, regular YouTube and the Spotify web player in Edge; Firefox-based browsers often report no time on regular YouTube ([browser spike](docs/en/spike-browser.md)). YouTube titles such as "Artist - Song (Official Video)" by a VEVO or "Topic" channel are cleaned before the lookup; playback without a song length or artist counts as a video, gets no lyrics lookup and shows the compact card. Each player has its own offset (Settings → Sync), and the Sync Lab notes that browsers report rarely.
 - Setting "Fill word by word" on the Appearance page. Off, the current line shows whole in the accent colour at once instead of filling with mostly estimated word times.
+
+### Fixed
+
+- The outline and shadows of themes with an outline were cut off at the edges of each text line in the overlay, most visibly on the first and last letter and above and below the title. Text boxes now leave them room; lines that are too long still end in an ellipsis.
 
 ### Changed
 
