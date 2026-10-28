@@ -6,12 +6,13 @@
 use super::types::{Line, Word};
 use super::words;
 
-/// Fill duration per character when the line is followed by a long instrumental gap.
-const MS_PER_CHAR: u32 = 70;
-const EST_MIN_MS: u32 = 1000;
-const EST_MAX_MS: u32 = 8000;
-/// A line whose interval exceeds the estimated singing time by this much ends in a pause.
-const GAP_MS: u32 = 2500;
+/// Longest usual singing time per syllable; beyond it the rest of the interval is a pause
+/// (docs/word-timing.md).
+const MS_PER_SYLLABLE: f64 = 400.0;
+const EST_MIN_MS: f64 = 1000.0;
+const EST_MAX_MS: f64 = 8000.0;
+/// Share of the interval to the next line that is sung; the rest is breath before the next one.
+const SUNG_SHARE: f64 = 0.9;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct ParsedLrc {
@@ -104,19 +105,21 @@ pub fn parse(input: &str) -> ParsedLrc {
     out
 }
 
-/// When the fill of a line should be complete (PLAN.md 5.6, point 2). The fill spans the whole
-/// interval to the next line unless that interval exceeds the estimated singing time by more
-/// than 2.5 s; then the estimate applies and the rest is an instrumental pause.
+/// When the fill of a line should be complete (PLAN.md 5.6, point 2). Singers use about nine
+/// tenths of the interval to the next line, but rarely more than 400 ms per syllable: the fill
+/// ends at the earlier of the two, and anything after that is an instrumental pause. Without a
+/// next line only the syllables count. At least 1 s, at most 8 s of singing.
 pub fn fill_end(start_ms: u32, end_ms: Option<u32>, text: &str) -> u32 {
-    let chars = text.chars().filter(|c| c.is_alphanumeric()).count() as u32;
-    if chars == 0 {
+    let syllables = words::syllables(text);
+    if syllables <= 0.0 {
         return start_ms;
     }
-    let estimate = (chars * MS_PER_CHAR).clamp(EST_MIN_MS, EST_MAX_MS);
-    match end_ms {
-        Some(end) if end.saturating_sub(start_ms) <= estimate + GAP_MS => end.max(start_ms),
-        _ => start_ms + estimate,
-    }
+    let sung = (syllables * MS_PER_SYLLABLE).clamp(EST_MIN_MS, EST_MAX_MS);
+    let sung = match end_ms {
+        Some(end) => sung.min(f64::from(end.saturating_sub(start_ms)) * SUNG_SHARE),
+        None => sung,
+    };
+    start_ms + sung.round() as u32
 }
 
 /// `mm:ss`, `mm:ss.f`, `mm:ss.ff`, `mm:ss.fff`, `mm:ss:ff` and `h:mm:ss.ff`, in milliseconds.
@@ -280,9 +283,10 @@ mod tests {
         let l = &p.lines[0];
         assert_eq!(l.text, "Tiny paper boats");
         let w = l.words.as_ref().unwrap();
+        // The last word ends with the fill: nine tenths of the 2 s to the next line.
         assert_eq!(
             w.iter().map(|w| (w.start_ms, w.end_ms)).collect::<Vec<_>>(),
-            [(12_000, 12_400), (12_400, 12_900), (12_900, 14_000)]
+            [(12_000, 12_400), (12_400, 12_900), (12_900, 13_800)]
         );
         assert!(w.iter().all(|w| !w.estimated));
         // Lines without marks get estimated words.
@@ -317,16 +321,18 @@ mod tests {
 
     #[test]
     fn fill_end_follows_interval_or_estimate() {
-        // 18 letters → 1260 ms estimate. An interval up to 3760 ms is filled completely ...
-        assert_eq!(fill_end(0, Some(3500), "twenty letters here x"), 3500);
-        // ... a longer one ends in a pause after the estimated singing time.
-        assert_eq!(fill_end(0, Some(12_000), "twenty letters here x"), 1260);
+        // twen-ty let-ters here x: 7 syllables → at most 2800 ms of singing.
+        // A short interval is sung for nine tenths ...
+        assert_eq!(fill_end(0, Some(2000), "twenty letters here x"), 1800);
+        // ... a long one ends in a pause after the estimated singing time.
+        assert_eq!(fill_end(0, Some(3500), "twenty letters here x"), 2800);
+        assert_eq!(fill_end(0, Some(12_000), "twenty letters here x"), 2800);
         // Short text is at least 1 s, long text at most 8 s.
         assert_eq!(fill_end(1000, None, "hi"), 2000);
-        assert_eq!(fill_end(0, None, &"a".repeat(500)), 8000);
+        assert_eq!(fill_end(0, None, &"la ".repeat(50)), 8000);
         // Instrumental marker: nothing to fill.
         assert_eq!(fill_end(5000, Some(9000), "  "), 5000);
-        // Kana and kanji count like letters.
-        assert_eq!(fill_end(0, None, "夜明けの街"), 1000);
+        // 夜 1.5 明 1.5 け 1 の 1 街 1.5 = 6.5 syllables.
+        assert_eq!(fill_end(0, None, "夜明けの街"), 2600);
     }
 }

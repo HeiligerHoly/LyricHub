@@ -8,6 +8,10 @@ The notable changes of each version. The release notes in [docs/release-notes/](
 
 - Setting "Fill word by word" on the Appearance page. Off, the current line shows whole in the accent colour at once instead of filling with mostly estimated word times.
 
+### Changed
+
+- The word timing estimate for lyrics without word times is closer to the singing: words share a line by syllables instead of letters, the last word is held longer, and a line is sung for nine tenths of the interval to the next one but rarely more than 400 ms per syllable. Measured against 79 word-aligned songs, the median error of a word start fell from 184 to 136 ms and the slowest tenth from 1.28 s to 0.73 s ([docs/en/word-timing.md](docs/en/word-timing.md)).
+
 ## 1.0.1 – 2026-10-27
 
 See [docs/release-notes/v1.0.1.md](docs/release-notes/v1.0.1.md).
