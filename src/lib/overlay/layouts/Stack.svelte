@@ -78,7 +78,11 @@
     --side: calc(18px * 1.25 * var(--s));
   }
   .window {
-    overflow: hidden;
+    /* Clip with room for the outline and shadows of the themes (theme.ts), which reach past
+       the glyphs; too long text still ends in an ellipsis. A fixed length: WebView2 ignores
+       calc() with var() here. */
+    overflow: clip;
+    overflow-clip-margin: 16px;
   }
   .list {
     display: grid;
@@ -89,7 +93,8 @@
     justify-content: var(--justify);
     align-items: center;
     min-width: 0;
-    overflow: hidden;
+    overflow: clip;
+    overflow-clip-margin: 16px;
   }
   .side {
     height: var(--side);
@@ -97,7 +102,8 @@
   .dim {
     margin: 0;
     min-width: 0;
-    overflow: hidden;
+    overflow: clip;
+    overflow-clip-margin: 16px;
     white-space: nowrap;
     text-overflow: ellipsis;
     font-size: calc(18px * var(--s));

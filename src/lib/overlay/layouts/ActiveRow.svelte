@@ -57,7 +57,11 @@
     justify-content: var(--justify);
     align-items: center;
     min-width: 0;
-    overflow: hidden;
+    /* Clip with room for the outline and shadows of the themes (theme.ts), which reach past
+       the glyphs; too long text still ends in an ellipsis. A fixed length: WebView2 ignores
+       calc() with var() here. */
+    overflow: clip;
+    overflow-clip-margin: 16px;
     height: calc(var(--line-size) * 1.25);
   }
   .slot {
@@ -69,7 +73,8 @@
   .hint {
     margin: 0;
     min-width: 0;
-    overflow: hidden;
+    overflow: clip;
+    overflow-clip-margin: 16px;
     white-space: nowrap;
     text-overflow: ellipsis;
     font-size: calc(16px * var(--s));

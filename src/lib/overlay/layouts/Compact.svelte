@@ -78,7 +78,11 @@
   .title,
   .name {
     min-width: 0;
-    overflow: hidden;
+    /* Clip with room for the outline and shadows of the themes (theme.ts), which reach past
+       the glyphs; too long text still ends in an ellipsis. A fixed length: WebView2 ignores
+       calc() with var() here. */
+    overflow: clip;
+    overflow-clip-margin: 16px;
     text-overflow: ellipsis;
   }
   .title {
