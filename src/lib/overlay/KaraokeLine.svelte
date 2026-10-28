@@ -119,8 +119,11 @@
     const speed = staticFill !== null ? 0 : clock.speed(now);
     const done = t >= duration + GLOW_OUT_MS;
     for (const a of anims) {
-      a.currentTime = Math.max(0, t);
-      if (speed > 0 && !done) {
+      // A finished animation stays at its end: play() would rewind it to the start, and a word
+      // sung long ago would glow again (or the fill start over in the line's last 300 ms).
+      const end = Number(a.effect?.getComputedTiming().endTime ?? 0);
+      a.currentTime = Math.min(Math.max(0, t), end);
+      if (speed > 0 && t < end) {
         a.playbackRate = speed;
         if (a.playState !== "running") a.play();
       } else {
@@ -164,6 +167,14 @@
     if (text === shownText) return;
     shownText = text;
     measureFit();
+    tick().then(build);
+  });
+
+  // New word times arrive while the line runs (a plugin answered): measure and build again.
+  let shownTiming = untrack(() => [words, startMs, fillEndMs] as const);
+  $effect(() => {
+    if (words === shownTiming[0] && startMs === shownTiming[1] && fillEndMs === shownTiming[2]) return;
+    shownTiming = [words, startMs, fillEndMs];
     tick().then(build);
   });
 
