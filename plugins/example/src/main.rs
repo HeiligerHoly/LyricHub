@@ -1,5 +1,7 @@
-//! Test plugin for LyricHub's plugin host (PLAN-plugins.md, P1). It answers `initialize`, reports
-//! a status, writes one stderr line and ends on `shutdown` or when its input closes.
+//! Test plugin for LyricHub's plugin host (PLAN-plugins.md, P1 and P2). It answers `initialize`,
+//! reports a status, writes one stderr line and ends on `shutdown` or when its input closes. For
+//! every `lyrics` it sends `word_times`: the units of each line spread evenly over the first four
+//! fifths of the line, which is easy to tell from LyricHub's own estimate.
 //!
 //! The host's tests steer it with a `behavior.json` next to the program:
 //! `{ "api": 2 }` answers with another protocol version, `{ "crash_ms": 100 }` ends with exit
@@ -14,6 +16,30 @@ fn send(message: Value) {
     let mut out = std::io::stdout().lock();
     let _ = writeln!(out, "{message}");
     let _ = out.flush();
+}
+
+fn word_times(lyrics: &Value) -> Value {
+    let empty = Vec::new();
+    let lines: Vec<Value> = lyrics["lines"]
+        .as_array()
+        .unwrap_or(&empty)
+        .iter()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            let n = line["units"].as_array().map_or(0, Vec::len) as u64;
+            let start = line["start_ms"].as_u64()?;
+            let end = line["end_ms"].as_u64().unwrap_or(start + 3000);
+            if n == 0 || end <= start {
+                return None;
+            }
+            let each = (end - start) * 4 / 5 / n;
+            let words: Vec<[u64; 2]> = (0..n).map(|i| [start + i * each, start + (i + 1) * each]).collect();
+            Some(json!({ "index": index, "words": words }))
+        })
+        .collect();
+    json!({ "jsonrpc": "2.0", "method": "word_times", "params": {
+        "key": lyrics["key"], "lyrics_hash": lyrics["lyrics_hash"], "lines": lines,
+    }})
 }
 
 fn main() {
@@ -37,10 +63,11 @@ fn main() {
         let Ok(msg) = serde_json::from_str::<Value>(&line) else { continue };
         match msg.get("method").and_then(Value::as_str) {
             Some("initialize") if !silent => {
-                send(json!({ "jsonrpc": "2.0", "id": msg["id"], "result": { "api": api, "capabilities": [] } }));
+                send(json!({ "jsonrpc": "2.0", "id": msg["id"], "result": { "api": api, "capabilities": ["word_timing"] } }));
                 send(json!({ "jsonrpc": "2.0", "method": "status", "params": { "text": "ready" } }));
                 send(json!({ "jsonrpc": "2.0", "method": "log", "params": { "level": "info", "text": "initialized" } }));
             }
+            Some("lyrics") => send(word_times(&msg["params"])),
             Some("shutdown") => break,
             _ => {}
         }

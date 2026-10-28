@@ -2,6 +2,11 @@
 //! watches and ends; they talk JSON-RPC over stdin/stdout. Version 1 of the protocol knows word
 //! times only, and for now only LyricHub's own plugins exist (no documented API for others).
 //!
+//! A plugin with the capability `word_timing` hears `track`, `playback` (on every change and
+//! every 2 s) and `lyrics` (synced lines with LyricHub's units), and answers with
+//! `word_times`; those are checked, stored per lyrics fingerprint and replace the estimate
+//! (words.rs, app_state.rs).
+//!
 //! Program files live in %APPDATA%/LyricHub/plugins/<id>, large data such as models in
 //! %LOCALAPPDATA%/LyricHub/plugins/<id>. Which plugins are on is in the settings
 //! (`plugins.enabled`); a newly installed plugin is off.
@@ -10,16 +15,20 @@ pub mod install;
 pub mod manifest;
 pub mod process;
 pub mod supervisor;
+pub mod words;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::app_state::ClockEvent;
+use crate::lyrics::types::{LyricsEvent, LyricsState};
 use crate::settings::SettingsState;
+use crate::sources::TrackInfo;
 use manifest::{API_VERSION, Manifest};
 use process::Event;
 use supervisor::{Config, State, Supervisor};
@@ -139,7 +148,11 @@ fn start(app: &AppHandle, id: &str) {
         let (app, id) = (app.clone(), id.to_owned());
         Arc::new(move |s: State| {
             tracing::info!(plugin = %id, state = ?s, "plugin state");
+            let running = s == State::Running;
             update(&app, &id, |e| e.state = Some(s.clone()));
+            if running {
+                send_current(&app, &id);
+            }
         })
     };
     let on_event = {
@@ -154,8 +167,8 @@ fn start(app: &AppHandle, id: &str) {
                 _ => tracing::info!(plugin = %id, "{text}"),
             },
             Event::Stderr(line) => tracing::debug!(plugin = %id, "stderr: {line}"),
-            // The capabilities follow in P2 (word_times).
-            Event::Notification { method, .. } => tracing::debug!(plugin = %id, method, "plugin notification"),
+            Event::Notification { method, params } if method == "word_times" => on_word_times(&app, &id, &params),
+            Event::Notification { method, .. } => tracing::debug!(plugin = %id, method, "unknown plugin notification"),
         })
     };
     let supervisor = Supervisor::start(config, on_state, on_event);
@@ -298,12 +311,133 @@ pub fn discard_staged(app: &AppHandle) {
 pub fn uninstall(app: &AppHandle, id: &str) -> Result<Vec<PluginInfo>, String> {
     stop(app, id);
     install::remove(&program_dir(), &data_root(), id)?;
+    crate::app_state::forget_plugin_words(app, id);
     app.state::<PluginsState>().entries.lock().unwrap().remove(id);
     let (before, after) = app.state::<SettingsState>().update(|s| s.plugins.enabled.retain(|x| x != id));
     crate::ipc::settings_changed(app, &before, &after);
     tracing::info!(plugin = id, "plugin removed");
     let _ = app.emit(EVENT, list(app));
     Ok(list(app))
+}
+
+/// Running plugins with the capability `word_timing`, with their manifests.
+fn word_timing(app: &AppHandle) -> Vec<(Manifest, Arc<process::Process>)> {
+    let state = app.state::<PluginsState>();
+    let entries = state.entries.lock().unwrap();
+    entries
+        .values()
+        .filter(|e| e.state == Some(State::Running))
+        .filter_map(|e| {
+            let m = e.manifest.as_ref().ok()?;
+            let p = e.supervisor.as_ref()?.process()?;
+            m.capabilities.iter().any(|c| c == "word_timing").then(|| (m.clone(), p))
+        })
+        .collect()
+}
+
+fn track_params(t: Option<&TrackInfo>, manifest: &Manifest, app: &AppHandle) -> Value {
+    let Some(t) = t else { return Value::Null };
+    let app_id = app.state::<SettingsState>().get().player.app_id;
+    // Only a plugin that says it captures the player's sound learns which process that is.
+    let pid = manifest
+        .permissions
+        .iter()
+        .any(|p| p == "audio:player")
+        .then(|| crate::sources::smtc::player_pid(&app_id))
+        .flatten();
+    json!({
+        "key": t.key, "title": t.title, "artist": t.artist, "album": t.album,
+        "duration_ms": t.duration_ms, "player": { "app_id": app_id, "pid": pid },
+    })
+}
+
+pub fn on_track(app: &AppHandle, track: Option<&TrackInfo>) {
+    for (m, p) in word_timing(app) {
+        p.notify("track", track_params(track, &m, app));
+    }
+}
+
+/// Position valid now, with the moment as QueryPerformanceCounter time in 100 ns units: the unit
+/// WASAPI uses for the capture position (PLAN-plugins.md 5.1).
+fn playback_params(clock: &ClockEvent) -> Value {
+    use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
+    let (mut count, mut freq) = (0i64, 0i64);
+    // SAFETY: plain counter reads.
+    unsafe {
+        let _ = QueryPerformanceCounter(&mut count);
+        let _ = QueryPerformanceFrequency(&mut freq);
+    }
+    let qpc_100ns = if freq > 0 { (count as i128 * 10_000_000 / freq as i128) as i64 } else { 0 };
+    json!({ "playing": clock.playing, "position_ms": clock.pos_ms, "rate": clock.rate, "qpc_100ns": qpc_100ns })
+}
+
+pub fn on_playback(app: &AppHandle, clock: &ClockEvent) {
+    let plugins = word_timing(app);
+    if plugins.is_empty() {
+        return;
+    }
+    let params = playback_params(clock);
+    for (_, p) in plugins {
+        p.notify("playback", params.clone());
+    }
+}
+
+fn lyrics_params(event: &LyricsEvent) -> Option<Value> {
+    if event.state != LyricsState::Synced {
+        return None;
+    }
+    let lines: Vec<Value> = event
+        .lines
+        .iter()
+        .map(|l| {
+            json!({ "start_ms": l.start_ms, "end_ms": l.end_ms, "text": l.text, "romaji": l.romaji, "units": words::units(l) })
+        })
+        .collect();
+    Some(json!({ "key": event.key, "lyrics_hash": words::lyrics_hash(&event.lines), "lines": lines }))
+}
+
+pub fn on_lyrics(app: &AppHandle, event: &LyricsEvent) {
+    let Some(params) = lyrics_params(event) else { return };
+    for (_, p) in word_timing(app) {
+        p.notify("lyrics", params.clone());
+    }
+}
+
+/// A plugin that just started hears what plays now.
+fn send_current(app: &AppHandle, id: &str) {
+    let Some((m, p)) = word_timing(app).into_iter().find(|(m, _)| m.id == id) else { return };
+    let state = app.state::<crate::app_state::NowPlayingState>();
+    let now = state.snapshot();
+    p.notify("track", track_params(now.track.as_ref(), &m, app));
+    if let Some(params) = state.lyrics().as_ref().and_then(lyrics_params) {
+        p.notify("lyrics", params);
+    }
+    p.notify("playback", playback_params(&crate::app_state::clock_event(app, "query")));
+}
+
+fn on_word_times(app: &AppHandle, id: &str, params: &Value) {
+    let (key, hash, answer) = match words::parse_word_times(params) {
+        Ok(x) => x,
+        Err(e) => return tracing::warn!(plugin = id, error = %e, "word times not readable"),
+    };
+    let Some(lines) = crate::app_state::lyrics_lines_for(app, &key) else {
+        return tracing::info!(plugin = id, key = %key, "word times for lyrics LyricHub does not have");
+    };
+    if words::lyrics_hash(&lines) != hash {
+        return tracing::info!(plugin = id, key = %key, "word times for other lyrics (fingerprint differs)");
+    }
+    let valid = words::valid_lines(&lines, &answer);
+    tracing::info!(plugin = id, key = %key, lines = answer.len(), valid = valid.len(), "word times received");
+    if valid.is_empty() {
+        return;
+    }
+    let version = {
+        let state = app.state::<PluginsState>();
+        let entries = state.entries.lock().unwrap();
+        entries.get(id).and_then(|e| e.manifest.as_ref().ok().map(|m| m.version.clone())).unwrap_or_default()
+    };
+    let json = serde_json::to_string(&valid).unwrap_or_default();
+    crate::app_state::store_plugin_words(app, &key, &hash, (id, &version), &json);
 }
 
 /// Ends every plugin when LyricHub exits; they get their 2 s of grace in parallel.

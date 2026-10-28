@@ -127,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-110 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, browser titles, ads and podcasts, shortcuts with AltGr detection, plugin manifests, ZIP checks and processes, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. Five more run with `cargo test -- --ignored`: one needs a desktop session, one measures the word timing estimate against the JamendoLyrics dataset ([docs/en/word-timing.md](docs/en/word-timing.md)), and three run the plugin host against the example plugin in `plugins/example`, which they build first.
+114 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, browser titles, ads and podcasts, shortcuts with AltGr detection, plugin manifests, ZIP checks and processes, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. Six more run with `cargo test -- --ignored`: one needs a desktop session, one measures the word timing estimate against the JamendoLyrics dataset ([docs/en/word-timing.md](docs/en/word-timing.md)), and four run the plugin host against the example plugin in `plugins/example`, which they build first.
 
 ## Notes
 

@@ -327,6 +327,8 @@ export interface LyricsEvent {
   source: string;
   lines: Line[];
   lrc_offset_ms: number;
+  /** "estimate", "lrc" (Enhanced LRC) or "plugin:<id>"; empty without synced lines. */
+  word_source: string;
 }
 
 export interface NudgeEvent {

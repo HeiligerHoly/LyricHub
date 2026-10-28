@@ -103,6 +103,14 @@
         –
       {/if}
     </dd>
+    {#if lyrics?.word_source}
+      <dt>{t("diag.words")}</dt>
+      <dd>
+        {lyrics.word_source.startsWith("plugin:")
+          ? t("diag.words.plugin", { id: lyrics.word_source.slice("plugin:".length) })
+          : t(lyrics.word_source === "lrc" ? "diag.words.lrc" : "diag.words.estimate")}
+      </dd>
+    {/if}
   </dl>
 </section>
 

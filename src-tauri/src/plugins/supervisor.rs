@@ -59,8 +59,7 @@ impl Supervisor {
         Supervisor { stop, process, thread }
     }
 
-    /// The running process, for notifications to the plugin (from P2 on).
-    #[cfg(test)]
+    /// The running process, for notifications to the plugin.
     pub fn process(&self) -> Option<Arc<Process>> {
         self.process.lock().unwrap().clone()
     }
@@ -226,6 +225,35 @@ mod tests {
             .output()
             .map(|o| String::from_utf8_lossy(&o.stdout).contains(&pid.to_string()))
             .unwrap_or(false));
+    }
+
+    #[test]
+    #[ignore]
+    fn the_example_plugin_answers_lyrics_with_word_times() {
+        let (states, on_state, events, on_event) = collect();
+        let sup = Supervisor::start(plugin_dir("words", json!({})), on_state, on_event);
+        assert!(wait_for(&states, |s| *s == State::Running, 10));
+        // Invented line with three units.
+        let lyrics = json!({ "key": "k", "lyrics_hash": "h", "lines": [
+            { "start_ms": 1000, "end_ms": 4000, "text": "paper boats drift", "units": ["paper", "boats", "drift"] },
+        ]});
+        sup.process().unwrap().notify("lyrics", lyrics);
+        let since = Instant::now();
+        let answer = loop {
+            let found = events.lock().unwrap().iter().find_map(|e| match e {
+                Event::Notification { method, params } if method == "word_times" => Some(params.clone()),
+                _ => None,
+            });
+            if let Some(a) = found {
+                break a;
+            }
+            assert!(since.elapsed() < Duration::from_secs(5), "no word_times");
+            std::thread::sleep(Duration::from_millis(50));
+        };
+        let (key, hash, lines) = super::super::words::parse_word_times(&answer).unwrap();
+        assert_eq!((key.as_str(), hash.as_str(), lines.len()), ("k", "h", 1));
+        assert_eq!(lines[0].words, vec![[1000, 1800], [1800, 2600], [2600, 3400]]);
+        sup.stop();
     }
 
     #[test]

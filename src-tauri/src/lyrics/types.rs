@@ -57,10 +57,13 @@ pub struct LyricsEvent {
     pub lines: Vec<Line>,
     /// The `[offset:]` tag, already applied to the times; kept for diagnostics.
     pub lrc_offset_ms: i32,
+    /// Where the word times come from: "estimate", "lrc" (Enhanced LRC) or "plugin:<id>";
+    /// empty without synced lines.
+    pub word_source: String,
 }
 
 impl LyricsEvent {
     pub fn state(key: &str, state: LyricsState) -> Self {
-        Self { key: key.to_owned(), state, source: String::new(), lines: Vec::new(), lrc_offset_ms: 0 }
+        Self { key: key.to_owned(), state, source: String::new(), lines: Vec::new(), lrc_offset_ms: 0, word_source: String::new() }
     }
 }

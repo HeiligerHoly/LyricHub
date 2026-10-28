@@ -6,7 +6,8 @@ use std::path::Path;
 
 use rusqlite::{Connection, OptionalExtension, params};
 
-const SCHEMA_VERSION: i64 = 1;
+/// 2: table `plugin_words` (PLAN-plugins.md 4.6), created like the others if missing.
+const SCHEMA_VERSION: i64 = 2;
 pub const NEGATIVE_TTL_S: i64 = 7 * 24 * 3600;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -88,7 +89,11 @@ impl Cache {
              CREATE TABLE IF NOT EXISTS song_overrides (
                key TEXT PRIMARY KEY, offset_ms INTEGER NOT NULL DEFAULT 0, user_lrc TEXT);
              CREATE TABLE IF NOT EXISTS device_offsets (
-               device_id TEXT PRIMARY KEY, name TEXT, offset_ms INTEGER NOT NULL DEFAULT 0);",
+               device_id TEXT PRIMARY KEY, name TEXT, offset_ms INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE IF NOT EXISTS plugin_words (
+               key TEXT NOT NULL, lyrics_hash TEXT NOT NULL, plugin_id TEXT NOT NULL,
+               plugin_version TEXT NOT NULL, words_json TEXT NOT NULL, created_at INTEGER NOT NULL,
+               PRIMARY KEY (key, lyrics_hash));",
         )?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         if version < SCHEMA_VERSION {
@@ -108,6 +113,7 @@ impl Cache {
             [cutoff],
         )?;
         self.conn.execute("DELETE FROM tracks WHERE last_seen < ?1", [cutoff])?;
+        self.conn.execute("DELETE FROM plugin_words WHERE key NOT IN (SELECT key FROM lyrics)", [])?;
         self.conn.execute("DELETE FROM negative_cache WHERE until < ?1", [now])?;
         self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
         Ok(lyrics)
@@ -236,6 +242,38 @@ impl Cache {
         rows.collect()
     }
 
+    /// Word times a plugin sent for these lyrics: plugin ID and the lines as JSON.
+    pub fn plugin_words(&self, key: &str, lyrics_hash: &str) -> rusqlite::Result<Option<(String, String)>> {
+        self.conn
+            .query_row(
+                "SELECT plugin_id, words_json FROM plugin_words WHERE key = ?1 AND lyrics_hash = ?2",
+                params![key, lyrics_hash],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+    }
+
+    pub fn set_plugin_words(
+        &self,
+        key: &str,
+        lyrics_hash: &str,
+        plugin: (&str, &str),
+        words_json: &str,
+        now: i64,
+    ) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO plugin_words (key, lyrics_hash, plugin_id, plugin_version, words_json, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![key, lyrics_hash, plugin.0, plugin.1, words_json, now],
+        )?;
+        Ok(())
+    }
+
+    /// Drops every word time a plugin stored (the plugin was removed). Returns how many songs.
+    pub fn forget_plugin_words(&self, plugin_id: &str) -> rusqlite::Result<usize> {
+        self.conn.execute("DELETE FROM plugin_words WHERE plugin_id = ?1", [plugin_id])
+    }
+
     /// Drops what is known about a song, so the next lookup asks LRCLIB again.
     pub fn forget(&self, key: &str) -> rusqlite::Result<()> {
         self.conn.execute("DELETE FROM lyrics WHERE key = ?1", [key])?;
@@ -318,6 +356,25 @@ mod tests {
         c.set_device_offset("dev", "Kopfhörer (USB)", 120).unwrap();
         assert_eq!(c.device_offset("dev").unwrap(), Some(120));
         assert_eq!(c.devices().unwrap(), vec![("dev".to_owned(), "Kopfhörer (USB)".to_owned(), 120)]);
+    }
+
+    #[test]
+    fn plugin_words_follow_key_and_fingerprint_and_go_with_their_lyrics() {
+        let c = Cache::in_memory().unwrap();
+        c.put("k", &cached(Format::Lrc)).unwrap();
+        c.set_plugin_words("k", "h1", ("align", "0.1.0"), "[]", 10).unwrap();
+        assert_eq!(c.plugin_words("k", "h1").unwrap(), Some(("align".into(), "[]".into())));
+        assert_eq!(c.plugin_words("k", "h2").unwrap(), None);
+        c.set_plugin_words("k", "h1", ("align", "0.2.0"), "[1]", 11).unwrap();
+        assert_eq!(c.plugin_words("k", "h1").unwrap().unwrap().1, "[1]");
+        // A removed plugin takes its word times along.
+        c.set_plugin_words("k", "h2", ("other", "1"), "[]", 12).unwrap();
+        assert_eq!(c.forget_plugin_words("other").unwrap(), 1);
+        assert_eq!(c.plugin_words("k", "h2").unwrap(), None);
+        // Pruned lyrics take their word times along.
+        c.touch_track("k", "T", "A", None, None, 0).unwrap();
+        c.prune(1000, 10).unwrap();
+        assert_eq!(c.plugin_words("k", "h1").unwrap(), None);
     }
 
     #[test]

@@ -112,6 +112,40 @@ pub fn list_sessions() -> Vec<PlayerSession> {
     })
 }
 
+/// Process ID of the player's root process, for a plugin that captures its sound (process
+/// loopback includes the child processes). Firefox-based browsers report only a hash, so the
+/// usual program names are tried.
+pub fn player_pid(app_id: &str) -> Option<u32> {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
+    };
+    let names: &[&str] = match player_kind(app_id) {
+        "spotify" => &["spotify.exe"],
+        "edge" => &["msedge.exe"],
+        "chrome" => &["chrome.exe"],
+        "firefox" => &["firefox.exe", "zen.exe", "librewolf.exe", "floorp.exe", "waterfox.exe"],
+        _ => return None,
+    };
+    let mut procs = Vec::new();
+    // SAFETY: a process snapshot read entry by entry and closed afterwards.
+    unsafe {
+        let snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()?;
+        let mut e = PROCESSENTRY32W { dwSize: size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+        let mut ok = Process32FirstW(snap, &mut e).is_ok();
+        while ok {
+            let len = e.szExeFile.iter().position(|&c| c == 0).unwrap_or(e.szExeFile.len());
+            procs.push((e.th32ProcessID, e.th32ParentProcessID, String::from_utf16_lossy(&e.szExeFile[..len]).to_lowercase()));
+            ok = Process32NextW(snap, &mut e).is_ok();
+        }
+        let _ = CloseHandle(snap);
+    }
+    names.iter().find_map(|name| {
+        let same: Vec<_> = procs.iter().filter(|p| p.2 == *name).collect();
+        same.iter().find(|p| !same.iter().any(|q| q.0 == p.1)).map(|p| p.0)
+    })
+}
+
 fn player_kind(app_id: &str) -> &'static str {
     let id = app_id.to_lowercase();
     if id.contains("spotify") {

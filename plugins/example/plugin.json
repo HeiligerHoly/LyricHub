@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "api": 1,
   "executable": "lyrichub-plugin-example.exe",
-  "capabilities": [],
+  "capabilities": ["word_timing"],
   "permissions": [],
   "homepage": "https://github.com/HeiligerHoly/LyricHub",
   "description": {

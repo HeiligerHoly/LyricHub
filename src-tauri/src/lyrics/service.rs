@@ -202,18 +202,20 @@ fn to_cached(track: &LrclibTrack, now: i64) -> Cached {
     }
 }
 
-fn to_event(key: &str, c: &Cached, via: &str) -> LyricsEvent {
+pub fn to_event(key: &str, c: &Cached, via: &str) -> LyricsEvent {
     let source = if via == "cache" { format!("cache:{}", c.source) } else { c.source.clone() };
     let state = match c.format {
         Format::Lrc => {
             let parsed = parser::parse(&c.raw);
             if parsed.synced && parsed.lines.iter().any(|l| !l.text.is_empty()) {
+                let lrc_words = parsed.lines.iter().flat_map(|l| l.words.iter().flatten()).any(|w| !w.estimated);
                 return LyricsEvent {
                     key: key.to_owned(),
                     state: LyricsState::Synced,
                     source,
                     lines: parsed.lines,
                     lrc_offset_ms: parsed.offset_ms,
+                    word_source: if lrc_words { "lrc" } else { "estimate" }.into(),
                 };
             }
             LyricsState::Unsynced
@@ -222,7 +224,7 @@ fn to_event(key: &str, c: &Cached, via: &str) -> LyricsEvent {
         Format::None if c.instrumental => LyricsState::Instrumental,
         Format::None => LyricsState::Missing,
     };
-    LyricsEvent { key: key.to_owned(), state, source, lines: Vec::new(), lrc_offset_ms: 0 }
+    LyricsEvent { key: key.to_owned(), state, source, lines: Vec::new(), lrc_offset_ms: 0, word_source: String::new() }
 }
 
 fn unix_now() -> i64 {

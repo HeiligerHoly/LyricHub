@@ -240,7 +240,9 @@ pub fn clock_event(app: &AppHandle, kind: &'static str) -> ClockEvent {
 }
 
 pub fn emit_clock(app: &AppHandle, kind: &'static str) {
-    emit(app, events::CLOCK, &clock_event(app, kind));
+    let event = clock_event(app, kind);
+    crate::plugins::on_playback(app, &event);
+    emit(app, events::CLOCK, &event);
 }
 
 /// Nudge (PLAN.md 5.7): changes and stores the offset of the song that plays. Returns the new
@@ -356,6 +358,7 @@ fn on_lyrics(app: &AppHandle, mut event: LyricsEvent) {
     if app.state::<SettingsState>().get().appearance.romaji {
         add_romaji(&mut event);
     }
+    add_plugin_words(app, &mut event);
     {
         let state = app.state::<NowPlayingState>();
         let mut inner = state.inner.lock().unwrap();
@@ -367,6 +370,66 @@ fn on_lyrics(app: &AppHandle, mut event: LyricsEvent) {
         inner.lyrics = Some(event.clone());
     }
     emit(app, events::LYRICS, &event);
+    crate::plugins::on_lyrics(app, &event);
+}
+
+/// Word times a plugin stored for these lyrics (PLAN-plugins.md 4.6); they replace the estimate.
+fn add_plugin_words(app: &AppHandle, event: &mut LyricsEvent) {
+    if event.state != LyricsState::Synced {
+        return;
+    }
+    let hash = crate::plugins::words::lyrics_hash(&event.lines);
+    let state = app.state::<NowPlayingState>();
+    let Some((plugin, json)) = state.with_db(|db| db.plugin_words(&event.key, &hash)).flatten() else { return };
+    let Ok(answer) = serde_json::from_str::<Vec<crate::plugins::words::PluginLine>>(&json) else { return };
+    let lines = crate::plugins::words::apply(&mut event.lines, &answer);
+    if lines > 0 {
+        event.word_source = format!("plugin:{plugin}");
+        tracing::info!(key = %event.key, plugin = %plugin, lines, "word times from a plugin");
+    }
+}
+
+/// A removed plugin's word times go; the song that plays falls back to the estimate at once.
+pub fn forget_plugin_words(app: &AppHandle, plugin_id: &str) {
+    let state = app.state::<NowPlayingState>();
+    let songs = state.with_db(|db| db.forget_plugin_words(plugin_id)).unwrap_or(0);
+    tracing::info!(plugin = plugin_id, songs, "plugin word times removed");
+    let Some(current) = state.lyrics().filter(|l| l.word_source == format!("plugin:{plugin_id}")) else { return };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    if let Some(crate::lyrics::cache::Lookup::Hit(c)) = state.with_db(|db| db.get(&current.key, now)) {
+        on_lyrics(app, crate::lyrics::service::to_event(&current.key, &c, "cache"));
+    }
+}
+
+/// Lines of the lyrics a plugin answers for: the current song, or the cache (a plugin may answer
+/// after the song is over).
+pub fn lyrics_lines_for(app: &AppHandle, key: &str) -> Option<Vec<crate::lyrics::types::Line>> {
+    let state = app.state::<NowPlayingState>();
+    if let Some(current) = state.lyrics().filter(|l| l.key == key) {
+        return Some(current.lines);
+    }
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    match state.with_db(|db| db.get(key, now))? {
+        crate::lyrics::cache::Lookup::Hit(c) => Some(crate::lyrics::service::to_event(key, &c, "cache").lines),
+        _ => None,
+    }
+}
+
+/// Stores word times from a plugin and, for the song that plays, shows them at once.
+pub fn store_plugin_words(app: &AppHandle, key: &str, hash: &str, plugin: (&str, &str), json: &str) {
+    let state = app.state::<NowPlayingState>();
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    state.with_db(|db| db.set_plugin_words(key, hash, plugin, json, now));
+    let Some(mut lyrics) = state.lyrics().filter(|l| l.key == key) else { return };
+    add_plugin_words(app, &mut lyrics);
+    {
+        let mut inner = state.inner.lock().unwrap();
+        if inner.lyrics.as_ref().map(|l| l.key.as_str()) != Some(key) {
+            return;
+        }
+        inner.lyrics = Some(lyrics.clone());
+    }
+    emit(app, events::LYRICS, &lyrics);
 }
 
 /// Romaji for the Japanese lines of a song (docs/romaji.md). Runs once per song; the result
@@ -448,8 +511,12 @@ fn handle(app: &AppHandle, event: SourceEvent) {
             if let Some(lyrics) = rekeyed {
                 emit(app, events::LYRICS, &lyrics);
             }
+            let key_changed = rekeyed_offset.is_some();
             if let Some((old, new)) = rekeyed_offset {
                 rekey_song_offset(app, &old, &new);
+            }
+            if new_song || key_changed || info.is_none() {
+                crate::plugins::on_track(app, info.as_ref());
             }
             if new_song {
                 sync_lab::record(app, Instant::now(), sync_lab::entry("track", "smtc", 0.0));

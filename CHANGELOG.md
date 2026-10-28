@@ -7,6 +7,7 @@ The notable changes of each version. The release notes in [docs/release-notes/](
 ### Added
 
 - Plugin host (PLAN-plugins.md, P1): Settings → Plugins installs a plugin from a ZIP after showing its name, version, permissions and SHA-256, switches it on or off, and shows its state. Plugins run as separate programs at below-normal priority inside a job object that ends them with LyricHub; a crashing plugin is restarted after 2, 10 and 60 s, then left off. There are no plugins to install yet; the first, real word times from the audio, follows.
+- Word times from plugins (P2): a plugin with the capability `word_timing` hears the track, the playback position and the synced lines, and answers with word times. LyricHub checks them line by line, stores them per lyrics fingerprint, and they replace the estimate, with the word glow. Diagnostics shows where a song's word times come from. Removing a plugin also removes its word times.
 
 ## 1.1.0 – 2026-10-28
 

@@ -1,7 +1,7 @@
-# Plugin-Host (P1 aus PLAN-plugins.md)
+# Plugin-Host (P1 und P2 aus PLAN-plugins.md)
 
 > Datum: 2026-10-28 · nach v1.1.0 · Bezug: [PLAN-plugins.md](../PLAN-plugins.md) Abschnitte 4 und 6
-> Ergebnis: **LyricHub installiert, startet, überwacht und beendet Plugins. Alle Abnahmekriterien von P1 sind in der echten App geprüft.** Plugins können noch nichts liefern; die Wortzeiten folgen in P2.
+> Ergebnis: **LyricHub installiert, startet, überwacht und beendet Plugins (P1) und übernimmt Wortzeiten von ihnen (P2). Die Abnahmekriterien beider Phasen sind in der echten App geprüft.** Das erste echte Plugin folgt in P3.
 
 ## Was gebaut ist
 
@@ -45,7 +45,27 @@ Ordner: Programme unter `%APPDATA%\LyricHub\plugins\<id>`, große Daten wie Mode
 
 Ohne Plugins startet nichts. Der Installer bleibt klein: Neu sind nur die Bibliotheken `zip` und `typed-path`.
 
-## Offen für P2
+## P2: Wortzeiten von Plugins
 
-- Die Fähigkeit `word_timing`: Benachrichtigungen `track`, `playback`, `lyrics` an das Plugin, `word_times` zurück, Cache-Tabelle und Übernahme in die Lyrics.
-- Die Prozess-ID des Players nur für Plugins mit `audio:player`.
+Ein Plugin mit der Fähigkeit `word_timing` bekommt:
+
+- **`track`:** Kennung, Titel, Artist, Album, Länge und den Player. Die Prozess-ID des Players bekommt nur ein Plugin mit `audio:player`.
+- **`playback`:** bei jeder Änderung und alle 2 s, mit Position, Tempo und dem Zeitpunkt als QueryPerformanceCounter-Wert in 100 ns. Das ist die Einheit, in der WASAPI aufgenommenen Ton stempelt.
+- **`lyrics`:** die synchronen Zeilen mit Start, Ende, Text, Romaji und LyricHubs Wortaufteilung, dazu einen Fingerabdruck aus Startzeiten und Texten.
+- **Gerade gestartete Plugins** hören sofort, was läuft.
+
+Die Antwort `word_times` prüft LyricHub Zeile für Zeile: eine Zeit pro Wort, aufsteigende Starts, jedes Wort in seiner Zeile mit 1 s Spielraum. Eine Schwelle für die Konfidenz gibt es nicht (P0). Danach:
+
+- **Speichern:** Die Zeiten landen in der Cache-Tabelle `plugin_words`, nach Song und Fingerabdruck. Ändert sich der Liedtext, gelten sie nicht mehr.
+- **Übernehmen:** Sie ersetzen die Schätzung, gelten als gemessen und schalten damit den Wort-Glow an. Läuft der Song gerade, zeigt das Overlay sie sofort.
+- **Herkunft:** Die Diagnose nennt die Herkunft der Wortzeiten: geschätzt, aus der LRC-Datei oder vom Plugin.
+- **Entfernen:** Ein entferntes Plugin nimmt seine Wortzeiten mit. Der laufende Song fällt sofort auf die Schätzung zurück.
+
+**Prüfung**
+
+- Unit-Tests: Fingerabdruck, Prüfung der Antwort, Übernahme, Cache-Tabelle samt Aufräumen.
+- Mit dem Beispiel-Plugin: Es antwortet auf `lyrics` mit Wortzeiten, die gleichmäßig über vier Fünftel jeder Zeile verteilt sind.
+- In der echten App mit einem Spotify-Song:
+  1. Das Plugin bekam die Lyrics und antwortete. Alle 202 Wörter kamen danach vom Plugin, die Diagnose zeigte „vom Plugin“.
+  2. Plugin aus, LyricHub neu gestartet: Die 202 Wörter kamen aus dem Cache.
+  3. Plugin entfernt: Der Song fiel auf die Schätzung zurück.

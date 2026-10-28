@@ -1,7 +1,7 @@
-# Plugin host (P1 of PLAN-plugins.md)
+# Plugin host (P1 and P2 of PLAN-plugins.md)
 
 > Date: 2026-10-28 · after v1.1.0 · Reference: [PLAN-plugins.md](../../PLAN-plugins.md) sections 4 and 6 (German)
-> Result: **LyricHub installs, starts, watches and ends plugins. All acceptance criteria of P1 are checked in the real app.** Plugins cannot deliver anything yet; word times follow in P2.
+> Result: **LyricHub installs, starts, watches and ends plugins (P1) and takes word times from them (P2). The acceptance criteria of both phases are checked in the real app.** The first real plugin follows in P3.
 
 ## What is built
 
@@ -45,7 +45,27 @@ Folders: programs under `%APPDATA%\LyricHub\plugins\<id>`, large data such as mo
 
 Without plugins nothing starts. The installer stays small: the only new libraries are `zip` and `typed-path`.
 
-## Open for P2
+## P2: word times from plugins
 
-- The capability `word_timing`: notifications `track`, `playback`, `lyrics` to the plugin, `word_times` back, a cache table and taking the times over into the lyrics.
-- The player's process ID only for plugins with `audio:player`.
+A plugin with the capability `word_timing` gets:
+
+- **`track`:** key, title, artist, album, length and the player. Only a plugin with `audio:player` gets the player's process ID.
+- **`playback`:** on every change and every 2 s, with position, rate and the moment as a QueryPerformanceCounter value in 100 ns. That is the unit WASAPI stamps captured audio with.
+- **`lyrics`:** the synced lines with start, end, text, romaji and LyricHub's units, plus a fingerprint of start times and texts.
+- **A plugin that just started** hears at once what plays.
+
+LyricHub checks the answer `word_times` line by line: one time pair per unit, rising starts, each word inside its line with 1 s of slack. There is no confidence threshold (P0). Then:
+
+- **Store:** The times go into the cache table `plugin_words`, by song and fingerprint. If the lyrics change, they no longer apply.
+- **Take over:** They replace the estimate and count as measured, which turns on the word glow. If the song is playing, the overlay shows them at once.
+- **Source:** Diagnostics names where the word times come from: estimated, from the LRC file or from the plugin.
+- **Remove:** A removed plugin takes its word times along. The song that plays falls back to the estimate at once.
+
+**Checks**
+
+- Unit tests: fingerprint, checking the answer, taking it over, the cache table including clean-up.
+- With the example plugin: it answers `lyrics` with word times spread evenly over four fifths of each line.
+- In the real app with a Spotify song:
+  1. The plugin got the lyrics and answered. All 202 words came from the plugin afterwards, and Diagnostics said "from the plugin".
+  2. Plugin off, LyricHub restarted: the 202 words came from the cache.
+  3. Plugin removed: the song fell back to the estimate.
