@@ -3,6 +3,8 @@
 //! versions can add fields without a migration; renames and meaning changes need one in
 //! `store::migrate` (PLAN.md 15).
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -17,6 +19,7 @@ pub struct Settings {
     pub sync: SyncSettings,
     pub behavior: BehaviorSettings,
     pub hotkeys: HotkeySettings,
+    pub player: PlayerSettings,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -31,8 +34,29 @@ impl Default for Settings {
             sync: SyncSettings::default(),
             behavior: BehaviorSettings::default(),
             hotkeys: HotkeySettings::default(),
+            player: PlayerSettings::default(),
             extra: Map::new(),
         }
+    }
+}
+
+/// Which media session LyricHub follows (PLAN.md 13.4, docs/spike-browser.md).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct PlayerSettings {
+    /// A part of the session's AppUserModelId. "Spotify" covers the Store and the desktop app;
+    /// anything else is a browser ("MSEdge", or a Firefox-based browser's hash), experimental.
+    pub app_id: String,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
+
+pub const DEFAULT_PLAYER: &str = "Spotify";
+
+impl Default for PlayerSettings {
+    fn default() -> Self {
+        Self { app_id: DEFAULT_PLAYER.into(), extra: Map::new() }
     }
 }
 
@@ -252,6 +276,8 @@ impl Default for AppearanceSettings {
 pub struct SyncSettings {
     /// Positive shows the lyrics later ("lyrics too early → increase").
     pub global_offset_ms: i32,
+    /// Offset per player (`player.app_id`), for the extra output latency of a browser.
+    pub player_offsets_ms: BTreeMap<String, i32>,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -339,6 +365,14 @@ impl Settings {
         o.scale = finite_or(o.scale, d.scale).clamp(SCALE_MIN, SCALE_MAX);
         o.hide_after_pause_s = o.hide_after_pause_s.min(HIDE_AFTER_PAUSE_MAX_S);
         self.sync.global_offset_ms = self.sync.global_offset_ms.clamp(-OFFSET_LIMIT_MS, OFFSET_LIMIT_MS);
+        for ms in self.sync.player_offsets_ms.values_mut() {
+            *ms = (*ms).clamp(-OFFSET_LIMIT_MS, OFFSET_LIMIT_MS);
+        }
+        self.player.app_id = self.player.app_id.trim().to_owned();
+        if self.player.app_id.is_empty() {
+            // An empty filter would match every session.
+            self.player.app_id = DEFAULT_PLAYER.into();
+        }
         let a = &mut self.appearance;
         a.plate_opacity = finite_or(a.plate_opacity, AppearanceSettings::default().plate_opacity).clamp(0.0, 1.0);
         let dc = CustomTheme::default();

@@ -24,7 +24,7 @@ No. LyricHub reads what the Spotify desktop app reports to Windows and needs no 
 
 ## Which music apps work?
 
-The Spotify desktop app, from the Microsoft Store or from spotify.com. The Spotify web player and other music apps are not supported yet.
+The Spotify desktop app, from the Microsoft Store or from spotify.com. Since 1.1 a browser can be chosen instead, experimentally, under Settings → Behavior → Player: YouTube Music works in Edge and Firefox-based browsers, regular YouTube reliably in Edge and Chrome (Firefox-based browsers often report no time there). A browser often plays the sound a little later than Spotify; the offset for this player under Settings → Sync corrects that. The Spotify web player works in Edge; in other browsers it has not been tested.
 
 ## The lyrics are early or late. What can I do?
 

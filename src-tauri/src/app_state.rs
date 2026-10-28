@@ -217,7 +217,9 @@ impl Transport for Unreachable {
 
 pub fn current_offsets(app: &AppHandle) -> Offsets {
     let mut o = *app.state::<NowPlayingState>().offsets.lock().unwrap();
-    o.global_ms = app.state::<SettingsState>().get().sync.global_offset_ms;
+    let s = app.state::<SettingsState>().get();
+    o.global_ms = s.sync.global_offset_ms;
+    o.player_ms = s.sync.player_offsets_ms.get(&s.player.app_id).copied().unwrap_or(0);
     o
 }
 
@@ -454,9 +456,10 @@ fn handle(app: &AppHandle, event: SourceEvent) {
                 state.clock.lock().unwrap().on_track_change();
                 if let Some(t) = &info {
                     apply_song_offset(app, &t.key);
-                    // Ads and podcast episodes have no lyrics to look for (PLAN.md 5.5).
+                    // Ads, podcast episodes and browser videos have no lyrics to look for
+                    // (PLAN.md 5.5, 13.4).
                     match t.kind {
-                        TrackKind::Ad | TrackKind::Podcast => {
+                        TrackKind::Ad | TrackKind::Podcast | TrackKind::Video => {
                             tracing::info!(kind = ?t.kind, "no lyrics lookup for this kind")
                         }
                         _ => request_lyrics(app, t, false),

@@ -19,6 +19,9 @@ pub enum TrackKind {
     Ad,
     /// Podcast episode: title only, no lyrics search.
     Podcast,
+    /// Browser playback that does not look like a song (no length, too short or long, no
+    /// artist): title only, no lyrics search, so video titles do not go to LRCLIB.
+    Video,
     Unknown,
 }
 
@@ -45,6 +48,75 @@ pub fn classify(
         return TrackKind::Podcast;
     }
     if music_type { TrackKind::Music } else { TrackKind::Unknown }
+}
+
+/// Songs in a browser are 45 s to 15 min long; anything else is a video, a stream or a clip.
+const BROWSER_SONG_MS: std::ops::RangeInclusive<u32> = 45_000..=15 * 60_000;
+
+/// A browser's media session (docs/spike-browser.md): Firefox-based browsers call everything
+/// "Music", so the media type says nothing. Without a length there is no usable timeline
+/// (Zen on youtube.com reports 0), and without an artist the lookup would only guess.
+pub fn classify_browser(artist: &str, duration_ms: Option<u32>) -> TrackKind {
+    if artist.trim().is_empty() || !duration_ms.is_some_and(|d| BROWSER_SONG_MS.contains(&d)) {
+        return TrackKind::Video;
+    }
+    TrackKind::Music
+}
+
+/// Title and artist of a browser session, cleaned for display and the lyrics lookup.
+/// youtube.com reports "Artist - Song (Official Video)" by "ArtistVEVO" or "Artist - Topic"
+/// (docs/spike-browser.md, observation 9); YouTube Music reports clean fields.
+pub fn clean_browser_title(title: &str, artist: &str) -> (String, String) {
+    let mut channel = artist.trim().to_owned();
+    for suffix in [" - Topic", "VEVO", "Vevo"] {
+        if let Some(rest) = channel.strip_suffix(suffix) {
+            channel = rest.trim().to_owned();
+        }
+    }
+    let mut song = strip_video_notes(title);
+    // "Artist - Song" when the artist field is a channel: empty, or naming the same artist.
+    for dash in [" - ", " – ", " — "] {
+        if let Some((left, right)) = song.split_once(dash) {
+            let (left, right) = (left.trim(), right.trim());
+            let same = !channel.is_empty() && squash(&channel).contains(&squash(left));
+            if !left.is_empty() && !right.is_empty() && (channel.is_empty() || same || looks_like_channel(artist)) {
+                channel = left.to_owned();
+                song = right.to_owned();
+            }
+            break;
+        }
+    }
+    (song, channel)
+}
+
+/// Drops bracketed notes such as "(Official Music Video)" or "[Lyrics]", and "| …" tails.
+fn strip_video_notes(title: &str) -> String {
+    const NOTES: [&str; 12] =
+        ["official", "video", "audio", "lyric", "visuali", "hd", "4k", "mv", "m/v", "clip", "remaster", "hq"];
+    let mut out = String::new();
+    let mut rest = title.split('|').next().unwrap_or(title).trim();
+    while let Some(open) = rest.find(['(', '[']) {
+        let close_char = if rest[open..].starts_with('(') { ')' } else { ']' };
+        let Some(len) = rest[open..].find(close_char) else { break };
+        let inner = rest[open + 1..open + len].to_lowercase();
+        out.push_str(&rest[..open]);
+        if !NOTES.iter().any(|n| inner.contains(n)) {
+            out.push_str(&rest[open..=open + len]);
+        }
+        rest = &rest[open + len + 1..];
+    }
+    out.push_str(rest);
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Letters and digits only, lower case: "Some Artist" and "SomeArtistVEVO" compare.
+fn squash(s: &str) -> String {
+    s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+}
+
+fn looks_like_channel(artist: &str) -> bool {
+    let a = artist.to_lowercase();
+    ["vevo", " - topic", "official", "records", "music"].iter().any(|n| a.contains(n))
 }
 
 /// Cover art the frontend can put into `<img src>`: a `data:` URL built from the SMTC
@@ -138,6 +210,31 @@ mod tests {
         // A long album track is no podcast.
         assert_eq!(classify("Echoes", "Band", Some("Meddle"), Some(23 * 60_000), true), TrackKind::Music);
         assert_eq!(classify("Song", "Band", Some("Album"), Some(180_000), false), TrackKind::Unknown);
+    }
+
+    #[test]
+    fn browser_sessions_need_a_song_length_and_an_artist() {
+        assert_eq!(classify_browser("Some Band", Some(200_000)), TrackKind::Music);
+        // Zen on youtube.com: no length.
+        assert_eq!(classify_browser("Some Band", None), TrackKind::Video);
+        assert_eq!(classify_browser("Some Band", Some(30_000)), TrackKind::Video);
+        assert_eq!(classify_browser("Some Band", Some(2 * 3_600_000)), TrackKind::Video);
+        assert_eq!(classify_browser("  ", Some(200_000)), TrackKind::Video);
+    }
+
+    #[test]
+    fn youtube_titles_are_split_and_cleaned() {
+        // Invented names throughout.
+        let c = |t: &str, a: &str| clean_browser_title(t, a);
+        assert_eq!(c("Paper Boats (Official Music Video)", "Tiny Harbor"), ("Paper Boats".into(), "Tiny Harbor".into()));
+        assert_eq!(c("Tiny Harbor - Paper Boats [Lyrics]", "TinyHarborVEVO"), ("Paper Boats".into(), "Tiny Harbor".into()));
+        assert_eq!(c("Paper Boats", "Tiny Harbor - Topic"), ("Paper Boats".into(), "Tiny Harbor".into()));
+        assert_eq!(c("Tiny Harbor – Paper Boats | Live Session", "Harbor Records"), ("Paper Boats".into(), "Tiny Harbor".into()));
+        assert_eq!(c("Tiny Harbor - Paper Boats (HD)", ""), ("Paper Boats".into(), "Tiny Harbor".into()));
+        // YouTube Music: a dash inside the song title stays when the artist is a real artist.
+        assert_eq!(c("Paper Boats - Acoustic", "Tiny Harbor"), ("Paper Boats - Acoustic".into(), "Tiny Harbor".into()));
+        // Notes that belong to the song stay.
+        assert_eq!(c("Paper Boats (feat. Quiet Fox)", "Tiny Harbor"), ("Paper Boats (feat. Quiet Fox)".into(), "Tiny Harbor".into()));
     }
 
     #[test]

@@ -1,4 +1,6 @@
-//! Event-driven SMTC source for Spotify (PLAN.md 4.2, 5.4; measurements in docs/spike-smtc.md).
+//! Event-driven SMTC source for the chosen player (PLAN.md 4.2, 5.4; measurements in
+//! docs/spike-smtc.md). Spotify by default; since 1.1 also a browser (PLAN.md 13.4,
+//! docs/spike-browser.md), whose titles are cleaned and which gets no lyrics lookup for videos.
 //!
 //! One worker thread owns every WinRT object. Event handlers run on arbitrary WinRT threads
 //! and only post a message to the worker; the worker does all reads, so blocking `join()`
@@ -26,9 +28,11 @@ use windows::Media::Control::{
 use windows::Media::MediaPlaybackType;
 use windows::Storage::Streams::{Buffer, DataReader, InputStreamOptions};
 
+use serde::Serialize;
+
 use super::{
     ArtRef, Observation, PlaybackSource, PlaybackStatus, SourceEvent, SourceId, TrackInfo, TrackKind, classify,
-    track_key,
+    classify_browser, clean_browser_title, track_key,
 };
 
 const POLL: Duration = Duration::from_millis(250);
@@ -55,6 +59,72 @@ static RECONNECT: AtomicBool = AtomicBool::new(false);
 
 pub fn request_reconnect() {
     RECONNECT.store(true, Ordering::SeqCst);
+}
+
+/// A player chosen in the settings, picked up by the worker within one poll.
+static NEXT_PLAYER: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// Follows another player from now on: a part of its AppUserModelId (settings `player.app_id`).
+pub fn set_player(filter: &str) {
+    *NEXT_PLAYER.lock().unwrap() = Some(filter.to_owned());
+}
+
+/// Anything but Spotify is treated as a browser: cleaned titles, music filter.
+pub fn is_browser(filter: &str) -> bool {
+    !filter.contains("Spotify")
+}
+
+/// A media session Windows knows, for the player choice in the settings.
+#[derive(Serialize, Clone, Debug)]
+pub struct PlayerSession {
+    pub app_id: String,
+    /// "spotify", "edge", "chrome", "firefox" or "other"; Firefox-based browsers report a hash.
+    pub kind: &'static str,
+    pub title: String,
+    pub playing: bool,
+    /// The session reports a length; without one there is nothing to sync to.
+    pub has_timeline: bool,
+}
+
+/// Lists the media sessions, so the user can recognise a browser by what it plays.
+pub fn list_sessions() -> Vec<PlayerSession> {
+    let read = || -> WinResult<Vec<PlayerSession>> {
+        let manager = SessionManager::RequestAsync()?.join()?;
+        let mut out = Vec::new();
+        for session in manager.GetSessions()? {
+            let app_id = session.SourceAppUserModelId()?.to_string();
+            let title = session.TryGetMediaPropertiesAsync()?.join().and_then(|p| p.Title()).map(|t| t.to_string());
+            let playing = map_status(session.GetPlaybackInfo()?.PlaybackStatus()?) == PlaybackStatus::Playing;
+            let has_timeline = session.GetTimelineProperties()?.EndTime()?.Duration > 0;
+            out.push(PlayerSession {
+                kind: player_kind(&app_id),
+                app_id,
+                title: title.unwrap_or_default(),
+                playing,
+                has_timeline,
+            });
+        }
+        Ok(out)
+    };
+    read().unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "could not list media sessions");
+        Vec::new()
+    })
+}
+
+fn player_kind(app_id: &str) -> &'static str {
+    let id = app_id.to_lowercase();
+    if id.contains("spotify") {
+        "spotify"
+    } else if id.contains("msedge") {
+        "edge"
+    } else if id.contains("chrome") {
+        "chrome"
+    } else if id.contains("firefox") || (id.len() == 16 && id.chars().all(|c| c.is_ascii_hexdigit())) {
+        "firefox"
+    } else {
+        "other"
+    }
 }
 
 pub struct SmtcSource {
@@ -175,6 +245,20 @@ impl Worker {
     fn run(mut self) {
         tracing::info!(filter = %self.filter, "smtc source started");
         loop {
+            let next = NEXT_PLAYER.lock().unwrap().take();
+            if let Some(filter) = next.filter(|f| *f != self.filter) {
+                tracing::info!(filter = %filter, "player changed");
+                self.filter = filter;
+                self.bound = None;
+                self.last_app_id = None;
+                self.timeline = None;
+                self.restart_at = None;
+                if self.manager.is_some()
+                    && let Err(e) = self.rebind()
+                {
+                    tracing::warn!(error = %e, "smtc rebind after player change failed");
+                }
+            }
             if RECONNECT.swap(false, Ordering::SeqCst) && self.manager.is_some() {
                 tracing::info!("smtc reconnecting");
                 self.bound = None;
@@ -356,18 +440,25 @@ impl Worker {
         }));
 
         // The duration may settle after the title. While a track change is pending, the new
-        // timeline belongs to the next song, not the current one.
+        // timeline belongs to the next song, not the current one. A browser may also lose its
+        // length again (Zen on youtube.com reports it only right after a seek): then there is
+        // no timeline to sync to any more.
+        let browser = is_browser(&self.filter);
         if self.restart_at.is_none()
-            && end_ms > 0
+            && (end_ms > 0 || browser)
             && let Some(track) = &self.track
         {
-            let duration = Some(end_ms as u32);
+            let duration = Some(end_ms as u32).filter(|&d| d > 0);
             if track.duration_ms != duration {
                 let mut t = track.clone();
                 t.duration_ms = duration;
                 t.key = track_key(&t.artist, &t.title, duration);
-                let music_type = t.kind != TrackKind::Unknown;
-                t.kind = classify(&t.title, &t.artist, t.album.as_deref(), duration, music_type);
+                t.kind = if browser {
+                    classify_browser(&t.artist, duration)
+                } else {
+                    let music_type = t.kind != TrackKind::Unknown;
+                    classify(&t.title, &t.artist, t.album.as_deref(), duration, music_type)
+                };
                 tracing::debug!(key = %t.key, "track duration updated");
                 self.track = Some(t.clone());
                 self.emit(SourceEvent::Track { info: Some(t), first_sign: now });
@@ -385,15 +476,23 @@ impl Worker {
 
         let title = props.Title()?.to_string();
         if title.trim().is_empty() {
-            // Spotify clears the properties briefly while it loads the next song.
+            // Spotify clears the properties briefly while it loads the next song; Edge reports
+            // a closed session without a title for about 0.3 s (docs/spike-browser.md).
             tracing::debug!("empty title, waiting for metadata");
             return Ok(());
         }
         let artist = props.Artist()?.to_string();
         let album = Some(props.AlbumTitle()?.to_string()).filter(|a| !a.is_empty());
         let duration_ms = self.timeline.map(|t| t.end_ms).filter(|&e| e > 0).map(|e| e as u32);
-        let music_type = matches!(props.PlaybackType().and_then(|r| r.Value()), Ok(MediaPlaybackType::Music));
-        let kind = classify(&title, &artist, album.as_deref(), duration_ms, music_type);
+        let (title, artist, kind) = if is_browser(&self.filter) {
+            let (title, artist) = clean_browser_title(&title, &artist);
+            let kind = classify_browser(&artist, duration_ms);
+            (title, artist, kind)
+        } else {
+            let music_type = matches!(props.PlaybackType().and_then(|r| r.Value()), Ok(MediaPlaybackType::Music));
+            let kind = classify(&title, &artist, album.as_deref(), duration_ms, music_type);
+            (title, artist, kind)
+        };
         let mut info = TrackInfo {
             key: track_key(&artist, &title, duration_ms),
             title,

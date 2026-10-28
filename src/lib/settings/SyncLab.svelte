@@ -144,6 +144,7 @@
         {t("lab.offsets.value", {
           global: signed(lab.clock.offsets.global_ms),
           device: signed(lab.clock.offsets.device_ms),
+          player: signed(lab.clock.offsets.player_ms),
           song: signed(lab.clock.offsets.song_ms),
           total: signed(lab.clock.offset_ms),
         })}
@@ -155,6 +156,8 @@
           age: lastObs?.age_ms != null ? `${Math.round(lastObs.age_ms)} ms` : "–",
           decision: lastObs?.update || "–",
         })}
+        <!-- Browsers report only on play, pause, seek and song change (docs/spike-browser.md). -->
+        {#if lab.browser}<br /><span class="hint">{t("lab.reports.browser")}</span>{/if}
       </dd>
       <dt>{t("lab.sources")}</dt>
       <dd>SMTC{lab.deviating.length ? ` · ${t("lab.sources.deviating", { list: lab.deviating.join(", ") })}` : ""}</dd>

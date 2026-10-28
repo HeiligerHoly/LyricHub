@@ -6,6 +6,7 @@
   import { t } from "#lib/shared/i18n.svelte.js";
   import { ipc, on, subscribe } from "#lib/shared/ipc.js";
   import {
+    DEFAULT_PLAYER,
     OFFSET_LIMIT_MS,
     type AudioDevice,
     type CalibrationView,
@@ -26,6 +27,13 @@
 
   const SLIDER_LIMIT = 2000;
   const PATCH_DELAY_MS = 80;
+
+  // ---- Offset of the chosen player (browsers, PLAN.md 13.4) ----
+  const playerOffset = $derived(settings.sync.player_offsets_ms[settings.player.app_id] ?? 0);
+  function setPlayerOffset(value: number) {
+    const ms = Math.max(-OFFSET_LIMIT_MS, Math.min(OFFSET_LIMIT_MS, Math.round(value) || 0));
+    update({ sync: { player_offsets_ms: { [settings.player.app_id]: ms } } });
+  }
 
   // ---- Global offset ----
   let offset = $state(untrack(() => settings.sync.global_offset_ms));
@@ -204,6 +212,28 @@
   {/if}
 </section>
 
+{#if settings.player.app_id !== DEFAULT_PLAYER}
+  <section class="card">
+    <h2>{t("sync.player.title")}</h2>
+    <p class="hint">{t("sync.player.hint")}</p>
+    <div class="offset">
+      <input
+        class="number"
+        type="number"
+        step="10"
+        min={-OFFSET_LIMIT_MS}
+        max={OFFSET_LIMIT_MS}
+        value={playerOffset}
+        onchange={(e) => setPlayerOffset(Number((e.currentTarget as HTMLInputElement).value))}
+        aria-label={t("sync.player.title")}
+      />
+      <span class="unit">ms</span>
+      <button onclick={() => setPlayerOffset(0)} disabled={playerOffset === 0}>{t("sync.toZero")}</button>
+    </div>
+    <p class="value">{describe(playerOffset)}</p>
+  </section>
+{/if}
+
 <section class="card">
   <h2>{t("sync.global.title")}</h2>
   <p class="hint">{t("sync.global.hint")}</p>
@@ -238,8 +268,9 @@
       {t("sync.global.sum", {
         global: signed(offsets.global_ms),
         device: signed(offsets.device_ms),
+        player: signed(offsets.player_ms),
         song: signed(offsets.song_ms),
-        total: signed(offsets.global_ms + offsets.device_ms + offsets.song_ms),
+        total: signed(offsets.global_ms + offsets.device_ms + offsets.player_ms + offsets.song_ms),
       })}
     </p>
   {/if}

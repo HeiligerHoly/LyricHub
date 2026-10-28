@@ -28,7 +28,10 @@ pub fn settings_changed(app: &AppHandle, before: &Settings, after: &Settings) {
     if before.overlay.layout != after.overlay.layout {
         crate::tray::sync_layout(app, after.overlay.layout);
     }
-    if before.sync != after.sync {
+    if before.player != after.player {
+        crate::sources::smtc::set_player(&after.player.app_id);
+    }
+    if before.sync != after.sync || before.player != after.player {
         crate::app_state::emit_clock(app, "offset");
     }
     if before.behavior.autostart != after.behavior.autostart {

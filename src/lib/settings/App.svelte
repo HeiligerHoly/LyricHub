@@ -5,7 +5,7 @@
   import { onMount } from "svelte";
   import { setLanguage, t, type Key } from "#lib/shared/i18n.svelte.js";
   import { ipc, on, subscribe } from "#lib/shared/ipc.js";
-  import type { HotkeyStatus, LyricsEvent, NowPlaying, Settings, SettingsPatch } from "#lib/shared/types.js";
+  import { DEFAULT_PLAYER, type HotkeyStatus, type LyricsEvent, type NowPlaying, type Settings, type SettingsPatch } from "#lib/shared/types.js";
   import NowPlayingCard from "./NowPlayingCard.svelte";
   import OverlayPage from "./pages/OverlayPage.svelte";
   import AppearancePage from "./pages/AppearancePage.svelte";
@@ -74,7 +74,7 @@
       <img class="logo" src="/favicon.png" alt="" aria-hidden="true" />
       <span>LyricHub</span>
     </div>
-    <NowPlayingCard {now} />
+    <NowPlayingCard {now} browser={!!settings && settings.player.app_id !== DEFAULT_PLAYER} />
     <nav>
       {#each pages as p (p.id)}
         <button class="nav" class:active={page === p.id} onclick={() => (page = p.id)}>{t(p.labelKey)}</button>

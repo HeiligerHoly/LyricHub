@@ -54,7 +54,7 @@ Download `LyricHub_<version>_x64-setup.exe` from the [releases](https://github.c
 - Rust (stable, MSVC toolchain) via rustup
 - Visual Studio Build Tools with the C++ workload and the Windows SDK
 - WebView2 Runtime (preinstalled on Windows 11)
-- Spotify desktop app (Microsoft Store or desktop version); LyricHub needs no Spotify login
+- Spotify desktop app (Microsoft Store or desktop version); LyricHub needs no Spotify login. Experimental since 1.1: YouTube Music in a browser, regular YouTube and the Spotify web player in Edge
 
 Install the Build Tools (asks once for administrator rights through UAC):
 
@@ -127,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-98 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, ads and podcasts, shortcuts with AltGr detection, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. Two more run with `cargo test -- --ignored`: one needs a desktop session, the other measures the word timing estimate against the JamendoLyrics dataset ([docs/en/word-timing.md](docs/en/word-timing.md)).
+100 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, browser titles, ads and podcasts, shortcuts with AltGr detection, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. Two more run with `cargo test -- --ignored`: one needs a desktop session, the other measures the word timing estimate against the JamendoLyrics dataset ([docs/en/word-timing.md](docs/en/word-timing.md)).
 
 ## Notes
 

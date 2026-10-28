@@ -1,10 +1,11 @@
 <script lang="ts">
-  // Settings → Verhalten (PLAN.md 9.7): autostart, start minimised, interface language, logs.
+  // Settings → Verhalten (PLAN.md 9.7): the player to follow (13.4, experimental for browsers),
+  // autostart, start minimised, interface language, logs.
   // An update check follows only with a release.
   import { onMount } from "svelte";
   import { t } from "#lib/shared/i18n.svelte.js";
   import { ipc } from "#lib/shared/ipc.js";
-  import type { AppInfo, Language, Settings, SettingsPatch } from "#lib/shared/types.js";
+  import { DEFAULT_PLAYER, type AppInfo, type Language, type PlayerSession, type Settings, type SettingsPatch } from "#lib/shared/types.js";
 
   let { settings, update }: { settings: Settings; update: (patch: SettingsPatch) => Promise<void> } = $props();
 
@@ -17,11 +18,49 @@
     refreshInfo();
   }
 
+  // ---- Player ----
+  let sessions = $state<PlayerSession[]>([]);
+  const refreshPlayers = () => ipc.listPlayers().then((s) => (sessions = s));
+  onMount(refreshPlayers);
+  /** Other players than Spotify; a browser is recognised by what it plays. */
+  const others = $derived(sessions.filter((s) => s.kind !== "spotify"));
+  const savedMissing = $derived(
+    settings.player.app_id !== DEFAULT_PLAYER && !others.some((s) => s.app_id === settings.player.app_id),
+  );
+  /** Long titles would make the select as wide as the longest option. */
+  const TITLE_MAX = 40;
+  function playerLabel(s: PlayerSession): string {
+    const name = t(`behavior.player.${s.kind}`);
+    const title = s.title.length > TITLE_MAX ? `${s.title.slice(0, TITLE_MAX - 1).trimEnd()}…` : s.title;
+    const what = title ? ` – ${title}` : "";
+    return `${name}${what}${s.has_timeline ? "" : ` (${t("behavior.player.noTimeline")})`}`;
+  }
+
   // The variable name stays out of the locales; the text around it is translated.
   const [debugBefore, debugAfter] = $derived(t("behavior.files.debug").split("{var}"));
 </script>
 
 <h1>{t("nav.behavior")}</h1>
+
+<section class="card grid">
+  <label class="label" for="player">{t("behavior.player")}</label>
+  <div class="player">
+    <select
+      id="player"
+      value={settings.player.app_id}
+      onchange={(e) => update({ player: { app_id: (e.currentTarget as HTMLSelectElement).value } })}
+    >
+      <option value={DEFAULT_PLAYER}>{t("behavior.player.spotify")}</option>
+      {#each others as s (s.app_id)}
+        <option value={s.app_id}>{playerLabel(s)}</option>
+      {/each}
+      {#if savedMissing}<option value={settings.player.app_id}>{t("behavior.player.saved")}</option>{/if}
+    </select>
+    <button onclick={refreshPlayers}>{t("behavior.player.refresh")}</button>
+    {#if others.length === 0}<p class="hint">{t("behavior.player.none")}</p>{/if}
+    <p class="hint">{t("behavior.player.hint")}</p>
+  </div>
+</section>
 
 <section class="card">
   <label class="toggle">
@@ -141,17 +180,39 @@
     display: flex;
     gap: 8px;
   }
-  /* Label column and select as on the pages Overlay and Darstellung. */
+  /* Label column and select as on the pages Overlay and Darstellung. The second column may
+     shrink below its content, so a long select cannot push the card wider than the window. */
   .grid {
-    grid-template-columns: 190px 1fr;
+    grid-template-columns: minmax(110px, 190px) minmax(0, 1fr);
     gap: 14px 16px;
     align-items: center;
   }
   .label {
     color: var(--muted);
   }
+  .player {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .player select {
+    flex: 1 1 260px;
+    min-width: 0;
+  }
+  .player .hint {
+    flex-basis: 100%;
+  }
+  /* A narrow settings window leaves too little room beside the label: stack them. */
+  @media (max-width: 760px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+    }
+  }
   select {
-    min-width: 320px;
+    min-width: min(320px, 100%);
+    max-width: 100%;
     background: #12151b;
     color: var(--text);
     border: 1px solid var(--line);

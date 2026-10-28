@@ -353,7 +353,14 @@ fn refresh_tooltip(app: &AppHandle) {
     let hint = items.hint_text.lock().unwrap().clone();
     let mut text = match song {
         Some(l) => format!("LyricHub – {l}"),
-        None => format!("LyricHub – {}", pick(i18n::current(app), "Spotify spielt nichts", "Spotify is not playing")),
+        None => {
+            let browser = crate::sources::smtc::is_browser(&app.state::<SettingsState>().get().player.app_id);
+            let idle = match browser {
+                false => pick(i18n::current(app), "Spotify spielt nichts", "Spotify is not playing"),
+                true => pick(i18n::current(app), "Der Player spielt nichts", "The player is not playing"),
+            };
+            format!("LyricHub – {idle}")
+        }
     };
     if let Some(h) = hint {
         text = format!("{h}\n{text}");

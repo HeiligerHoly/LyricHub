@@ -97,6 +97,8 @@ pub struct SyncLab {
     /// Sources left out of the fusion because they disagree with the others.
     pub deviating: Vec<&'static str>,
     pub track_key: Option<String>,
+    /// The chosen player is a browser: long gaps between reports are normal.
+    pub browser: bool,
 }
 
 pub fn snapshot(app: &AppHandle) -> SyncLab {
@@ -114,6 +116,7 @@ pub fn snapshot(app: &AppHandle) -> SyncLab {
         cadence_ms,
         deviating: app_state::deviating_sources(app),
         track_key: state.snapshot().track.map(|t| t.key),
+        browser: crate::sources::smtc::is_browser(&app.state::<crate::settings::SettingsState>().get().player.app_id),
     }
 }
 

@@ -2,7 +2,8 @@
   import { t } from "#lib/shared/i18n.svelte.js";
   import type { NowPlaying } from "#lib/shared/types.js";
 
-  let { now }: { now: NowPlaying } = $props();
+  /** `browser`: a browser is the chosen player (PLAN.md 13.4), so the idle card does not name Spotify. */
+  let { now, browser = false }: { now: NowPlaying; browser?: boolean } = $props();
 </script>
 
 <section class="np" aria-label={t("np.label")}>
@@ -20,7 +21,7 @@
   {:else}
     <span class="cover empty" aria-hidden="true">♪</span>
     <div class="text">
-      <p class="title">Spotify</p>
+      <p class="title">{browser ? t("np.player") : "Spotify"}</p>
       <p class="artist">{t(now.status === "closed" ? "np.status.closed" : "np.idle")}</p>
     </div>
   {/if}

@@ -52,9 +52,27 @@ Für YouTube Music in einem Firefox-basierten Browser reicht SMTC für synchrone
 - **Eigener Offset pro Player**, wie heute pro Ausgabegerät.
 - **Sync Lab:** die Update-Kadenz pro Quelle anzeigen. Lücken bis 60 s sind bei Browsern normal und kein Fehler.
 
+## Nachmessung: Edge und normales YouTube (2026-10-28)
+
+Vor dem Bau gemessen, wie in PLAN.md 13.4 verlangt. Gleiches Werkzeug, der Nutzer steuerte im Browser.
+
+| Lauf | Session-ID | Dauer | Ergebnis |
+|---|---|---|---|
+| Edge + YouTube Music | `MSEdge` | 150 s | Position und Länge richtig. Spulen, Pause und Weiterspielen kommen nach 4–51 ms an; dazwischen bis zu 37 s keine Meldung. Korrektursprünge höchstens 3 ms (wenige Werte). |
+| Edge + youtube.com (Musikvideo) | `MSEdge` | 90 s | Position und Länge richtig, Ereignisse nach 15–51 ms. Beim Spulen meldet Edge kurz „pausiert“ und gleich danach „läuft“ mit der neuen Position. |
+| Zen + youtube.com (dasselbe Video) | `F0DC299D809B9700` | 60 s | Position 0 und Länge 0 fast die ganze Zeit; nur für etwa 0,2 s nach dem Spulen kamen die echten Werte, dann wieder 0. |
+
+**Neue Beobachtungen**
+
+8. **Edge meldet beim Songwechsel kurz „geschlossen“.** Etwa 0,3 s lang ist die Sitzung ohne Titel und mit Länge 0, dann kommt die neue Position, 0,2 s später der neue Titel. LyricHub darf das nicht als beendeten Player werten und muss leere Titel überspringen.
+9. **youtube.com schreibt „Artist - Song“ in den Titel**; als Artist steht der Kanalname (etwa mit „VEVO“ oder „Official“). Für die Lyrics-Suche muss LyricHub den Titel zerlegen und den Kanal verwerfen.
+10. **Zen auf youtube.com lässt sich nicht synchronisieren**, Zen auf YouTube Music und Edge auf beiden Seiten schon. Eine Sitzung, die beim Abspielen Länge 0 meldet, hat keine brauchbare Zeitangabe; LyricHub zeigt dann keine Lyrics, sondern nur die kompakte Karte.
+
+**Bewertung:** Chromium-Browser sind für synchrone Lyrics mindestens so gut geeignet wie Firefox-basierte, auf youtube.com sogar besser. Browser-Support kommt in 1.1.0 mit den Punkten oben.
+
 ## Was diese Messung nicht zeigt
 
 - **Den Abstand zum hörbaren Ton.** Wie bei Spike A ist nur die innere Konsistenz gemessen. Die Ausgabelatenz des Browsers wird über den Offset pro Player kalibriert.
-- **Chromium-Browser** (Edge, Chrome). Sie binden SMTC anders an und können sich anders verhalten.
-- **Andere Seiten** wie den Spotify-Webplayer oder SoundCloud, und normale YouTube-Videos (Beobachtung 7).
-- **Eine große Stichprobe.** Ein Lauf von 200 s mit zehn Korrekturen; die Kennzahlen sind ein erster Anhalt.
+- **Chrome und andere Chromium-Browser.** Gemessen ist nur Edge (Nachmessung); Chrome nutzt dieselbe Technik, ist aber nicht geprüft.
+- **Andere Seiten** wie den Spotify-Webplayer oder SoundCloud. Normale YouTube-Videos sind in der Nachmessung geprüft (Beobachtungen 9 und 10).
+- **Eine große Stichprobe.** Ein Lauf von 200 s mit zehn Korrekturen und drei kurze Nachmessungen; die Kennzahlen sind ein erster Anhalt.

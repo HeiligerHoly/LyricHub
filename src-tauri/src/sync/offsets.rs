@@ -11,12 +11,14 @@ pub const LIMIT_MS: i32 = 5000;
 pub struct Offsets {
     pub global_ms: i32,
     pub device_ms: i32,
+    /// Extra latency of the chosen player, e.g. a browser (settings `sync.player_offsets_ms`).
+    pub player_ms: i32,
     pub song_ms: i32,
 }
 
 impl Offsets {
     pub fn total(&self) -> i32 {
-        self.global_ms + self.device_ms + self.song_ms
+        self.global_ms + self.device_ms + self.player_ms + self.song_ms
     }
 }
 
@@ -43,8 +45,8 @@ mod tests {
 
     #[test]
     fn total_and_nudge() {
-        let o = Offsets { global_ms: -50, device_ms: 150, song_ms: 100 };
-        assert_eq!(o.total(), 200);
+        let o = Offsets { global_ms: -50, device_ms: 150, player_ms: 40, song_ms: 100 };
+        assert_eq!(o.total(), 240);
         assert_eq!(nudged(4950, 100), LIMIT_MS);
         assert_eq!(nudged(0, -25), -25);
     }

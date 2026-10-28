@@ -24,9 +24,6 @@ use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 
 use sources::PlaybackSource;
 
-/// Session filter for the Windows media session (PLAN.md 5.8).
-const PLAYER_FILTER: &str = "Spotify";
-
 pub fn run() {
     logging::init();
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "LyricHub starting");
@@ -62,6 +59,7 @@ pub fn run() {
             ipc::commands::reset_overlay_geometry,
             ipc::commands::list_monitors,
             ipc::commands::get_now_playing,
+            ipc::commands::list_players,
             ipc::commands::track_latencies,
             ipc::commands::get_lyrics,
             ipc::commands::get_clock,
@@ -102,7 +100,10 @@ pub fn run() {
             tray::create(&handle)?;
             overlay::setup(&handle)?;
             ipc::apply_autostart(&handle, handle.state::<settings::SettingsState>().get().behavior.autostart);
-            app_state::start(handle.clone(), sources::smtc::SmtcSource::new(PLAYER_FILTER).spawn());
+            // Session filter for the Windows media session (PLAN.md 5.8, 13.4): Spotify unless
+            // the settings name another player.
+            let player = handle.state::<settings::SettingsState>().get().player.app_id;
+            app_state::start(handle.clone(), sources::smtc::SmtcSource::new(player).spawn());
             audio_devices::spawn_watcher(handle.clone());
 
             if let Some(mode) = selftest_mode.clone() {

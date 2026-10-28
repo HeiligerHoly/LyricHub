@@ -742,7 +742,7 @@ With loopback audio (13.2) and the known lyrics text, forced alignment (e.g. Whi
 ### 13.4 Player-agnostic through SMTC (high benefit, low effort)
 Since SMTC is generic, the pipeline also works with minimal changes for YouTube Music, Apple Music, Tidal and browser players. Only the session filter needs to become configurable ("Preferred player" („Bevorzugter Player“)). Spotify stays the default.
 
-**Planned for v1.1 (2026-10-27), experimental at first.** A spike with Zen and YouTube Music ([docs/en/spike-browser.md](docs/en/spike-browser.md)) shows that events arrive as fast as with Spotify and the correction jump is \|p95\| 75 ms (criterion from 5.8: below 150 ms). Scope for v1.1:
+**Implemented for v1.1 (2026-10-28), experimental.** Follow-up with Edge and regular YouTube in the same report: Edge provides a timeline on both sites, Zen on youtube.com does not. Originally planned on 2026-10-27: A spike with Zen and YouTube Music ([docs/en/spike-browser.md](docs/en/spike-browser.md)) shows that events arrive as fast as with Spotify and the correction jump is \|p95\| 75 ms (criterion from 5.8: below 150 ms). Scope for v1.1:
 
 - A "Player" setting instead of the fixed filter on `Spotify` (`lib.rs`); Spotify stays the default. Browsers report only an ID (`F0DC299D809B9700`), so the choice lists the detected sessions with the title playing in each.
 - Use browser sessions only after they are switched on, and look up lyrics only when length and title look like music. Browsers also report videos as "Music", and without a filter every video title would go to LRCLIB.

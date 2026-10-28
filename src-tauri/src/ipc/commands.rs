@@ -51,6 +51,13 @@ pub async fn reset_overlay_geometry(app: AppHandle) -> Settings {
     after
 }
 
+/// Media sessions Windows knows, for the player choice (PLAN.md 13.4).
+#[tauri::command]
+pub async fn list_players() -> Vec<crate::sources::smtc::PlayerSession> {
+    // WinRT calls block; keep them off the async runtime's threads.
+    tauri::async_runtime::spawn_blocking(crate::sources::smtc::list_sessions).await.unwrap_or_default()
+}
+
 #[tauri::command]
 pub fn list_monitors() -> Vec<Monitor> {
     overlay::window::list_monitors()

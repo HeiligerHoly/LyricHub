@@ -24,7 +24,7 @@ Nein. LyricHub liest, was die Spotify-Desktop-App an Windows meldet, und braucht
 
 ## Welche Musik-Apps funktionieren?
 
-Die Spotify-Desktop-App, aus dem Microsoft Store oder von spotify.com. Der Spotify-Webplayer und andere Musik-Apps werden noch nicht unterstützt.
+Die Spotify-Desktop-App aus dem Microsoft Store oder von spotify.com. Seit 1.1 lässt sich stattdessen experimentell ein Browser wählen, unter Einstellungen → Verhalten → Player: YouTube Music klappt in Edge und Firefox-basierten Browsern, normales YouTube zuverlässig in Edge und Chrome (Firefox-basierte Browser melden dort oft keine Zeit). Ein Browser gibt den Ton oft etwas später aus als Spotify; das gleicht der Offset für diesen Player unter Einstellungen → Synchronisation aus. Der Spotify-Webplayer klappt in Edge; in anderen Browsern ist er nicht getestet.
 
 ## Die Lyrics laufen zu früh oder zu spät. Was tun?
 

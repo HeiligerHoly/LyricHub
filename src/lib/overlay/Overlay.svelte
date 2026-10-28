@@ -14,6 +14,7 @@
   import { onMount, tick } from "svelte";
   import { setLanguage, t } from "#lib/shared/i18n.svelte.js";
   import { ipc, on, songId, subscribe } from "#lib/shared/ipc.js";
+  import { DEFAULT_PLAYER } from "#lib/shared/types.js";
   import type {
     AppearanceSettings,
     CalibrationView,
@@ -62,6 +63,8 @@
   let layout = $state<OverlayLayout | null>(null);
   let hideAfterPauseS = $state(10);
   let appearance = $state<AppearanceSettings | null>(null);
+  /** A browser is the chosen player (PLAN.md 13.4); idle texts then do not name Spotify. */
+  let browserPlayer = $state(false);
   /** Japanese lines in romaji; the backend sends the romaji with the lyrics. */
   let romaji = $state(false);
   /** Windows "show animations" off. */
@@ -164,13 +167,15 @@
   const upcomingLines = $derived(lines && layout?.layout === "stack" ? nextTextLines(lines, lineIndex, 2) : []);
   /** The lyrics service could not be reached (PLAN.md 9.6: a small mark, no text in the game). */
   const offline = $derived(!!lyrics && !!track && lyrics.key === track.key && lyrics.state === "error");
-  /** Nothing to sing along to: the compact card instead of the layout. Podcast episodes get no
-   *  lyrics lookup at all (PLAN.md 5.5). */
-  const compact = $derived(!sample && !measuring && !!track && (noLyrics || track.kind === "podcast"));
+  /** Nothing to sing along to: the compact card instead of the layout. Podcast episodes and
+   *  browser videos get no lyrics lookup at all (PLAN.md 5.5, 13.4). */
+  const compact = $derived(
+    !sample && !measuring && !!track && (noLyrics || track.kind === "podcast" || track.kind === "video"),
+  );
   const rowStatus = $derived(sample ? null : loadingVisible ? ("loading" as const) : activeLine && !activeLine.text ? ("instrumental" as const) : null);
   // Derived, so the edit mode and the preview follow a language change.
   const sampleTrack = $derived({ title: t("overlay.sample.title"), artist: t("overlay.sample.artist") });
-  const idleTrack = $derived({ title: "LyricHub", artist: t("overlay.idleArtist") });
+  const idleTrack = $derived({ title: "LyricHub", artist: t(browserPlayer ? "overlay.idleArtistPlayer" : "overlay.idleArtist") });
   const sampleActive = $derived<Line>({
     start_ms: 0,
     end_ms: 4000,
@@ -319,6 +324,7 @@
     setLanguage(s.behavior.language);
     hideAfterPauseS = s.overlay.hide_after_pause_s;
     appearance = s.appearance;
+    browserPlayer = s.player.app_id !== DEFAULT_PLAYER;
     // Feedback for Ctrl+Alt+R, which changes nothing visible while a non-Japanese song plays.
     if (settingsSeen && s.appearance.romaji !== romaji) showToast(t(s.appearance.romaji ? "overlay.toast.romajiOn" : "overlay.toast.romajiOff"));
     romaji = s.appearance.romaji;

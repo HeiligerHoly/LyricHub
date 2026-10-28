@@ -17,7 +17,8 @@ export interface TrackInfo {
   album: string | null;
   duration_ms: number | null;
   art: ArtRef | null;
-  kind: "music" | "ad" | "podcast" | "unknown";
+  /** "video": browser playback that does not look like a song; no lyrics lookup. */
+  kind: "music" | "ad" | "podcast" | "video" | "unknown";
   source: "smtc";
 }
 
@@ -110,6 +111,25 @@ export interface FontList {
 export interface SyncSettings {
   /** Positive shows the lyrics later ("lyrics too early → increase"). */
   global_offset_ms: number;
+  /** Offset per player (`player.app_id`), for a browser's extra output latency. */
+  player_offsets_ms: Record<string, number>;
+}
+
+/** Which media session LyricHub follows (PLAN.md 13.4). */
+export interface PlayerSettings {
+  /** A part of the session's AppUserModelId; "Spotify" by default, anything else is a browser. */
+  app_id: string;
+}
+export const DEFAULT_PLAYER = "Spotify";
+
+/** A media session Windows knows (`list_players`, sources/smtc.rs). */
+export interface PlayerSession {
+  app_id: string;
+  kind: "spotify" | "edge" | "chrome" | "firefox" | "other";
+  title: string;
+  playing: boolean;
+  /** The session reports a length; without one there is nothing to sync to. */
+  has_timeline: boolean;
 }
 export const OFFSET_LIMIT_MS = 5000;
 
@@ -139,6 +159,7 @@ export interface Settings {
   sync: SyncSettings;
   behavior: BehaviorSettings;
   hotkeys: HotkeySettings;
+  player: PlayerSettings;
 }
 
 /** JSON Merge Patch for `set_settings`: `null` resets a field to its default. */
@@ -148,12 +169,15 @@ export type SettingsPatch = {
   sync?: { [K in keyof SyncSettings]?: SyncSettings[K] | null };
   behavior?: { [K in keyof BehaviorSettings]?: BehaviorSettings[K] | null };
   hotkeys?: { [K in keyof HotkeySettings]?: string | null };
+  player?: { [K in keyof PlayerSettings]?: PlayerSettings[K] | null };
 };
 
 /** Offset parts (sync/offsets.rs); positive shows the lyrics later. */
 export interface Offsets {
   global_ms: number;
   device_ms: number;
+  /** Extra latency of the chosen player (settings `sync.player_offsets_ms`). */
+  player_ms: number;
   song_ms: number;
 }
 
@@ -227,6 +251,8 @@ export interface LabEntry {
 
 /** Sync Lab snapshot (sync_lab.rs). */
 export interface SyncLab {
+  /** The chosen player is a browser: long gaps between reports are normal. */
+  browser: boolean;
   now_ms: number;
   entries: LabEntry[];
   clock: ClockEvent;

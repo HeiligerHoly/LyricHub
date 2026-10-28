@@ -52,9 +52,27 @@ For YouTube Music in a Firefox-based browser, SMTC is enough for synced lyrics. 
 - **An offset per player**, as there is per output device today.
 - **Sync Lab:** show the update cadence per source. Gaps of up to 60 s are normal for browsers and not an error.
 
+## Follow-up: Edge and regular YouTube (2026-10-28)
+
+Measured before building, as PLAN.en.md 13.4 asks. Same tool; the user controlled playback in the browser.
+
+| Run | Session ID | Length | Result |
+|---|---|---|---|
+| Edge + YouTube Music | `MSEdge` | 150 s | Position and length correct. Seek, pause and resume arrive after 4–51 ms; in between up to 37 s without an update. Correction jumps at most 3 ms (few values). |
+| Edge + youtube.com (music video) | `MSEdge` | 90 s | Position and length correct, events after 15–51 ms. On a seek Edge briefly reports "paused" and right after "playing" with the new position. |
+| Zen + youtube.com (same video) | `F0DC299D809B9700` | 60 s | Position 0 and length 0 almost all the time; only for about 0.2 s after the seek did the real values arrive, then 0 again. |
+
+**New observations**
+
+8. **Edge briefly reports "closed" on a song change.** For about 0.3 s the session has no title and length 0, then the new position arrives, the new title 0.2 s later. LyricHub must not treat this as a closed player and must skip empty titles.
+9. **youtube.com puts "Artist - Song" into the title**; the artist field holds the channel name (for example with "VEVO" or "Official"). For the lyrics lookup LyricHub has to split the title and drop the channel.
+10. **Zen on youtube.com cannot be synced**, while Zen on YouTube Music and Edge on both sites can. A session that reports length 0 while playing has no usable timeline; LyricHub then shows no lyrics, only the compact card.
+
+**Assessment:** Chromium browsers are at least as suitable for synced lyrics as Firefox-based ones, and better on youtube.com. Browser support comes in 1.1.0 with the points above.
+
 ## What this measurement does not show
 
 - **The offset to the audible sound.** As in spike A, only the internal consistency is measured. The browser's output latency is calibrated with the offset per player.
-- **Chromium browsers** (Edge, Chrome). They connect to SMTC differently and may behave differently.
-- **Other sites** such as the Spotify web player or SoundCloud, and regular YouTube videos (observation 7).
-- **A large sample.** One run of 200 s with ten corrections; the figures are a first indication.
+- **Chrome and other Chromium browsers.** Only Edge is measured (follow-up); Chrome uses the same technology but is not checked.
+- **Other sites** such as the Spotify web player or SoundCloud. Regular YouTube videos are checked in the follow-up (observations 9 and 10).
+- **A large sample.** One run of 200 s with ten corrections and three short follow-up runs; the figures are a first indication.
