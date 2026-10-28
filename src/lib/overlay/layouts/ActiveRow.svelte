@@ -17,12 +17,14 @@
     activeKey: string;
     romaji: boolean;
     glow: boolean;
+    /** Word-by-word fill; off shows the whole line in the fill colour. */
+    fill: boolean;
     status: "loading" | "instrumental" | null;
     clock: LocalClock;
     clockVersion: number;
     staticFill?: number | null;
   }
-  let { active, activeKey, romaji, glow, status, clock, clockVersion, staticFill = null }: Props = $props();
+  let { active, activeKey, romaji, glow, fill, status, clock, clockVersion, staticFill = null }: Props = $props();
 </script>
 
 <div class="row current">
@@ -33,6 +35,7 @@
           text={shownText(active, romaji)}
           words={shownWords(active, romaji)}
           {glow}
+          {fill}
           startMs={active.start_ms}
           fillEndMs={active.fill_end_ms}
           {clock}

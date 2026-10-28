@@ -21,6 +21,8 @@
     romaji: boolean;
     /** Word glow for real word times (off with reduced motion). */
     glow?: boolean;
+    /** Word-by-word fill; off shows the whole line in the fill colour. */
+    fill?: boolean;
     /** What the active row shows when no line is active. */
     status: "loading" | "instrumental" | null;
     toast: string | null;
@@ -40,6 +42,7 @@
     next,
     romaji,
     glow = true,
+    fill = true,
     status,
     toast,
     offline = false,
@@ -62,7 +65,7 @@
     {/key}
   {/if}
 
-  <ActiveRow {active} {activeKey} {romaji} {glow} {status} {clock} {clockVersion} {staticFill} />
+  <ActiveRow {active} {activeKey} {romaji} {glow} {fill} {status} {clock} {clockVersion} {staticFill} />
 
   <div class="row upcoming">
     {#key next?.start_ms ?? -1}

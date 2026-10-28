@@ -12,7 +12,7 @@ Synced, karaoke-style lyrics of the song playing in Spotify, on top of your game
 
 ## Features
 
-- Synced lyrics of the current Spotify song from [LRCLIB](https://lrclib.net), with a karaoke fill that moves word by word, plus cover, title and artist.
+- Synced lyrics of the current Spotify song from [LRCLIB](https://lrclib.net), with a karaoke fill that moves word by word (can be turned off: the word times are mostly estimated), plus cover, title and artist.
 - Position and size are set right on the screen in the edit mode.
 - Four layouts and five themes, with an accent colour taken from the album cover.
 - Stays on top even over games that push themselves to the front, and can be limited to fullscreen apps.
@@ -127,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-96 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, ads and podcasts, shortcuts with AltGr detection, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. One more test needs a desktop session and runs with `cargo test -- --ignored`.
+97 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, ads and podcasts, shortcuts with AltGr detection, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. One more test needs a desktop session and runs with `cargo test -- --ignored`.
 
 ## Notes
 

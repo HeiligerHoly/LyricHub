@@ -12,7 +12,7 @@ Synchrone Lyrics im Karaoke-Stil zum Song, der gerade in Spotify läuft, direkt 
 
 ## Funktionen
 
-- Synchrone Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit einer Karaoke-Füllung, die Wort für Wort läuft, dazu Cover, Titel und Artist.
+- Synchrone Lyrics des laufenden Spotify-Songs von [LRCLIB](https://lrclib.net) mit einer Karaoke-Füllung, die Wort für Wort läuft (abschaltbar, weil die Wortzeiten meist geschätzt sind), dazu Cover, Titel und Artist.
 - Position und Größe lassen sich im Edit-Modus direkt am Bildschirm einstellen.
 - Vier Layouts und fünf Themes mit Akzentfarbe aus dem Albumcover.
 - Bleibt auch über Spielen oben, die sich selbst nach vorne setzen, und lässt sich auf Vollbild-Apps beschränken.
@@ -127,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-96 Rust-Unit-Tests (LRC-Parser, geschätzte Wortzeiten, Playback-Clock mit Quellen-Fusion, Offsets, Tap-Auswertung, Matcher, LRCLIB-Client gegen aufgezeichnete Antworten, Cache, Geometrie, Settings-Store mit Migration, SMTC-Songwechsel-Erkennung, Werbung und Podcasts, Kürzel mit AltGr-Erkennung, Diagnose-Export ohne Songangaben): `cargo test` in `src-tauri`. Live-Anfragen an LRCLIB machen die Tests nicht. Ein weiterer Test braucht eine Desktop-Sitzung und läuft mit `cargo test -- --ignored`.
+97 Rust-Unit-Tests (LRC-Parser, geschätzte Wortzeiten, Playback-Clock mit Quellen-Fusion, Offsets, Tap-Auswertung, Matcher, LRCLIB-Client gegen aufgezeichnete Antworten, Cache, Geometrie, Settings-Store mit Migration, SMTC-Songwechsel-Erkennung, Werbung und Podcasts, Kürzel mit AltGr-Erkennung, Diagnose-Export ohne Songangaben): `cargo test` in `src-tauri`. Live-Anfragen an LRCLIB machen die Tests nicht. Ein weiterer Test braucht eine Desktop-Sitzung und läuft mit `cargo test -- --ignored`.
 
 ## Hinweise
 

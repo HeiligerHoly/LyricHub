@@ -1,6 +1,6 @@
 <script lang="ts">
   // Settings → Darstellung (PLAN.md 9.5, 9.7): theme, accent (from the cover or fixed), plate
-  // opacity, font, reduced motion and the custom theme. While this page is open the overlay
+  // opacity, font, word-by-word fill, reduced motion and the custom theme. While this page is open the overlay
   // shows sample lines in the current look (live preview); every change applies at once.
   // Sliders and colour pickers send at most one patch per 60 ms.
   import { onMount, untrack } from "svelte";
@@ -168,6 +168,12 @@
   {#if fonts && !fonts.japanese_ui_font}
     <p class="hint wide warn">{t("appearance.font.noJapanese")}</p>
   {/if}
+
+  <label class="label" for="wordFill">{t("appearance.wordFill")}</label>
+  <div class="row">
+    <input id="wordFill" class="check" type="checkbox" checked={a.word_fill} onchange={(e) => ((a.word_fill = checked(e)), send({ word_fill: checked(e) }, true))} />
+    <span class="value">{t("appearance.wordFill.value")}</span>
+  </div>
 
   <label class="label" for="motion">{t("appearance.motion")}</label>
   <div class="row">

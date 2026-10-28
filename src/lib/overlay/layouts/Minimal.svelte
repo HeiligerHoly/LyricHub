@@ -14,6 +14,8 @@
     activeKey: string;
     romaji: boolean;
     glow?: boolean;
+    /** Word-by-word fill; off shows the whole line in the fill colour. */
+    fill?: boolean;
     status: "loading" | "instrumental" | null;
     toast: string | null;
     clock: LocalClock;
@@ -28,6 +30,7 @@
     activeKey,
     romaji,
     glow = true,
+    fill = true,
     status,
     toast,
     clock,
@@ -49,7 +52,7 @@
       <span class="title">{title}{artist ? ` – ${artist}` : ""}</span>
     {/if}
   </div>
-  <ActiveRow {active} {activeKey} {romaji} {glow} {status} {clock} {clockVersion} {staticFill} />
+  <ActiveRow {active} {activeKey} {romaji} {glow} {fill} {status} {clock} {clockVersion} {staticFill} />
 </div>
 
 <style>

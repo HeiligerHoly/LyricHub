@@ -96,6 +96,8 @@ export interface AppearanceSettings {
   custom: CustomTheme;
   /** Show lines with kana or kanji in romaji, modified Hepburn (docs/romaji.md). */
   romaji: boolean;
+  /** The active line fills word by word; off shows it whole in the fill colour. */
+  word_fill: boolean;
 }
 
 /** Installed font families (fonts.rs). */

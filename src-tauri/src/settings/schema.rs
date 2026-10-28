@@ -221,6 +221,9 @@ pub struct AppearanceSettings {
     pub custom: CustomTheme,
     /// Show lines with kana or kanji in romaji, modified Hepburn (docs/romaji.md).
     pub romaji: bool,
+    /// The active line fills word by word. The word times are mostly estimated
+    /// (lyrics/words.rs), so off shows the whole line in the fill colour at once.
+    pub word_fill: bool,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -237,6 +240,7 @@ impl Default for AppearanceSettings {
             reduced_motion: false,
             custom: CustomTheme::default(),
             romaji: false,
+            word_fill: true,
             extra: Map::new(),
         }
     }

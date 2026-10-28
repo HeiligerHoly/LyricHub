@@ -13,6 +13,9 @@
   // With real word times (Enhanced LRC) a third layer lets each word glow: a copy with a text
   // shadow whose opacity fades in over 120 ms at the word start and out over 300 ms after its
   // end (PLAN.md 9.4). Opacity runs on the compositor; an animated text-shadow would repaint.
+  //
+  // With the fill off (setting "Fill word by word"; the word times are mostly estimated) the
+  // line stands whole in the fill colour, without layers or animations.
   import { onMount, tick, untrack } from "svelte";
   import type { Word } from "#lib/shared/types.js";
   import type { LocalClock } from "./clock";
@@ -27,13 +30,15 @@
     words?: Word[] | null;
     /** Word glow for real word times; off with reduced motion. */
     glow?: boolean;
+    /** Word-by-word fill; off shows the whole line in the fill colour. */
+    fill?: boolean;
     clock: LocalClock;
     /** Increments with every clock anchor, so the fill re-aligns. */
     clockVersion: number;
     /** Fixed fill share for sample lines (edit mode, self-test); no animation. */
     staticFill?: number | null;
   }
-  let { text, startMs, fillEndMs, words = null, glow = true, clock, clockVersion, staticFill = null }: Props = $props();
+  let { text, startMs, fillEndMs, words = null, glow = true, fill = true, clock, clockVersion, staticFill = null }: Props = $props();
 
   const UPDATES_PER_S = 30;
   /** Long lines shrink to fit the width down to this share of the font size, then ellipsis. */
@@ -43,8 +48,8 @@
 
   let line: HTMLElement;
   let base: HTMLElement;
-  let outer: HTMLElement;
-  let inner: HTMLElement;
+  let outer: HTMLElement | undefined = $state();
+  let inner: HTMLElement | undefined = $state();
   let glowLayer: HTMLElement | undefined = $state();
   let fit = $state(1);
   let anims: Animation[] = [];
@@ -52,7 +57,7 @@
 
   const duration = $derived(Math.max(1, fillEndMs - startMs));
   const ranges = $derived(words?.length ? charRanges(text, words) : null);
-  const glowPieces = $derived(glow && words && ranges && words.some((w) => !w.estimated) ? pieces(text, ranges) : null);
+  const glowPieces = $derived(fill && glow && words && ranges && words.some((w) => !w.estimated) ? pieces(text, ranges) : null);
 
   /** Left and right edge of each word as a share of the visible text width. */
   function measureEdges(): Array<[number, number]> | null {
@@ -73,6 +78,8 @@
 
   function build() {
     for (const a of anims) a.cancel();
+    anims = [];
+    if (!outer || !inner) return;
     const steps = Math.max(2, Math.round((duration / 1000) * UPDATES_PER_S));
     const options: KeyframeAnimationOptions = { duration, easing: `steps(${steps}, jump-none)`, fill: "both" };
     const edges = words && ranges ? measureEdges() : null;
@@ -159,11 +166,21 @@
     measureFit();
     tick().then(build);
   });
+
+  // The fill is switched on or off while the line runs: the layers come or go.
+  let shownFill = untrack(() => fill);
+  $effect(() => {
+    if (fill === shownFill) return;
+    shownFill = fill;
+    tick().then(build);
+  });
 </script>
 
 <p class="line" bind:this={line} lang={langOf(text)} style="--fit: {fit}">
-  <span class="base" bind:this={base}>{text}</span>
-  <span class="reveal" bind:this={outer} aria-hidden="true"><span class="fill" bind:this={inner}>{text}</span></span>
+  <span class="base" class:whole={!fill} bind:this={base}>{text}</span>
+  {#if fill}
+    <span class="reveal" bind:this={outer} aria-hidden="true"><span class="fill" bind:this={inner}>{text}</span></span>
+  {/if}
   {#if glowPieces}
     <span class="glow" bind:this={glowLayer} aria-hidden="true"
       >{#each glowPieces as p, i (i)}{#if p.word === null}{p.text}{:else}<span class="lit" data-word={p.word}>{p.text}</span>{/if}{/each}</span
@@ -192,6 +209,10 @@
   }
   .base {
     color: var(--text-base, rgba(255, 255, 255, 0.55));
+  }
+  .base.whole {
+    color: var(--accent, #ffd36e);
+    text-shadow: var(--fill-shadow, none);
   }
   /* The clip reaches 18 px past the text, so its soft leading edge lies outside the text once
      the line is full; the fill's padding keeps its text box (and ellipsis) equal to the base. */

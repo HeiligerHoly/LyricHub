@@ -130,6 +130,8 @@ export const en: Record<Key, string> = {
   "appearance.font.missing": "{font} (not installed)",
   "appearance.font.noJapanese":
     "Japanese lines need a matching font (Yu Gothic UI or Meiryo UI). Add “Japanese Supplemental Fonts” under Windows Settings → System → Optional features.",
+  "appearance.wordFill": "Fill word by word",
+  "appearance.wordFill.value": "The current line fills word by word in the accent colour. The word times are mostly estimated; when off, the whole line shows in the accent colour at once.",
   "appearance.motion": "Reduce motion",
   "appearance.motion.value": "Transitions at most 80 ms, no glow on single words. Also applies when Windows turns animations off.",
   "appearance.custom.title": "Custom theme",

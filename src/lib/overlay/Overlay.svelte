@@ -462,6 +462,7 @@
             upcoming={sample ? [sampleNext, sampleLater] : upcomingLines}
             {romaji}
             glow={!reduced}
+            fill={appearance?.word_fill ?? true}
             status={rowStatus}
             toast={headerNote}
             {offline}
@@ -478,6 +479,7 @@
             activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
             {romaji}
             glow={!reduced}
+            fill={appearance?.word_fill ?? true}
             status={rowStatus}
             toast={headerNote}
             {clock}
@@ -494,6 +496,7 @@
             next={sample ? sampleNext : nextLine}
             {romaji}
             glow={!reduced}
+            fill={appearance?.word_fill ?? true}
             status={rowStatus}
             toast={headerNote}
             {offline}

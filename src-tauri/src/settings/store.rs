@@ -168,6 +168,15 @@ mod tests {
     }
 
     #[test]
+    fn appearance_without_word_fill_keeps_the_fill_on() {
+        let s = parse(r#"{ "appearance": { "romaji": true } }"#).unwrap();
+        assert!(s.appearance.word_fill);
+        assert!(s.appearance.romaji);
+        let s = parse(r#"{ "appearance": { "word_fill": false } }"#).unwrap();
+        assert!(!s.appearance.word_fill);
+    }
+
+    #[test]
     fn v1_global_offset_from_nudges_is_reset() {
         let s =
             parse(r#"{ "schema_version": 1, "sync": { "global_offset_ms": -500 }, "overlay": { "anchor": "mr" } }"#)

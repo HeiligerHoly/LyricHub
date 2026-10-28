@@ -131,6 +131,8 @@ export const de = {
   "appearance.font.missing": "{font} (nicht installiert)",
   "appearance.font.noJapanese":
     "Für japanische Zeilen fehlt eine passende Schrift (Yu Gothic UI oder Meiryo UI). Windows-Einstellungen → System → Optionale Features → „Japanische ergänzende Schriftarten“ hinzufügen.",
+  "appearance.wordFill": "Wort für Wort füllen",
+  "appearance.wordFill.value": "Die aktuelle Zeile füllt sich Wort für Wort mit der Akzentfarbe. Die Wortzeiten sind meist geschätzt; ausgeschaltet steht die ganze Zeile sofort in der Akzentfarbe.",
   "appearance.motion": "Bewegung reduzieren",
   "appearance.motion.value": "Übergänge höchstens 80 ms, kein Leuchten einzelner Wörter. Gilt auch, wenn Windows Animationen ausschaltet.",
   "appearance.custom.title": "Eigenes Theme",

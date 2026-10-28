@@ -2,6 +2,12 @@
 
 The notable changes of each version. The release notes in [docs/release-notes/](docs/release-notes/) have the details.
 
+## Unreleased
+
+### Added
+
+- Setting "Fill word by word" on the Appearance page. Off, the current line shows whole in the accent colour at once instead of filling with mostly estimated word times.
+
 ## 1.0.1 – 2026-10-27
 
 See [docs/release-notes/v1.0.1.md](docs/release-notes/v1.0.1.md).
