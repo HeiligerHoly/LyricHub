@@ -5,6 +5,7 @@
 
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 
@@ -95,7 +96,11 @@ pub fn install(zip: &[u8], plugins: &Path) -> Result<Manifest, String> {
     let result = unpack(zip, &checked.prefix, &staging).and_then(|()| {
         let target = plugins.join(&id);
         if target.exists() {
-            std::fs::remove_dir_all(&target).map_err(|e| format!("cannot replace the old version: {e}"))?;
+            // Moved aside whole first: a half deleted old version would be worse than none.
+            let old = plugins.join(format!(".old-{id}"));
+            let _ = std::fs::remove_dir_all(&old);
+            move_aside(&target, &old).map_err(|e| format!("cannot replace the old version: {e}"))?;
+            let _ = std::fs::remove_dir_all(&old);
         }
         std::fs::rename(&staging, &target).map_err(|e| format!("cannot move the plugin into place: {e}"))
     });
@@ -103,6 +108,22 @@ pub fn install(zip: &[u8], plugins: &Path) -> Result<Manifest, String> {
         let _ = std::fs::remove_dir_all(&staging);
     }
     result.map(|()| checked.manifest)
+}
+
+/// Renames a folder, retrying for a few seconds: right after a plugin ended, above all after a
+/// crash while Windows Error Reporting still holds the program, its files stay locked briefly.
+fn move_aside(from: &Path, to: &Path) -> std::io::Result<()> {
+    let mut tries = 0;
+    loop {
+        match std::fs::rename(from, to) {
+            Ok(()) => return Ok(()),
+            Err(e) if tries >= 20 => return Err(e),
+            Err(_) => {
+                tries += 1;
+                std::thread::sleep(Duration::from_millis(250));
+            }
+        }
+    }
 }
 
 fn unpack(zip: &[u8], prefix: &Path, into: &Path) -> Result<(), String> {
@@ -134,9 +155,12 @@ pub fn remove(plugins: &Path, data: &Path, id: &str) -> Result<(), String> {
     if !valid_id(id) {
         return Err(format!("invalid plugin id {id:?}"));
     }
-    for dir in [plugins.join(id), data.join(id)] {
+    for (root, dir) in [(plugins, plugins.join(id)), (data, data.join(id))] {
         if dir.exists() {
-            std::fs::remove_dir_all(&dir).map_err(|e| format!("cannot remove {}: {e}", dir.display()))?;
+            let gone = root.join(format!(".removed-{id}"));
+            let _ = std::fs::remove_dir_all(&gone);
+            move_aside(&dir, &gone).map_err(|e| format!("cannot remove {}: {e}", dir.display()))?;
+            std::fs::remove_dir_all(&gone).map_err(|e| format!("cannot remove {}: {e}", dir.display()))?;
         }
     }
     Ok(())
@@ -206,6 +230,21 @@ mod tests {
         assert_eq!(std::fs::read(plugins.join("demo/demo.exe")).unwrap(), b"v2");
         assert!(!plugins.join("demo/lib").exists(), "old files are gone");
         assert_eq!(scan(&plugins).len(), 1);
+
+        // A plugin that just ended keeps its program locked for a moment: the install waits.
+        let locked = {
+            use std::os::windows::fs::OpenOptionsExt;
+            std::fs::OpenOptions::new().read(true).share_mode(0).open(plugins.join("demo/demo.exe")).unwrap()
+        };
+        let unlock = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(1000));
+            drop(locked);
+        });
+        let v3 = zip_of(&[("plugin.json", MANIFEST.as_bytes()), ("demo.exe", b"v3")]);
+        install(&v3, &plugins).unwrap();
+        unlock.join().unwrap();
+        assert_eq!(std::fs::read(plugins.join("demo/demo.exe")).unwrap(), b"v3");
+        assert_eq!(scan(&plugins).len(), 1, "no leftover folders");
 
         remove(&plugins, &temp_dir("install-data"), "demo").unwrap();
         assert!(scan(&plugins).is_empty());

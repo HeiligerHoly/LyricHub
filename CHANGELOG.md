@@ -12,6 +12,8 @@ The notable changes of each version. The release notes in [docs/release-notes/](
 ### Fixed
 
 - With real word times (Enhanced LRC or a plugin), words sung earlier in the current line lit up again every few seconds, and the fill could start over in the last 300 ms of a line. Re-aligning to the clock called `play()` on finished animations, which rewinds them to the start; they now stay at their end. A line that gets new word times while it runs is laid out again.
+- With word glow, a dark smudge could show at the end of a line: the glow copy of the line took the theme's outline and shadow and, a few pixels wider than the line once split into words, ended in an ellipsis. It now draws only the lit words.
+- Replacing or removing a plugin right after it ended could fail while Windows still held its program; the old folder is now moved aside whole, retrying for up to 5 s.
 
 ## 1.1.0 – 2026-10-28
 

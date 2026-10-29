@@ -248,10 +248,16 @@
     text-shadow: var(--fill-shadow, none);
     will-change: transform;
   }
+  /* Only the lit words may show: the rest of this copy gets neither the theme's outline and
+     shadow nor an ellipsis. Split into words it can be a few pixels wider than the line, and an
+     ellipsis with the theme's shadow showed as a dark smudge at the line end. */
   .glow {
     position: absolute;
     inset: 0;
     color: transparent;
+    -webkit-text-stroke: 0;
+    text-shadow: none;
+    text-overflow: clip;
     pointer-events: none;
   }
   .lit {
