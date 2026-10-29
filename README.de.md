@@ -75,6 +75,8 @@ npm run check          # Svelte/TypeScript prüfen
 npx tauri build        # Release-Build und Installer (NSIS)
 ```
 
+Veröffentlichte Releases entstehen mit `toolsuild-release.ps1`: Es baut den Installer und das ZIP des Align-Plugins, ersetzt den Cargo-Ordner in den Quellpfaden, die Rust für Fehlermeldungen einbettet, und prüft, dass in den exe-Dateien kein Pfad mit einem lokalen Benutzerordner übrig ist.
+
 Die App startet im Tray. Linksklick auf das Tray-Icon blendet das Overlay ein und aus, das Rechtsklick-Menü öffnet den Edit-Modus und die Einstellungen. Das Einstellungsfenster existiert nur, solange es offen ist. Mit `--minimized` (so startet der Autostart) öffnet sich kein Fenster.
 
 Standard-Kürzel; alle acht globalen lassen sich unter Einstellungen → Hotkeys ändern oder abschalten:

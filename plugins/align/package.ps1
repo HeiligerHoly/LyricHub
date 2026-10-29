@@ -3,6 +3,12 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File plugins\align\package.ps1
 param([string]$Out = "$PSScriptRoot\target\dist")
 $ErrorActionPreference = 'Stop'
+# No local user name in the exe: the Cargo home folder in embedded source paths becomes ~/.cargo
+# (tools\build-release.ps1 explains it).
+if (-not $env:CARGO_ENCODED_RUSTFLAGS) {
+    $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
+    $env:CARGO_ENCODED_RUSTFLAGS = "--remap-path-prefix=$cargoHome=~/.cargo"
+}
 Push-Location $PSScriptRoot
 try {
     cargo build --release --locked --bin lyrichub-align

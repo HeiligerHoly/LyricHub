@@ -75,6 +75,8 @@ npm run check          # check Svelte/TypeScript
 npx tauri build        # release build and installer (NSIS)
 ```
 
+Published releases are built with `toolsuild-release.ps1`: it builds the installer and the align plugin ZIP, replaces the Cargo home folder in the source paths Rust embeds for panic messages, and checks that no path with a local user folder is left in the executables.
+
 The app starts in the tray. A left click on the tray icon shows or hides the overlay; the right-click menu opens the edit mode and the settings. The settings window only exists while it is open. With `--minimized` (as the autostart uses it) no window opens.
 
 Default shortcuts; all eight global ones can be changed or turned off under Settings → Hotkeys:
