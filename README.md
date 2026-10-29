@@ -129,6 +129,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 
 114 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, browser titles, ads and podcasts, shortcuts with AltGr detection, plugin manifests, ZIP checks and processes, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. Six more run with `cargo test -- --ignored`: one needs a desktop session, one measures the word timing estimate against the JamendoLyrics dataset ([docs/en/word-timing.md](docs/en/word-timing.md)), and four run the plugin host against the example plugin in `plugins/example`, which they build first.
 
+The align plugin in `plugins/align` has 29 tests of its own (`cargo test` there): resampler, features and CTC path against reference values from torchaudio and transformers (`tests/make_golden.py`, synthetic sound), text targets, windows, the recorder and the status line. `cargo run --release --example jamendo` compares its pipeline with the P0 prototype on JamendoLyrics songs, `--example memory` measures the model's memory per window length ([docs/en/plugin-align.md](docs/en/plugin-align.md)).
+
 ## Notes
 
 Lyrics are protected by copyright. LyricHub only displays them and does not redistribute them. The lyrics come from [LRCLIB](https://lrclib.net), a community-maintained database; LyricHub queries it with its own user agent, which links to this repository, and stores the results locally, so it does not ask again for every repeat. The test fixtures in the repository contain invented text.

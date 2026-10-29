@@ -1,0 +1,14 @@
+{
+  "id": "lyrichub-align",
+  "name": "Align",
+  "version": "0.1.0",
+  "api": 1,
+  "executable": "lyrichub-align.exe",
+  "capabilities": ["word_timing"],
+  "permissions": ["audio:player", "network:huggingface.co"],
+  "homepage": "https://github.com/HeiligerHoly/LyricHub",
+  "description": {
+    "de": "Echte Wortzeiten aus dem Ton: Schneidet nur den Ton des Players mit, richtet nach dem Song den Liedtext darauf aus und rechnet nur, wenn kein Vollbildspiel läuft. Der Ton bleibt im Arbeitsspeicher. Lädt beim ersten Start ein Modell von 588 MB von huggingface.co.",
+    "en": "Real word times from the sound: captures only the player's sound, aligns the lyrics to it after the song and computes only while no fullscreen game runs. The sound stays in memory. Downloads a 588 MB model from huggingface.co on first start."
+  }
+}

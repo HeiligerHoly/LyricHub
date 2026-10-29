@@ -8,12 +8,15 @@ The notable changes of each version. The release notes in [docs/release-notes/](
 
 - Plugin host (PLAN-plugins.md, P1): Settings → Plugins installs a plugin from a ZIP after showing its name, version, permissions and SHA-256, switches it on or off, and shows its state. Plugins run as separate programs at below-normal priority inside a job object that ends them with LyricHub; a crashing plugin is restarted after 2, 10 and 60 s, then left off. There are no plugins to install yet; the first, real word times from the audio, follows.
 - Word times from plugins (P2): a plugin with the capability `word_timing` hears the track, the playback position and the synced lines, and answers with word times. LyricHub checks them line by line, stores them per lyrics fingerprint, and they replace the estimate, with the word glow. Diagnostics shows where a song's word times come from. Removing a plugin also removes its word times.
+- The first plugin, lyrichub-align (P3, `plugins/align`, not part of the installer): it captures only the player's sound while a song with estimated word times plays, aligns the lyrics to it after the song and answers with real word times, so the words light up with the singing from the second listen on. It computes only while no fullscreen app is in front, with two threads at below-normal priority and under 1.5 GB of memory; idle it takes 31 MB. The sound stays in memory. On first start it downloads a 588 MB model (MIT) from huggingface.co. Measured against the P0 prototype on four JamendoLyrics songs: median word start error 48 ms (prototype 49 ms) ([docs/en/plugin-align.md](docs/en/plugin-align.md)).
+- Plugins hear the lyrics offset with each playback anchor, where a song's word times come from with its lyrics, and a new `screen` notification when a fullscreen app comes to the front or leaves it.
 
 ### Fixed
 
 - With real word times (Enhanced LRC or a plugin), words sung earlier in the current line lit up again every few seconds, and the fill could start over in the last 300 ms of a line. Re-aligning to the clock called `play()` on finished animations, which rewinds them to the start; they now stay at their end. A line that gets new word times while it runs is laid out again.
 - With word glow, a dark smudge could show at the end of a line: the glow copy of the line took the theme's outline and shadow and, a few pixels wider than the line once split into words, ended in an ellipsis. It now draws only the lit words.
 - Replacing or removing a plugin right after it ended could fail while Windows still held its program; the old folder is now moved aside whole, retrying for up to 5 s.
+- The last line of a song may carry plugin word times up to 30 s after its start; before, its estimated end cut them off.
 
 ## 1.1.0 – 2026-10-28
 

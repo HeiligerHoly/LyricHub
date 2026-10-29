@@ -358,7 +358,8 @@ pub fn on_track(app: &AppHandle, track: Option<&TrackInfo>) {
 }
 
 /// Position valid now, with the moment as QueryPerformanceCounter time in 100 ns units: the unit
-/// WASAPI uses for the capture position (PLAN-plugins.md 5.1).
+/// WASAPI uses for the capture position (PLAN-plugins.md 5.1). The overlay shows lines by
+/// `position_ms - offset_ms`; word times belong on that clock.
 fn playback_params(clock: &ClockEvent) -> Value {
     use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
     let (mut count, mut freq) = (0i64, 0i64);
@@ -368,7 +369,10 @@ fn playback_params(clock: &ClockEvent) -> Value {
         let _ = QueryPerformanceFrequency(&mut freq);
     }
     let qpc_100ns = if freq > 0 { (count as i128 * 10_000_000 / freq as i128) as i64 } else { 0 };
-    json!({ "playing": clock.playing, "position_ms": clock.pos_ms, "rate": clock.rate, "qpc_100ns": qpc_100ns })
+    json!({
+        "playing": clock.playing, "position_ms": clock.pos_ms, "rate": clock.rate, "qpc_100ns": qpc_100ns,
+        "offset_ms": clock.offset_ms,
+    })
 }
 
 pub fn on_playback(app: &AppHandle, clock: &ClockEvent) {
@@ -393,7 +397,10 @@ fn lyrics_params(event: &LyricsEvent) -> Option<Value> {
             json!({ "start_ms": l.start_ms, "end_ms": l.end_ms, "text": l.text, "romaji": l.romaji, "units": words::units(l) })
         })
         .collect();
-    Some(json!({ "key": event.key, "lyrics_hash": words::lyrics_hash(&event.lines), "lines": lines }))
+    Some(json!({
+        "key": event.key, "lyrics_hash": words::lyrics_hash(&event.lines), "lines": lines,
+        "word_source": event.word_source,
+    }))
 }
 
 pub fn on_lyrics(app: &AppHandle, event: &LyricsEvent) {
@@ -401,6 +408,18 @@ pub fn on_lyrics(app: &AppHandle, event: &LyricsEvent) {
     for (_, p) in word_timing(app) {
         p.notify("lyrics", params.clone());
     }
+}
+
+/// A fullscreen app came to the front or left it (overlay/guard.rs): plugins that compute in the
+/// background pause meanwhile (PLAN-plugins.md 5.4).
+pub fn on_screen(app: &AppHandle, fullscreen: bool) {
+    for (_, p) in word_timing(app) {
+        p.notify("screen", json!({ "fullscreen": fullscreen }));
+    }
+}
+
+fn fullscreen_now() -> bool {
+    crate::overlay::guard::screen() != crate::overlay::guard::Screen::Normal
 }
 
 /// A plugin that just started hears what plays now.
@@ -413,6 +432,7 @@ fn send_current(app: &AppHandle, id: &str) {
         p.notify("lyrics", params);
     }
     p.notify("playback", playback_params(&crate::app_state::clock_event(app, "query")));
+    p.notify("screen", json!({ "fullscreen": fullscreen_now() }));
 }
 
 fn on_word_times(app: &AppHandle, id: &str, params: &Value) {

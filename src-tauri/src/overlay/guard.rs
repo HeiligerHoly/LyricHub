@@ -337,6 +337,9 @@ fn classify() {
     let Some(app) = APP.get() else { return };
     if before != code {
         tracing::debug!(screen = ?now, "foreground screen mode");
+        if (before == 0) != (code == 0) {
+            crate::plugins::on_screen(app, code != 0);
+        }
     }
     let only_fullscreen = app.state::<crate::settings::SettingsState>().get().overlay.only_fullscreen;
     super::set_auto_hidden(app, only_fullscreen && now == Screen::Normal);

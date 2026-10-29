@@ -10,6 +10,8 @@ use crate::lyrics::types::{Line, Word};
 
 /// A word may start this much before its line or end this much after it.
 const LINE_SLACK_MS: u32 = 1000;
+/// The last line has no next one to end it; its words may run this long after its start.
+const LAST_LINE_MS: u32 = 30_000;
 
 /// Word times for one line from a plugin: `[start_ms, end_ms]` per unit of the line.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -54,7 +56,7 @@ pub fn valid_lines(lines: &[Line], answer: &[PluginLine]) -> Vec<PluginLine> {
                 return false;
             }
             let from = line.start_ms.saturating_sub(LINE_SLACK_MS);
-            let to = line.end_ms.unwrap_or(line.fill_end_ms).max(line.fill_end_ms).saturating_add(LINE_SLACK_MS);
+            let to = line.end_ms.unwrap_or(line.start_ms.saturating_add(LAST_LINE_MS)).max(line.fill_end_ms).saturating_add(LINE_SLACK_MS);
             a.words.iter().all(|[s, e]| s <= e && *s >= from && *e <= to)
                 && a.words.windows(2).all(|p| p[0][0] <= p[1][0])
         })
@@ -129,6 +131,10 @@ mod tests {
             PluginLine { index: 1, words: vec![[5000, 5200], [5200, 5400], [9000, 20_000]] },
         ];
         assert!(valid_lines(&ls, &bad).is_empty());
+        // The last sung line may run long: nothing ends it.
+        let open = parser::parse("[00:01.00]paper boats\n[00:05.00]drifting home").lines;
+        let last = [PluginLine { index: 1, words: vec![[5200, 9000], [12_000, 19_500]] }];
+        assert_eq!(valid_lines(&open, &last).len(), 1);
         assert!(parse_word_times(&json!({ "key": "k" })).is_err());
     }
 

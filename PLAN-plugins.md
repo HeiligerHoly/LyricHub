@@ -1,7 +1,7 @@
 # LyricHub – Plan: Plugin-Support und Plugin „Align“
 
 > Stand: 2026-10-28 · Basis: v1.0.1 plus die lokalen Commits zu Füll-Schalter und Wortschätzung · Zielversion: 1.2.0 (nach 1.1.0 mit Browser-Support)
-> Status: **P0 erledigt (2026-10-28, [docs/spike-align.md](docs/spike-align.md)): Genauigkeit erfüllt das Gate deutlich, Rechenzeit auf der CPU nicht.** Der Nutzer hat P1–P4 mit Option B freigegeben, nach dem Release 1.1.0 (Abschnitt 8). **P1 und P2 erledigt (2026-10-28, [docs/plugin-host.md](docs/plugin-host.md)).**
+> Status: **P0 erledigt (2026-10-28, [docs/spike-align.md](docs/spike-align.md)): Genauigkeit erfüllt das Gate deutlich, Rechenzeit auf der CPU nicht.** Der Nutzer hat P1–P4 mit Option B freigegeben, nach dem Release 1.1.0 (Abschnitt 8). **P1 und P2 erledigt (2026-10-28, [docs/plugin-host.md](docs/plugin-host.md)). P3 erledigt (2026-10-29, [docs/plugin-align.md](docs/plugin-align.md)); abweichend von 5.4 hält die Warteschlange 256 statt 500 MB, und Fenster über 14 s gehen in Stücken ans Modell, damit das Plugin unter 1,5 GB bleibt.**
 
 ## 1. Kurzfassung
 
@@ -92,8 +92,9 @@ Vor dem Bau steht eine **Messung (P0)**: Nur wenn die Ausrichtung auf dem Datens
 | Methode | Inhalt |
 |---|---|
 | `track` | `key`, `title`, `artist`, `album`, `duration_ms`, `player`: `{ app_id, pid }` (`pid` nur mit `audio:player`) |
-| `playback` | `status` (playing/paused/stopped), `position_ms`, `at` (Zeitanker, QPC in ms), bei jeder Änderung und alle 2 s |
-| `lyrics` | `key`, `lyrics_hash`, `lines`: `[{ start_ms, end_ms, text, romaji, units }]`; `units` sind die Wörter so, wie LyricHub sie zerlegt (`words::split`), damit die Antwort eindeutig zuzuordnen ist |
+| `playback` | `playing`, `position_ms`, `rate`, `qpc_100ns` (Zeitanker, QPC in 100 ns wie WASAPI), `offset_ms` (die Lyrics-Uhr ist `position_ms - offset_ms`), bei jeder Änderung und alle 2 s |
+| `lyrics` | `key`, `lyrics_hash`, `word_source` (`estimate`, `lrc` oder `plugin:<id>`), `lines`: `[{ start_ms, end_ms, text, romaji, units }]`; `units` sind die Wörter so, wie LyricHub sie zerlegt (`words::split`), damit die Antwort eindeutig zuzuordnen ist |
+| `screen` | `fullscreen`: ein Vollbildfenster kam in den Vordergrund oder verließ ihn (seit P3) |
 | `settings` | Werte der Plugin-Einstellungen (4.7) |
 
 **Plugin → Host (Notifications)**
