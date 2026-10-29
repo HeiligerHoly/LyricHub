@@ -16,7 +16,19 @@ No. The installer is not signed, so Windows SmartScreen reports an unknown publi
 
 ## Does LyricHub collect data?
 
-No. There is no telemetry and no account. The only online service it talks to is [LRCLIB](https://lrclib.net), over HTTPS: to find lyrics it sends the song's title, artist, album and length. Lyrics, settings and logs stay on your PC in `%APPDATA%\LyricHub`. The diagnostics export hides song details, so it can go into a public bug report.
+No. There is no telemetry and no account. The only online service it talks to is [LRCLIB](https://lrclib.net), over HTTPS: to find lyrics it sends the song's title, artist, album and length. Lyrics, settings and logs stay on your PC in `%APPDATA%\LyricHub`. The diagnostics export hides song details, so it can go into a public bug report. The plugin Align, if installed, downloads its model from huggingface.co once and sends nothing else (next question).
+
+## Does the plugin Align listen in? What happens to the sound?
+
+Align captures only the player's sound, never the game's sound or the microphone, and only while a song with estimated word times plays. The sound stays in memory, is dropped after the alignment and never leaves the PC. Only the word times are stored. Align is optional and has to be installed first ([docs/en/plugins.md](plugins.md)).
+
+## Is Align safe with anti-cheat?
+
+Align records the sound through the same Windows interface as OBS or Discord. It does not touch games and injects nothing. While a game runs fullscreen it does not even compute. As with LyricHub itself, there is no guarantee.
+
+## How much space and power does Align need?
+
+The model takes 588 MB on disk, the program 24 MB. Idle, Align takes about 30 MB of memory. After a song it computes with 2 cores at low priority and up to 1.5 GB of memory for about 1 to 1.5 times the song length, but only while no fullscreen program is in front.
 
 ## Do I need Spotify Premium or a Spotify login?
 
@@ -48,4 +60,4 @@ The licence allows it. Whether showing song lyrics on a stream is allowed is up 
 
 ## How do I remove it completely?
 
-Uninstall LyricHub under Windows Settings → Apps. To also remove settings, the lyrics cache and logs, delete the folder `%APPDATA%\LyricHub`.
+Uninstall LyricHub under Windows Settings → Apps. To also remove settings, the lyrics cache and logs, delete the folder `%APPDATA%\LyricHub`. Remove a plugin first under Settings → Plugins → "Remove"; that also deletes its model in `%LOCALAPPDATA%\LyricHub\plugins`.

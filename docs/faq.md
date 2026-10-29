@@ -16,7 +16,19 @@ Nein. Der Installer ist nicht signiert, deshalb meldet Windows SmartScreen einen
 
 ## Sammelt LyricHub Daten?
 
-Nein. Es gibt keine Telemetrie und kein Konto. Der einzige Online-Dienst, mit dem LyricHub spricht, ist [LRCLIB](https://lrclib.net), über HTTPS: Um Lyrics zu finden, schickt es Titel, Artist, Album und Länge des Songs. Lyrics, Einstellungen und Logs bleiben auf dem PC unter `%APPDATA%\LyricHub`. Der Diagnose-Export verbirgt die Songangaben, er kann also in einen öffentlichen Fehlerbericht.
+Nein. Es gibt keine Telemetrie und kein Konto. Der einzige Online-Dienst, mit dem LyricHub spricht, ist [LRCLIB](https://lrclib.net), über HTTPS: Um Lyrics zu finden, schickt es Titel, Artist, Album und Länge des Songs. Lyrics, Einstellungen und Logs bleiben auf dem PC unter `%APPDATA%\LyricHub`. Der Diagnose-Export verbirgt die Songangaben, er kann also in einen öffentlichen Fehlerbericht. Das Plugin Align, falls installiert, lädt einmal sein Modell von huggingface.co und schickt sonst nichts weg (nächste Frage).
+
+## Hört das Plugin Align mit? Was passiert mit dem Ton?
+
+Align schneidet nur den Ton des Players mit, nie den Spielton oder das Mikrofon, und nur, solange ein Song läuft, dessen Wortzeiten geschätzt sind. Der Ton bleibt im Arbeitsspeicher, wird nach der Ausrichtung verworfen und verlässt den PC nicht. Gespeichert werden nur die Wortzeiten. Align ist freiwillig und muss erst installiert werden ([docs/plugins.md](plugins.md)).
+
+## Ist Align mit Anti-Cheat sicher?
+
+Align nimmt den Ton über dieselbe Windows-Schnittstelle auf wie OBS oder Discord. Es greift nicht auf Spiele zu und schleust nichts ein. Solange ein Spiel im Vollbild läuft, rechnet es nicht einmal. Eine Garantie gibt es wie bei LyricHub selbst nicht.
+
+## Wie viel Platz und Leistung braucht Align?
+
+Das Modell braucht 588 MB auf der Festplatte, das Programm 24 MB. Im Leerlauf belegt Align etwa 30 MB Arbeitsspeicher. Nach einem Song rechnet es mit 2 Kernen bei niedriger Priorität und bis zu 1,5 GB Arbeitsspeicher etwa das 1- bis 1,5-Fache der Songlänge, aber nur, solange kein Vollbildprogramm vorne läuft.
 
 ## Brauche ich Spotify Premium oder ein Spotify-Login?
 
@@ -48,4 +60,4 @@ Die Lizenz erlaubt es. Ob Songtexte im Stream gezeigt werden dürfen, hängt von
 
 ## Wie entferne ich es vollständig?
 
-LyricHub unter Windows-Einstellungen → Apps deinstallieren. Um auch Einstellungen, Lyrics-Cache und Logs zu entfernen, den Ordner `%APPDATA%\LyricHub` löschen.
+LyricHub unter Windows-Einstellungen → Apps deinstallieren. Um auch Einstellungen, Lyrics-Cache und Logs zu entfernen, den Ordner `%APPDATA%\LyricHub` löschen. Ein Plugin entfernt man vorher unter Einstellungen → Plugins → „Entfernen“; das löscht auch sein Modell unter `%LOCALAPPDATA%\LyricHub\plugins`.

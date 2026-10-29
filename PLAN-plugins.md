@@ -1,7 +1,7 @@
 # LyricHub – Plan: Plugin-Support und Plugin „Align“
 
 > Stand: 2026-10-28 · Basis: v1.0.1 plus die lokalen Commits zu Füll-Schalter und Wortschätzung · Zielversion: 1.2.0 (nach 1.1.0 mit Browser-Support)
-> Status: **P0 erledigt (2026-10-28, [docs/spike-align.md](docs/spike-align.md)): Genauigkeit erfüllt das Gate deutlich, Rechenzeit auf der CPU nicht.** Der Nutzer hat P1–P4 mit Option B freigegeben, nach dem Release 1.1.0 (Abschnitt 8). **P1 und P2 erledigt (2026-10-28, [docs/plugin-host.md](docs/plugin-host.md)). P3 erledigt (2026-10-29, [docs/plugin-align.md](docs/plugin-align.md)); abweichend von 5.4 hält die Warteschlange 256 statt 500 MB, und Fenster über 14 s gehen in Stücken ans Modell, damit das Plugin unter 1,5 GB bleibt.**
+> Status: **P0 erledigt (2026-10-28, [docs/spike-align.md](docs/spike-align.md)): Genauigkeit erfüllt das Gate deutlich, Rechenzeit auf der CPU nicht.** Der Nutzer hat P1–P4 mit Option B freigegeben, nach dem Release 1.1.0 (Abschnitt 8). **P1 und P2 erledigt (2026-10-28, [docs/plugin-host.md](docs/plugin-host.md)). P3 erledigt (2026-10-29, [docs/plugin-align.md](docs/plugin-align.md)); abweichend von 5.4 hält die Warteschlange 256 statt 500 MB, und Fenster über 14 s gehen in Stücken ans Modell, damit das Plugin unter 1,5 GB bleibt. P4 erledigt (2026-10-29): Nutzer-Doku [docs/plugins.md](docs/plugins.md), FAQ, Lizenzhinweise des Plugins, Release 1.2.0 mit `lyrichub-align-0.1.0.zip`.**
 
 ## 1. Kurzfassung
 

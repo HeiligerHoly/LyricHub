@@ -18,9 +18,11 @@ Synced, karaoke-style lyrics of the song playing in Spotify, on top of your game
 - Stays on top even over games that push themselves to the front, and can be limited to fullscreen apps.
 - Corrections are kept per song, every output device has its own offset, and a calibration assistant and the Sync Lab help with the setup.
 - Japanese lines can be shown in romaji ([docs/en/romaji.md](docs/en/romaji.md)).
+- Experimentally, a browser can be the player instead of Spotify (YouTube Music, YouTube, the Spotify web player).
+- Optional plugin **Align**: real word times from the player's sound instead of the estimate, computed after the song while no game runs fullscreen ([docs/en/plugins.md](docs/en/plugins.md)).
 - German and English interface. It follows the Windows display language and can be switched under Settings → Behavior → Language.
 
-Current version: `1.0.0` (2026-10-26), the first public release. Changes are in [CHANGELOG.md](CHANGELOG.md). The promo video was made in code with Remotion; the project is in [promo-video/](promo-video/).
+Current version: `1.2.0` (2026-10-29), with the plugin Align. Changes are in [CHANGELOG.md](CHANGELOG.md). The promo video was made in code with Remotion; the project is in [promo-video/](promo-video/).
 
 ![Overlay, layout Karaoke, theme Glass Dark](docs/img/overlay-karaoke.png)
 
@@ -46,6 +48,8 @@ If you do not trust the binaries, you can follow or rebuild everything yourself:
 ## Install
 
 Download `LyricHub_<version>_x64-setup.exe` from the [releases](https://github.com/HeiligerHoly/LyricHub/releases) and run it (to build it yourself, see below: `npx tauri build`, output in `src-tauri/target/release/bundle/nsis/`). The installer sets LyricHub up for the current user only and needs no administrator rights. It is not signed: Windows SmartScreen reports an unknown publisher; choose "More info" → "Run anyway". If the WebView2 Runtime is missing (Windows 11 has it), the installer fetches it. Then start Spotify; LyricHub sits in the tray and shows the current song.
+
+The plugin Align is a separate download, `lyrichub-align-<version>.zip` in the same release; install it under Settings → Plugins ([docs/en/plugins.md](docs/en/plugins.md)).
 
 ## Requirements for building
 

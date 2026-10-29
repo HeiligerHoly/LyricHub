@@ -18,9 +18,11 @@ Synchrone Lyrics im Karaoke-Stil zum Song, der gerade in Spotify läuft, direkt 
 - Bleibt auch über Spielen oben, die sich selbst nach vorne setzen, und lässt sich auf Vollbild-Apps beschränken.
 - Korrekturen gelten pro Song, Ausgabegeräte haben eigene Offsets, und ein Kalibrier-Assistent und das Sync Lab helfen beim Einstellen.
 - Japanische Zeilen lassen sich in Romaji anzeigen ([docs/romaji.md](docs/romaji.md)).
+- Experimentell kann statt Spotify ein Browser der Player sein (YouTube Music, YouTube, Spotify-Webplayer).
+- Optionales Plugin **Align**: echte Wortzeiten aus dem Ton des Players statt der Schätzung, gerechnet nach dem Song, solange kein Spiel im Vollbild läuft ([docs/plugins.md](docs/plugins.md)).
 - Deutsche und englische Oberfläche. Sie folgt der Windows-Anzeigesprache und lässt sich unter Einstellungen → Verhalten → Sprache umstellen.
 
-Aktuelle Version: `1.0.0` (2026-10-26), das erste öffentliche Release. Änderungen stehen in [CHANGELOG.md](CHANGELOG.md) (englisch). Das Promovideo ist mit Remotion im Code entstanden; das Projekt liegt in [promo-video/](promo-video/).
+Aktuelle Version: `1.2.0` (2026-10-29), mit dem Plugin Align. Änderungen stehen in [CHANGELOG.md](CHANGELOG.md) (englisch). Das Promovideo ist mit Remotion im Code entstanden; das Projekt liegt in [promo-video/](promo-video/).
 
 ![Overlay im Layout Karaoke, Theme Glass Dark](docs/img/de/overlay-karaoke.png)
 
@@ -46,6 +48,8 @@ Wer den fertigen Dateien nicht traut, kann alles selbst nachvollziehen oder nach
 ## Installieren
 
 `LyricHub_<version>_x64-setup.exe` unter [Releases](https://github.com/HeiligerHoly/LyricHub/releases) herunterladen und ausführen (selbst bauen siehe unten: `npx tauri build`, Ergebnis unter `src-tauri/target/release/bundle/nsis/`). Der Installer richtet LyricHub nur für den aktuellen Benutzer ein und braucht keine Administratorrechte. Er ist nicht signiert: Windows SmartScreen meldet einen unbekannten Herausgeber, „Weitere Informationen“ → „Trotzdem ausführen“. Fehlt die WebView2 Runtime (auf Windows 11 vorhanden), lädt der Installer sie nach. Danach Spotify starten; LyricHub erscheint im Tray und zeigt den laufenden Song.
+
+Das Plugin Align ist ein eigener Download, `lyrichub-align-<version>.zip` im selben Release; installiert wird es unter Einstellungen → Plugins ([docs/plugins.md](docs/plugins.md)).
 
 ## Voraussetzungen zum Bauen
 
