@@ -57,7 +57,7 @@ Erkannte Texte haben Fehler (im Test auch bei sicherer Erkennung etwa jedes fün
 Für Align und Recognize gilt dasselbe. Es rechnet immer nur eines von beiden, das andere wartet.
 
 - **Vollbild:** Solange ein Spiel oder ein anderes Programm im Vollbild vorne läuft, rechnet das Plugin nicht. Die Statuszeile zeigt „Pausiert, solange ein Vollbildspiel läuft“. Gehörte Songs warten, bis das Spiel aus ist oder im Fenster läuft.
-- **Rechenlast:** Beim Rechnen nutzt das Plugin 2 Kerne mit Priorität „unter normal“, beim Mitschnitt fast nichts (unter 0,1 % der CPU).
+- **Rechenlast:** Beim Rechnen nutzt das Plugin 2 Kerne mit Priorität „unter normal“, mit „Schneller rechnen“ in seinen Einstellungen die Hälfte der Kerne (2 bis 6) ab dem nächsten Song, beim Mitschnitt fast nichts (unter 0,1 % der CPU).
 - **Arbeitsspeicher:** Im Leerlauf belegt ein Plugin etwa 30 MB, beim Rechnen bis 1,5 GB. Das Modell wird nur geladen, solange es Arbeit gibt. LyricHub erlaubt jedem Plugin höchstens 3 GB; ein Plugin, das mehr will, bekommt keinen Speicher, endet und startet neu.
 - **Warteschlange:** Wer viel hört und lange spielt, sammelt Songs. Die Warteschlange fasst gut 2 Stunden Musik, danach fällt der älteste Song weg.
 

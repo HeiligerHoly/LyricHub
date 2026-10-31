@@ -79,3 +79,27 @@ Karaoke fill and line timing stay unchanged: the line only gets a different text
 | Private memory | LyricHub process 9.8 MB private, dictionary included. With all WebView2 processes 195 MB private (GPU process 89 MB), working set 480 MB. Romaji's share is about 0.3 MB (measured on the prototype); even so, the total is only just under the 200 MB limit: a finding for Phase 5. | `Get-Process`, process tree as in `measure-cpu.ps1` |
 
 User request from the live test: the preview line shows only the romaji of the next line. The first version appended the original in small print after it.
+
+## More scripts (IDEEN.md, package D, 2026-10-31)
+
+The same switch (Settings → Overlay → "Latin script", Ctrl+Alt+R) now also writes Korean, Chinese, Cyrillic and Greek in Latin script. A plugin, as IDEEN.md suggested, was not needed: all of it is fixed rules and tables; only Chinese needs readings, and the `pinyin` crate (MIT) brings them.
+
+| Script | Rule | Example (made up) |
+|---|---|---|
+| Korean | Revised Romanization; a final consonant before a silent initial moves into the next syllable, ㄹ before ㄹ becomes "ll" | 한국어 → hangugeo, 몰라 → molla |
+| Chinese | Pinyin with tone marks, the most common reading of each character, one space per syllable | 我爱你 → wǒ ài nǐ |
+| Cyrillic | Russian and Ukrainian letters after the usual English transliteration | Привет → Privet, Щастя → Shchastya |
+| Greek | after ELOT 743, without accents; ου → ou | Καλημέρα → Kalimera |
+
+- **Detection** (`src-tauri/src/lyrics/script.rs`): kana → Japanese, Hangul → Korean, Cyrillic and Greek by Unicode block. A line of only Han characters counts as Japanese if the song has kana anywhere, else as Chinese. Japanese still goes through lindera (above).
+- **"Original too"** (Settings → Overlay): the original stands small below the active converted line. The row stays reserved for the whole song, also for lines without a conversion, so the window does not jump.
+
+### Limits
+
+- **Chinese:** characters with several readings (了, 行, 长) always get the most common one. Syllables stand apart ("wǒ men" instead of "wǒmen"), and punctuation gets spaces.
+- **Korean:** only linking across the syllable boundary; further sound changes such as nasalization (국물 sounds "gungmul", here "gukmul") are not applied.
+- **Cyrillic:** letters of other languages (Serbian ђ, ј, љ; Belarusian ў) stay as they are. Bulgarian is transliterated like Russian (щ → shch instead of sht).
+- **Greek:** αυ and ευ become "ay" and "ey" instead of "av" and "ev", μπ and ντ stay "mp" and "nt".
+- **Thai** is missing: without a dictionary, Thai words cannot be split and vowels cannot be read reliably.
+
+Checked with 4 unit tests (detection, Korean, Chinese, Cyrillic and Greek). It has not been tested live with a Korean or Chinese song.

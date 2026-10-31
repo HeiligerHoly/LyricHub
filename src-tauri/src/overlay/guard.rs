@@ -325,8 +325,41 @@ fn hint(app: &AppHandle, covered_by: Option<&str>) -> Option<String> {
     })
 }
 
+/// The program in front as a lower-case file name, for the overlay profiles (IDEEN.md,
+/// package D). LyricHub itself and the shell (desktop, taskbar, tray) leave the last one in place,
+/// so the overlay does not jump on a click into the tray.
+static PROGRAM: Mutex<Option<String>> = Mutex::new(None);
+
+pub fn program() -> Option<String> {
+    PROGRAM.lock().unwrap().clone()
+}
+
+fn track_program(app: &AppHandle) {
+    // SAFETY: a plain query for the foreground window.
+    let fg = unsafe { GetForegroundWindow() };
+    if fg.is_invalid() || own_process(fg) || SHELL.contains(&class_name(fg).as_str()) {
+        return;
+    }
+    let name = win32::window_program(Hwnd::from_raw(fg)).to_lowercase();
+    if name.is_empty() || name.starts_with("pid ") {
+        return;
+    }
+    let changed = {
+        let mut p = PROGRAM.lock().unwrap();
+        let changed = p.as_deref() != Some(name.as_str());
+        *p = Some(name);
+        changed
+    };
+    if changed {
+        super::program_changed(app);
+    }
+}
+
 /// Classifies the foreground and applies "only with a fullscreen app".
 fn classify() {
+    if let Some(app) = APP.get() {
+        track_program(app);
+    }
     let now = foreground_screen();
     let code = match now {
         Screen::Normal => 0,

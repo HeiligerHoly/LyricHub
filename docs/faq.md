@@ -28,7 +28,7 @@ Beide nehmen den Ton über dieselbe Windows-Schnittstelle auf wie OBS oder Disco
 
 ## Wie viel Platz und Leistung brauchen die Plugins?
 
-Das Modell braucht 588 MB auf der Festplatte, auch mit beiden Plugins nur einmal, jedes Programm 24 MB. Im Leerlauf belegt ein Plugin etwa 30 MB Arbeitsspeicher. Nach einem Song rechnet es mit 2 Kernen bei niedriger Priorität und bis zu 1,5 GB Arbeitsspeicher, Align etwa das 1- bis 1,5-Fache der Songlänge. Es rechnet immer nur ein Plugin, und nur, solange kein Vollbildprogramm vorne läuft.
+Das Modell braucht 588 MB auf der Festplatte, auch mit beiden Plugins nur einmal, jedes Programm 24 MB. Im Leerlauf belegt ein Plugin etwa 30 MB Arbeitsspeicher. Nach einem Song rechnet es mit 2 Kernen (mit „Schneller rechnen“ in den Plugin-Einstellungen mit der Hälfte der Kerne, 2 bis 6) bei niedriger Priorität und bis zu 1,5 GB Arbeitsspeicher, Align etwa das 1- bis 1,5-Fache der Songlänge. Es rechnet immer nur ein Plugin, und nur, solange kein Vollbildprogramm vorne läuft.
 
 ## Brauche ich Spotify Premium oder ein Spotify-Login?
 
@@ -65,6 +65,16 @@ LyricHub steht unter der MIT-Lizenz mit der Commons Clause. Der Code ist öffent
 ## Darf ich es beim Streamen nutzen?
 
 Die Lizenz erlaubt es. Ob Songtexte im Stream gezeigt werden dürfen, hängt von den Regeln der Streaming-Plattform und den Rechteinhabern ab.
+
+Für OBS gibt es unter Einstellungen → Overlay → Streaming eine Browserquelle (ab Werk aus). Eingeschaltet zeigt die Karte eine URL; die kommt in OBS als Browserquelle, die Breite stellst du dort ein, `scale=` in der URL bestimmt die Textgröße. Der Server antwortet nur auf 127.0.0.1 und nur mit dem Token aus der URL, andere Rechner und Webseiten erreichen ihn nicht. Solange er läuft, steht in `%APPDATA%\LyricHub\now-playing.txt` „Titel – Artist“ für eine Textquelle. Spielt ein Song gerade keine Lyrics, zeigt die Quelle wie das Overlay die kleine Karte mit Cover.
+
+## Kann ich das Overlay pro Spiel anders platzieren?
+
+Ja. Im Bearbeitungsmodus (Strg+Alt+E) ist „Nur für <Programm> merken“ angeboten, wenn ein anderes Programm als LyricHub vorne war. Position, Größe und Layout gelten dann, solange dieses Programm vorne ist; sonst gilt die normale Position. Unter Einstellungen → Overlay stehen die gemerkten Programme und lassen sich einzeln entfernen.
+
+## Geht es auch ohne Tastatur?
+
+Mit einem XInput-Controller (Xbox und kompatible): Einstellungen → Hotkeys → Gamepad einschalten und eine Taste zum Halten wählen (Back/View, LB+RB oder beide Sticks). Mit ihr gedrückt schaltet Y das Overlay an oder aus, X das Layout, B die lateinische Schrift, das Steuerkreuz links und rechts schiebt die Lyrics um 100 ms. LyricHub liest den Controller nur und schickt dem Spiel nichts. Für Stream Deck oder AutoHotkey gibt es die Kommandozeile: `lyrichub.exe --toggle`, `--edit`, `--layout`, `--romaji` oder `--nudge -100` wirkt auf das laufende LyricHub.
 
 ## Wie entferne ich es vollständig?
 

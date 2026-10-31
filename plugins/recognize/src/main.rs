@@ -188,6 +188,7 @@ fn main() {
             (Some("lyrics_wanted"), Some(p)) => p.on_lyrics_wanted(params),
             (Some("playback"), Some(p)) => p.on_playback(params),
             (Some("screen"), Some(p)) => p.worker.set_fullscreen(params["fullscreen"].as_bool().unwrap_or(false)),
+        (Some("settings"), Some(p)) => p.worker.set_fast(params["fast"].as_bool().unwrap_or(false)),
             (Some("shutdown"), _) => break,
             _ => {}
         }

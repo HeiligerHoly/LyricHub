@@ -2,7 +2,7 @@
 
 > Stand: 2026-10-31 · Basis: 1.2.0 plus Auto-Sync und Recognize (für 1.3.0 gebaut, noch nicht veröffentlicht)
 > Herkunft: vier Fable-Agenten mit je einem Blickwinkel (Kern-App, Plugins, Gaming/VR/Streaming, Technik und Verteilung), zusammengeführt; die Aussagen über den heutigen Code sind nachgeprüft.
-> Status: **Pakete A und B sind gebaut** (2026-10-31, für 1.3.0, siehe Abschnitte 2 und 3). Der Rest ist ein Vorschlag; die Entscheidungen stehen in Abschnitt 6.
+> Status: **Pakete A und B sind gebaut** (2026-10-31, für 1.3.0, siehe Abschnitte 2 und 3) und **aus D drei Gruppen** (Abschnitt 5). Der Rest ist ein Vorschlag; die Entscheidungen stehen in Abschnitt 6.
 
 ## 1. Kurzfassung
 
@@ -85,16 +85,29 @@ Recognize ergänzt das: Es hilft erst ab dem zweiten Hören, B schon beim ersten
 | **Mitsingen** (Plugin) | Tonhöhe des Nutzers gegen die Melodie, Punkte pro Zeile. | L | braucht Stimmtrennung und Mikrofon; erst ein Spike |
 | **Song per Audio erkennen** (Plugin) | Bei schlechten Browser-Metadaten den Song per Fingerabdruck bestimmen. | L | schickt einen Fingerabdruck an acoustid.org; widerspricht fast der Linie „alles lokal“, nur mit ausdrücklicher Zustimmung |
 
+**Stand 2026-10-31: drei Gruppen gebaut**, nach Wahl des Nutzers: kleine Komfort-Dinge (Original und Romaji gleichzeitig, Instrumental-Dimmen, Kommandozeile, Plugin-Rechenleistung), Romanisierung+ sowie Spielen und Streamen (Overlay-Profile, Gamepad-Tasten, OBS-Browserquelle). Nicht gewählt: Übersetzen, Update-Pfad, Code-Signierung, Erststart-Assistent und die Plugin-Ideen ab „Latenz messen“. Abweichungen vom Vorschlag:
+
+- **Romanisierung+ im Kern statt als Plugin:** Ohne Übersetzen braucht es die Fähigkeit `line_annotation` nicht, und alles sind feste Regeln und Tabellen; nur Chinesisch braucht Lesungen (Crate `pinyin`, MIT). Derselbe Schalter wie Romaji. **Thai fehlt:** Ohne Wörterbuch lassen sich Thai-Wörter nicht trennen. Grenzen pro Schrift in `docs/romaji.md`.
+- **Original und Romaji:** „Original dazu“ zeigt das Original klein unter der aktiven umgeschriebenen Zeile, in Karaoke, Stapel und Minimal; die Leiste bleibt einzeilig. Die Zeile ist den ganzen Song über reserviert, damit das Fenster nicht springt. Nicht gebaut: die Zahl der Zeilen im Stapel wählen.
+- **Instrumental-Dimmen:** In Pausen ab 10 s auf 35 % Deckkraft, von 2 s nach der letzten bis 1 s vor der nächsten Zeile; Standard an. Nicht gebaut: der Hotkey, der ein verstecktes Overlay 5 s einblendet.
+- **Kommandozeile:** `--toggle`, `--edit`, `--layout`, `--romaji`, `--nudge <ms>` (höchstens ±2000) über die schon vorhandene Einzelinstanz; ein erster Start mit Befehl startet minimiert.
+- **Plugin-Rechenleistung:** ein Schalter „Schneller rechnen“ in Align und Recognize (halbe Kernzahl, 2 bis 6 Threads) statt drei Stufen oder Automatik; die Zahlen dazu stammen aus dem Align-Spike (4 statt 2 Threads: 0,89 statt 1,5 × Songlänge), neu gemessen ist nichts.
+- **Overlay-Profile:** Position, Größe und Layout pro Programm, ohne Theme. LyricHub selbst und die Shell (Taskleiste, Desktop, Tray) wechseln das Profil nicht, sonst spränge das Overlay bei jedem Klick aufs Tray. Höchstens 50 Profile.
+- **Gamepad-Tasten:** feste Belegung (Y, X, B, Steuerkreuz) mit wählbarer Haltetaste (Back/View, LB+RB oder beide Sticks) statt frei belegbar; ohne Haltetaste reagiert nichts, damit das Spiel seine Tasten behält.
+- **OBS-Browserquelle:** wie vorgeschlagen, mit der Overlay-Seite selbst statt eigener Layouts; Daten als JSON und Server-Sent Events, Host-Prüfung gegen DNS-Rebinding. Die Breite gibt die Quelle vor, die Textgröße `scale` in der URL.
+
+**Live geprüft:** Kommandozeile (Nudge hin und zurück), Profilwechsel (Profil für spotify.exe schaltete das Layout um), Stream-Server (ohne oder mit falschem Token 403, fremder Host 403, Daten und Layout richtig, Events kommen sofort an, die Seite läuft im Browser ohne Fehler und zeigt die kleine Karte wie die App). **Nur mit Unit-Tests:** Gamepad (kein Controller da), Instrumental-Dimmen und „Original dazu“ (kein passender Song lief), Koreanisch und Chinesisch, die Stream-Seite mit einem laufenden synchronen Song.
+
 **Plugins von anderen:** Technisch geht das heute schon, das Protokoll ist JSON über stdin/stdout. Sicher geöffnet heißt: Protokoll als `api: 1` dokumentieren und einfrieren, ein kleines SDK-Crate aus dem Code von Align herauslösen, Plugin-ZIPs signieren (Ed25519) und optional ein von LyricHub signierter Katalog. Ehrlich bleiben: Ohne Sandbox sind Rechte nur Erklärungen; durchsetzen lassen sich Nachrichten pro Fähigkeit, Größen- und Ratenlimits und das Job-Objekt. Seit dieser Nacht nimmt LyricHub Lyrics nur noch von Plugins mit der Fähigkeit `lyrics_source` an.
 
 **Verworfen:** eigene Wortzeiten oder erkannte Texte zu LRCLIB hochladen (das wäre Weitergabe von Liedtext), weitere Lyrics-Dienste wie Musixmatch (Nutzungsbedingungen), Discord Rich Presence (Spotify meldet Discord das schon, Zeilen scheitern am Rate-Limit), Steam-Overlay (keine öffentliche Schnittstelle), Aufwand für Windows 10 (ohne Support seit Oktober 2025; ein FAQ-Hinweis reicht).
 
 ## 6. Entscheidungen für den Nutzer
 
-1. **Welches Paket zuerst?** Empfehlung: A, dann B oder C.
+1. ~~**Welches Paket zuerst?**~~ Entschieden: A, B, C, D der Reihe nach.
 2. **VR:** SteamVR-Overlay bauen? Dafür braucht es zum Testen eine Brille und SteamVR, also deine Mithilfe.
 3. **VRChat-Chatbox:** nur den Titel (rechtlich sauber) oder auch die aktuelle Zeile als ausdrücklich eingeschaltete Option?
-4. **Update-Pfad:** nur der manuelle Knopf, oder auch ein täglicher Check auf Wunsch?
+4. **Update-Pfad:** Antwort war „Knopf und täglich auf Wunsch“, das Paket ist aber noch nicht gewählt.
 5. **Code-Signierung:** vorerst nicht, oder etwa 10 $ im Monat für Azure Artifact Signing?
 
 ## 7. Quellen der Agenten

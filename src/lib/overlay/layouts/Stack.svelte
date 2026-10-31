@@ -18,6 +18,8 @@
     /** Up to two lines after the active one. */
     upcoming: Line[];
     romaji: boolean;
+    /** The original below the active romaji line. */
+    original?: boolean;
     glow?: boolean;
     /** Word-by-word fill; off shows the whole line in the fill colour. */
     fill?: boolean;
@@ -38,6 +40,7 @@
     activeKey,
     upcoming,
     romaji,
+    original = false,
     glow = true,
     fill = true,
     status,
@@ -61,7 +64,7 @@
         <div class="row side">
           {#if previous}<p class="dim" lang={langOf(shownText(previous, romaji))}>{shownText(previous, romaji)}</p>{/if}
         </div>
-        <ActiveRow {active} activeKey="static" {romaji} {glow} {fill} {status} {clock} {clockVersion} {staticFill} />
+        <ActiveRow {active} activeKey="static" {romaji} {glow} {fill} {status} {clock} {clockVersion} {staticFill} {original} />
         {#each rest as line, i (i)}
           <div class="row side">
             {#if line}<p class="dim" lang={langOf(shownText(line, romaji))}>{shownText(line, romaji)}</p>{/if}

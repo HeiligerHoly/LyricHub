@@ -23,6 +23,15 @@ use crate::rpc::Out;
 use crate::status::{Problem, Status};
 
 const THREADS: usize = 2;
+
+/// Threads for the model: two, or with the switch "fast" half the cores, two to six. Four instead
+/// of two finished a song in 0.89 instead of 1.5 times its length (docs/spike-align.md).
+fn threads(fast: bool) -> usize {
+    if !fast {
+        return THREADS;
+    }
+    std::thread::available_parallelism().map_or(4, |n| (n.get() / 2).clamp(THREADS, 6))
+}
 const QUEUE_BYTES: usize = 256 * 1024 * 1024;
 /// The model goes after this long paused by a game; without work it goes at once.
 const UNLOAD_AFTER: Duration = Duration::from_secs(60);
@@ -52,6 +61,8 @@ struct Shared {
     queue: Mutex<VecDeque<Job>>,
     wake: Condvar,
     fullscreen: AtomicBool,
+    /// The switch "fast": half the cores instead of two, from the next model load.
+    fast: AtomicBool,
     ready: AtomicBool,
     status: Arc<Status>,
     out: Out,
@@ -67,6 +78,7 @@ impl Worker {
             queue: Mutex::new(VecDeque::new()),
             wake: Condvar::new(),
             fullscreen: AtomicBool::new(false),
+            fast: AtomicBool::new(false),
             ready: AtomicBool::new(false),
             status,
             out,
@@ -95,6 +107,10 @@ impl Worker {
             me.0.status.update(|b| b.queued = n);
             me.0.wake.notify_all();
         });
+    }
+
+    pub fn set_fast(&self, on: bool) {
+        self.0.fast.store(on, Ordering::SeqCst);
     }
 
     pub fn set_fullscreen(&self, on: bool) {
@@ -187,7 +203,7 @@ impl Worker {
             });
             if model.is_none() {
                 let vocab = std::fs::read_to_string(model::vocab(&s.model_dir)).map_err(|e| e.to_string())?;
-                *model = Some(Model::load(&model::onnx(&s.model_dir), &vocab, THREADS)?);
+                *model = Some(Model::load(&model::onnx(&s.model_dir), &vocab, threads(s.fast.load(Ordering::SeqCst)))?);
             }
             let m = model.as_mut().unwrap();
             let from = (line.window.0.saturating_sub(job.start_ms) as usize * per_ms).min(job.audio.len());

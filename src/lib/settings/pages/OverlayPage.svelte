@@ -56,6 +56,11 @@
 
   const inputNum = (e: Event) => Number((e.currentTarget as HTMLInputElement).value);
 
+  // The browser source's address (src-tauri/src/stream.rs); the token appears once the server ran.
+  const streamUrl = $derived(
+    settings.stream.token ? `http://127.0.0.1:${settings.stream.port}/overlay?token=${settings.stream.token}&scale=1.5` : "",
+  );
+
   onMount(() => {
     ipc.listMonitors().then((m) => (monitors = m));
   });
@@ -190,6 +195,19 @@
     <span class="value">{t("overlayPage.romaji.value")}</span>
   </div>
 
+  <label class="label" for="romajiOriginal">{t("overlayPage.romajiOriginal")}</label>
+  <div class="slider">
+    <input
+      id="romajiOriginal"
+      class="check"
+      type="checkbox"
+      checked={settings.appearance.romaji_original}
+      disabled={!settings.appearance.romaji}
+      onchange={(e) => update({ appearance: { romaji_original: (e.currentTarget as HTMLInputElement).checked } })}
+    />
+    <span class="value">{t("overlayPage.romajiOriginal.value")}</span>
+  </div>
+
   <label class="label" for="pause">{t("overlayPage.pause")}</label>
   <div class="slider">
     <input
@@ -205,6 +223,18 @@
     <span class="value">{t("overlayPage.pause.value")}</span>
   </div>
 
+  <label class="label" for="dimInstrumental">{t("overlayPage.dimInstrumental")}</label>
+  <div class="slider">
+    <input
+      id="dimInstrumental"
+      class="check"
+      type="checkbox"
+      checked={o.dim_instrumental}
+      onchange={(e) => set("dim_instrumental", (e.currentTarget as HTMLInputElement).checked)}
+    />
+    <span class="value">{t("overlayPage.dimInstrumental.value")}</span>
+  </div>
+
   <label class="label" for="fullscreen">{t("overlayPage.onlyFullscreen")}</label>
   <div class="slider">
     <input
@@ -216,6 +246,52 @@
     />
     <span class="value">{t("overlayPage.onlyFullscreen.value")}</span>
   </div>
+</section>
+
+<section class="card">
+  <h2>{t("overlayPage.profiles")}</h2>
+  {#if Object.keys(settings.profiles).length}
+    <ul class="profiles">
+      {#each Object.entries(settings.profiles) as [program, p] (program)}
+        <li>
+          <span class="program">{program}</span>
+          <span class="hint">{t(`layout.${p.layout}`)} · {t(`anchor.${p.anchor}`)} · {Math.round(p.width_pct)} % · {num(p.scale, 2)}×</span>
+          <button onclick={() => update({ profiles: { [program]: null } })}>{t("overlayPage.profiles.remove")}</button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  <p class="hint">{t("overlayPage.profiles.hint")}</p>
+</section>
+
+<section class="card">
+  <h2>{t("overlayPage.stream")}</h2>
+  <label class="stream-row">
+    <input
+      type="checkbox"
+      checked={settings.stream.enabled}
+      onchange={(e) => update({ stream: { enabled: (e.currentTarget as HTMLInputElement).checked } })}
+    />
+    {t("overlayPage.stream.on")}
+  </label>
+  <label class="stream-row">
+    {t("overlayPage.stream.port")}
+    <input
+      class="number"
+      type="number"
+      min="1024"
+      max="65535"
+      value={settings.stream.port}
+      onchange={(e) => update({ stream: { port: Math.round(inputNum(e)) } })}
+    />
+  </label>
+  {#if settings.stream.enabled && streamUrl}
+    <div class="stream-row">
+      <input class="url mono" readonly value={streamUrl} onfocus={(e) => (e.currentTarget as HTMLInputElement).select()} />
+      <button onclick={() => navigator.clipboard.writeText(streamUrl)}>{t("overlayPage.stream.copy")}</button>
+    </div>
+  {/if}
+  <p class="hint">{t("overlayPage.stream.hint")}</p>
 </section>
 
 <section class="card actions">
@@ -249,6 +325,40 @@
     margin: 6px 0 0;
     color: var(--muted);
     font-size: 12.5px;
+  }
+  .stream-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .stream-row .url {
+    flex: 1;
+    min-width: 0;
+    background: #12151b;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 6px 8px;
+  }
+  .profiles {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .profiles li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .profiles .program {
+    font-weight: 600;
+  }
+  .profiles .hint {
+    margin: 0;
+    flex: 1;
   }
   .grid {
     display: grid;

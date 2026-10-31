@@ -218,8 +218,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 id if id.starts_with("layout_") => {
                     let pick = Layout::ALL.into_iter().find(|l| layout_id(*l) == id);
                     if let Some(layout) = pick {
-                        let (before, after) = app.state::<SettingsState>().update(|s| s.overlay.layout = layout);
-                        crate::ipc::settings_changed(&app, &before, &after);
+                        crate::ipc::set_layout(&app, layout);
                     }
                 }
                 "open_settings" => crate::settings_window::open(&app),

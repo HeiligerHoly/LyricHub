@@ -8,6 +8,7 @@ pub mod lrclib;
 pub mod matcher;
 pub mod parser;
 pub mod romaji;
+pub mod script;
 pub mod service;
 pub mod types;
 pub mod words;

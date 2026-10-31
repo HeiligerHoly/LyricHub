@@ -291,36 +291,37 @@ fn dispatch(app: &AppHandle, shortcut: &Shortcut, at: Instant) {
         return;
     }
     let action = state.registered.lock().unwrap().iter().find(|(_, s)| s == shortcut).map(|(a, _)| *a);
+    if let Some(action) = action {
+        perform(app, action);
+    }
+}
+
+/// What a shortcut does; the command line and the gamepad do the same (IDEEN.md, package D).
+pub fn perform(app: &AppHandle, action: Action) {
+    let nudge = |ms| {
+        crate::ipc::nudge(app, ms);
+    };
     match action {
-        Some(Action::Toggle) => {
+        Action::Toggle => {
             overlay::toggle(app);
         }
-        Some(Action::Edit) => {
+        Action::Edit => {
             if app.state::<overlay::OverlayState>().is_editing() {
                 overlay::save_edit(app, None);
             } else {
                 overlay::enter_edit(app);
             }
         }
-        Some(Action::Layout) => {
+        Action::Layout => {
             crate::ipc::cycle_layout(app);
         }
-        Some(Action::Romaji) => {
+        Action::Romaji => {
             crate::ipc::toggle_romaji(app);
         }
-        Some(Action::NudgeEarlier) => {
-            crate::ipc::nudge(app, -100);
-        }
-        Some(Action::NudgeLater) => {
-            crate::ipc::nudge(app, 100);
-        }
-        Some(Action::NudgeEarlierFine) => {
-            crate::ipc::nudge(app, -25);
-        }
-        Some(Action::NudgeLaterFine) => {
-            crate::ipc::nudge(app, 25);
-        }
-        None => {}
+        Action::NudgeEarlier => nudge(-100),
+        Action::NudgeLater => nudge(100),
+        Action::NudgeEarlierFine => nudge(-25),
+        Action::NudgeLaterFine => nudge(25),
     }
 }
 

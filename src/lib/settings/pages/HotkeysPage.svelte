@@ -7,7 +7,7 @@
   import { onMount } from "svelte";
   import { lang, t, type Key } from "#lib/shared/i18n.svelte.js";
   import { ipc } from "#lib/shared/ipc.js";
-  import type { HotkeyAction, HotkeySettings, HotkeyStatus, Settings, SettingsPatch } from "#lib/shared/types.js";
+  import type { GamepadModifier, HotkeyAction, HotkeySettings, HotkeyStatus, Settings, SettingsPatch } from "#lib/shared/types.js";
 
   let { settings, update }: { settings: Settings; update: (patch: SettingsPatch) => Promise<void> } = $props();
 
@@ -162,6 +162,31 @@
 </section>
 
 <section class="card">
+  <h2>{t("hotkeys.gamepad")}</h2>
+  <label class="gamepad">
+    <input
+      type="checkbox"
+      checked={settings.gamepad.enabled}
+      onchange={(e) => update({ gamepad: { enabled: (e.currentTarget as HTMLInputElement).checked } })}
+    />
+    {t("hotkeys.gamepad.on")}
+  </label>
+  <label class="gamepad">
+    {t("hotkeys.gamepad.modifier")}
+    <select
+      value={settings.gamepad.modifier}
+      disabled={!settings.gamepad.enabled}
+      onchange={(e) => update({ gamepad: { modifier: (e.currentTarget as HTMLSelectElement).value as GamepadModifier } })}
+    >
+      <option value="back">{t("hotkeys.gamepad.back")}</option>
+      <option value="shoulders">{t("hotkeys.gamepad.shoulders")}</option>
+      <option value="sticks">{t("hotkeys.gamepad.sticks")}</option>
+    </select>
+  </label>
+  <p class="hint">{t("hotkeys.gamepad.hint")}</p>
+</section>
+
+<section class="card">
   <h2>{t("hotkeys.fixed.title")}</h2>
   <p class="hint">{t("hotkeys.fixed.edit")}</p>
   <p class="hint">{t("hotkeys.fixed.measure")}</p>
@@ -190,6 +215,20 @@
   }
   .hint.top {
     margin: 0 0 10px;
+  }
+  .gamepad {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .gamepad select {
+    background: #12151b;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 5px 8px;
+    font: inherit;
   }
   .warn,
   .bad {

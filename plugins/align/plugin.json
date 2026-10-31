@@ -16,6 +16,16 @@
         "de": "Ab dem zweiten Hören beginnt jede Zeile dort, wo ihr erstes Wort gesungen wird, statt beim Zeitstempel der LRC-Datei.",
         "en": "From the second listen on, every line starts where its first word is sung instead of at the LRC file's timestamp."
       }
+    },
+    {
+      "id": "fast",
+      "type": "bool",
+      "default": false,
+      "label": { "de": "Schneller rechnen", "en": "Compute faster" },
+      "help": {
+        "de": "Rechnet mit der Hälfte der Prozessorkerne (2 bis 6) statt mit 2. Ein Song ist so fast doppelt so schnell fertig. Im Vollbildspiel pausiert das Plugin weiterhin.",
+        "en": "Computes with half the processor cores (2 to 6) instead of 2, so a song is done almost twice as fast. The plugin still pauses during fullscreen games."
+      }
     }
   ],
   "homepage": "https://github.com/HeiligerHoly/LyricHub",

@@ -56,6 +56,8 @@ export interface OverlaySettings {
   width_pct: number;
   scale: number;
   hide_after_pause_s: number;
+  /** Dim the overlay in a part of 10 s or more without singing. */
+  dim_instrumental: boolean;
   /** Show the overlay only while a fullscreen app is in the foreground. */
   only_fullscreen: boolean;
 }
@@ -97,6 +99,8 @@ export interface AppearanceSettings {
   custom: CustomTheme;
   /** Show lines with kana or kanji in romaji, modified Hepburn (docs/romaji.md). */
   romaji: boolean;
+  /** With romaji on, the original line shows small below the active romaji line. */
+  romaji_original: boolean;
   /** The active line fills word by word; off shows it whole in the fill colour. */
   word_fill: boolean;
 }
@@ -204,6 +208,37 @@ export interface Settings {
   hotkeys: HotkeySettings;
   player: PlayerSettings;
   plugins: PluginsSettings;
+  /** The overlay's own place per program, by lower-case program file name. */
+  profiles: Record<string, OverlayProfile>;
+  gamepad: GamepadSettings;
+  stream: StreamSettings;
+}
+
+/** The OBS browser source (src-tauri/src/stream.rs). */
+export interface StreamSettings {
+  enabled: boolean;
+  port: number;
+  /** Secret part of the URL; empty until the server first starts. */
+  token: string;
+}
+
+/** What must be held for a gamepad combination (src-tauri/src/gamepad.rs). */
+export type GamepadModifier = "back" | "shoulders" | "sticks";
+
+export interface GamepadSettings {
+  enabled: boolean;
+  modifier: GamepadModifier;
+}
+
+/** Place, size and layout of the overlay while one program is in front. */
+export interface OverlayProfile {
+  layout: Layout;
+  monitor_id: string | null;
+  anchor: Anchor;
+  offset_x_pct: number;
+  offset_y_pct: number;
+  width_pct: number;
+  scale: number;
 }
 
 /** JSON Merge Patch for `set_settings`: `null` resets a field to its default. */
@@ -215,6 +250,10 @@ export type SettingsPatch = {
   hotkeys?: { [K in keyof HotkeySettings]?: string | null };
   player?: { [K in keyof PlayerSettings]?: PlayerSettings[K] | null };
   plugins?: { [K in keyof PluginsSettings]?: PluginsSettings[K] | null };
+  /** `null` for a program removes its profile. */
+  profiles?: Record<string, OverlayProfile | null>;
+  gamepad?: { [K in keyof GamepadSettings]?: GamepadSettings[K] | null };
+  stream?: { [K in keyof StreamSettings]?: StreamSettings[K] | null };
 };
 
 /** Offset parts (sync/offsets.rs); positive shows the lyrics later. */
@@ -369,6 +408,9 @@ export type Align = "start" | "center" | "end";
 
 export interface EditLayout {
   seq: number;
+  /** The program in front, for "only for this program"; null on the desktop. */
+  program: string | null;
+  for_program: boolean;
   monitor_width: number;
   monitor_height: number;
   monitor_label: string;

@@ -109,6 +109,9 @@ struct EditSession {
     /// Working copy of the geometry; the settings change only when the edit mode saves.
     geometry: OverlaySettings,
     seq: u64,
+    /// The program in front when the edit mode started, and whether to save for it alone.
+    program: Option<String>,
+    for_program: bool,
 }
 
 /// What the page reports while editing: the content box in CSS px relative to the monitor.
@@ -142,6 +145,9 @@ pub struct OverlayLayout {
 pub struct EditLayout {
     /// Changes when the page must (re)start its draft: edit start, monitor switch.
     pub seq: u64,
+    /// The program in front, for "only for this program"; `None` on the desktop.
+    pub program: Option<String>,
+    pub for_program: bool,
     pub monitor_width: f64,
     pub monitor_height: f64,
     pub monitor_label: String,
@@ -205,6 +211,28 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// The overlay settings for the program in front: its profile's place, size and layout over the
+/// general ones (IDEEN.md, package D).
+pub fn effective(app: &AppHandle) -> OverlaySettings {
+    let s = app.state::<SettingsState>().get();
+    let mut o = s.overlay;
+    if let Some(p) = guard::program().and_then(|name| s.profiles.get(&name)) {
+        p.apply(&mut o);
+    }
+    o
+}
+
+/// The program in front if it has a profile.
+pub fn active_profile(app: &AppHandle) -> Option<String> {
+    guard::program().filter(|name| app.state::<SettingsState>().get().profiles.contains_key(name))
+}
+
+/// Another program came to the front: its profile, or the general place, applies.
+pub fn program_changed(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || relayout(&app));
+}
+
 /// Recomputes size, position and page layout from the settings (or the edit draft) and the
 /// current monitors. Cheap when nothing changed.
 pub fn relayout(app: &AppHandle) {
@@ -213,7 +241,7 @@ pub fn relayout(app: &AppHandle) {
     if h.is_null() {
         return;
     }
-    let settings = app.state::<SettingsState>().get().overlay;
+    let settings = effective(app);
     let mut view = state.view.lock().unwrap();
     view.monitors = window::list_monitors();
     let geometry = view.edit.as_ref().map(|e| e.geometry.clone()).unwrap_or(settings);
@@ -242,6 +270,8 @@ pub fn relayout(app: &AppHandle) {
     let rect = window::place(&geometry, &m, (width, height));
     let edit = view.edit.as_ref().map(|e| EditLayout {
         seq: e.seq,
+        program: e.program.clone(),
+        for_program: e.for_program,
         monitor_width,
         monitor_height,
         monitor_label: m.label(),
@@ -441,7 +471,9 @@ pub fn enter_edit(app: &AppHandle) {
         }
         view.edit_seq += 1;
         let seq = view.edit_seq;
-        view.edit = Some(EditSession { geometry: app.state::<SettingsState>().get().overlay, seq });
+        let program = guard::program();
+        let for_program = active_profile(app).is_some();
+        view.edit = Some(EditSession { geometry: effective(app), seq, program, for_program });
     }
     set_click_through(app, false);
     if state.is_shown() {
@@ -473,6 +505,17 @@ pub fn edit_update(app: &AppHandle, draft: EditDraft) {
     g.width_pct = width_pct;
     g.scale = draft.scale;
     *content = Some((draft.width, draft.height, draft.scale * m.resolution_factor()));
+}
+
+/// "Only for this program" switched in the edit mode.
+pub fn edit_for_program(app: &AppHandle, on: bool) {
+    {
+        let state = app.state::<OverlayState>();
+        let mut view = state.view.lock().unwrap();
+        let Some(edit) = view.edit.as_mut().filter(|e| e.program.is_some()) else { return };
+        edit.for_program = on;
+    }
+    relayout(app);
 }
 
 /// Moves the edit session to the next (`step` = 1) or previous monitor, keeping the relative position.
@@ -508,22 +551,36 @@ pub fn save_edit(app: &AppHandle, draft: Option<EditDraft>) {
     let session = app.state::<OverlayState>().view.lock().unwrap().edit.take();
     let Some(session) = session else { return };
     let g = session.geometry;
+    let program = session.program.clone().filter(|_| session.for_program);
     let (before, after) = app.state::<SettingsState>().update(|s| {
-        let o = &mut s.overlay;
-        o.monitor_id = g.monitor_id.clone();
-        o.anchor = g.anchor;
-        o.offset_x_pct = g.offset_x_pct;
-        o.offset_y_pct = g.offset_y_pct;
-        o.width_pct = g.width_pct;
-        o.scale = g.scale;
+        match &program {
+            // Only for this program: its profile, with the layout it shows now.
+            Some(name) => {
+                s.profiles.insert(name.clone(), crate::settings::OverlayProfile::of(&g));
+            }
+            None => {
+                // Saved for all: a profile of the program in front goes, so it follows too.
+                if let Some(name) = &session.program {
+                    s.profiles.remove(name);
+                }
+                let o = &mut s.overlay;
+                o.monitor_id = g.monitor_id.clone();
+                o.anchor = g.anchor;
+                o.offset_x_pct = g.offset_x_pct;
+                o.offset_y_pct = g.offset_y_pct;
+                o.width_pct = g.width_pct;
+                o.scale = g.scale;
+            }
+        }
     });
     tracing::info!(
-        anchor = ?after.overlay.anchor,
-        offset_x_pct = after.overlay.offset_x_pct,
-        offset_y_pct = after.overlay.offset_y_pct,
-        width_pct = after.overlay.width_pct,
-        scale = after.overlay.scale,
-        monitor = after.overlay.monitor_id.as_deref().unwrap_or("primary"),
+        anchor = ?g.anchor,
+        offset_x_pct = g.offset_x_pct,
+        offset_y_pct = g.offset_y_pct,
+        width_pct = g.width_pct,
+        scale = g.scale,
+        monitor = g.monitor_id.as_deref().unwrap_or("primary"),
+        program = program.as_deref().unwrap_or("all"),
         "edit mode saved"
     );
     finish_edit(app);

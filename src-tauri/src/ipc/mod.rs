@@ -22,7 +22,7 @@ pub fn settings_changed(app: &AppHandle, before: &Settings, after: &Settings) {
     if let Err(e) = app.emit(events::SETTINGS, after) {
         tracing::warn!(error = %e, "could not emit settings");
     }
-    if before.overlay != after.overlay {
+    if before.overlay != after.overlay || before.profiles != after.profiles {
         crate::overlay::relayout(app);
     }
     if before.overlay.layout != after.overlay.layout {
@@ -63,10 +63,20 @@ pub fn nudge(app: &AppHandle, delta_ms: i32) -> Option<i32> {
     Some(offset_ms)
 }
 
-/// Switches to the next overlay layout (Ctrl+Alt+K, tray).
+/// Switches to the next overlay layout (Ctrl+Alt+K).
 pub fn cycle_layout(app: &AppHandle) -> Settings {
-    let (before, after) = app.state::<SettingsState>().update(|s| s.overlay.layout = s.overlay.layout.next());
-    tracing::info!(layout = ?after.overlay.layout, "layout switched");
+    set_layout(app, crate::overlay::effective(app).layout.next())
+}
+
+/// Sets the overlay layout (hotkey, tray): the profile's while the program in front has one,
+/// else the general one.
+pub fn set_layout(app: &AppHandle, layout: crate::settings::Layout) -> Settings {
+    let profile = crate::overlay::active_profile(app);
+    let (before, after) = app.state::<SettingsState>().update(|s| match profile.as_ref().and_then(|p| s.profiles.get_mut(p)) {
+        Some(p) => p.layout = layout,
+        None => s.overlay.layout = layout,
+    });
+    tracing::info!(layout = ?layout, profile = profile.as_deref().unwrap_or("none"), "layout switched");
     settings_changed(app, &before, &after);
     after
 }

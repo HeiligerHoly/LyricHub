@@ -29,8 +29,10 @@
     onsave: () => void;
     oncancel: () => void;
     onmonitor: () => void;
+    /** "Only for this program" switched (IDEEN.md, package D). */
+    onprogram: (on: boolean) => void;
   }
-  let { edit, box, scale, onchange, oncommit, onsave, oncancel, onmonitor }: Props = $props();
+  let { edit, box, scale, onchange, oncommit, onsave, oncancel, onmonitor, onprogram }: Props = $props();
 
   type Op =
     | { kind: "move" }
@@ -144,6 +146,12 @@
       <span class="monitor">{edit.monitor_label}</span>
     {/if}
   </div>
+  {#if edit.program}
+    <label class="row program">
+      <input type="checkbox" checked={edit.for_program} onchange={(e) => onprogram((e.currentTarget as HTMLInputElement).checked)} />
+      {t("edit.forProgram", { program: edit.program })}
+    </label>
+  {/if}
 </div>
 
 <style>
@@ -258,6 +266,10 @@
   .readout,
   .monitor {
     color: #9aa1b2;
+  }
+  .program {
+    gap: calc(8px * var(--r));
+    cursor: pointer;
   }
   .help {
     margin: 0;

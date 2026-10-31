@@ -42,13 +42,14 @@ export function previousTextLine(lines: Line[], index: number): Line | null {
 
 // Hiragana, katakana, CJK ideographs, half-width katakana.
 const JAPANESE = /[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]/;
+const HANGUL = /[가-힣]/;
 
 /**
  * "ja" for lines with kana or kanji, so WebView2 picks Japanese glyph forms for Han characters
  * (PLAN.md 9.5). Japanese is the user's third lyrics language; Chinese-only lines are rare.
  */
 export function langOf(text: string): string | undefined {
-  return JAPANESE.test(text) ? "ja" : undefined;
+  return HANGUL.test(text) ? "ko" : JAPANESE.test(text) ? "ja" : undefined;
 }
 
 /** What a line shows: its romaji while the setting is on (docs/romaji.md), else the original. */

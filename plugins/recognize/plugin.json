@@ -6,6 +6,18 @@
   "executable": "lyrichub-recognize.exe",
   "capabilities": ["lyrics_source"],
   "permissions": ["audio:player", "network:lrclib.net", "network:huggingface.co"],
+  "settings": [
+    {
+      "id": "fast",
+      "type": "bool",
+      "default": false,
+      "label": { "de": "Schneller rechnen", "en": "Compute faster" },
+      "help": {
+        "de": "Rechnet mit der Hälfte der Prozessorkerne (2 bis 6) statt mit 2. Ein Song ist so fast doppelt so schnell fertig. Im Vollbildspiel pausiert das Plugin weiterhin.",
+        "en": "Computes with half the processor cores (2 to 6) instead of 2, so a song is done almost twice as fast. The plugin still pauses during fullscreen games."
+      }
+    }
+  ],
   "homepage": "https://github.com/HeiligerHoly/LyricHub",
   "description": {
     "de": "Lyrics für Songs ohne: Schneidet nur den Ton des Players mit und richtet nach dem Song Text ohne Zeitstempel aus, sucht sonst breiter bei LRCLIB oder erkennt den Text aus dem Gesang (als „erkannt“ markiert). Rechnet nur, wenn kein Vollbildspiel läuft. Nutzt das Modell von Align oder lädt es einmal von huggingface.co (588 MB).",

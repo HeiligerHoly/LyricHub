@@ -9,7 +9,7 @@
   import type { Line } from "#lib/shared/types.js";
   import type { LocalClock } from "../clock";
   import KaraokeLine from "../KaraokeLine.svelte";
-  import { shownText, shownWords } from "../lyricsTimeline";
+  import { langOf, shownText, shownWords } from "../lyricsTimeline";
 
   interface Props {
     active: Line | null;
@@ -23,8 +23,11 @@
     clock: LocalClock;
     clockVersion: number;
     staticFill?: number | null;
+    /** A small row below with the original of a romaji line (IDEEN.md, package D). On for the
+     *  whole song, so the window keeps its size between lines with and without romaji. */
+    original?: boolean;
   }
-  let { active, activeKey, romaji, glow, fill, status, clock, clockVersion, staticFill = null }: Props = $props();
+  let { active, activeKey, romaji, glow, fill, status, clock, clockVersion, staticFill = null, original = false }: Props = $props();
 </script>
 
 <div class="row current">
@@ -50,8 +53,29 @@
     </div>
   {/key}
 </div>
+{#if original}
+  <div class="row original-row">
+    {#key activeKey}
+      {#if romaji && active?.text && active.romaji}<p class="original enter" lang={langOf(active.text)}>{active.text}</p>{/if}
+    {/key}
+  </div>
+{/if}
 
 <style>
+  .row.original-row {
+    height: calc(15px * 1.3 * var(--s));
+  }
+  .original {
+    margin: 0;
+    min-width: 0;
+    overflow: clip;
+    overflow-clip-margin: 16px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: calc(15px * var(--s));
+    line-height: 1.3;
+    color: var(--text-next);
+  }
   .row {
     display: flex;
     justify-content: var(--justify);

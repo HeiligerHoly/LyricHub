@@ -13,6 +13,7 @@ use lindera::mode::Mode;
 use lindera::segmenter::Segmenter;
 use unicode_normalization::UnicodeNormalization;
 
+use super::script::{self, Script};
 use super::types::Line;
 use super::words;
 
@@ -23,17 +24,23 @@ pub fn is_japanese(text: &str) -> bool {
     })
 }
 
-/// Adds romaji to every line with kana or kanji that has none yet. Repeated lines (a chorus)
-/// are converted once. Returns how many lines got romaji.
+/// Adds a Latin version to every line that has none yet: romaji for Japanese, and for Korean,
+/// Chinese, Cyrillic and Greek lines what script.rs makes of them. Repeated lines (a chorus) are
+/// converted once. Returns how many lines got one.
 pub fn annotate(lines: &mut [Line]) -> usize {
-    if !lines.iter().any(|l| l.romaji.is_none() && is_japanese(&l.text)) {
+    let japanese_song = lines.iter().any(|l| script::has_kana(&l.text));
+    let wanted = |l: &Line| l.romaji.is_none() && script::of(&l.text, japanese_song).is_some();
+    if !lines.iter().any(wanted) {
         return 0;
     }
-    let Some(romanizer) = shared() else { return 0 };
     let mut memo: HashMap<String, Option<String>> = HashMap::new();
     let mut count = 0;
-    for line in lines.iter_mut().filter(|l| l.romaji.is_none() && is_japanese(&l.text)) {
-        let romaji = memo.entry(line.text.clone()).or_insert_with(|| romanizer.line(&line.text)).clone();
+    for line in lines.iter_mut().filter(|l| wanted(l)) {
+        let latin = || match script::of(&line.text, japanese_song)? {
+            Script::Japanese => shared()?.line(&line.text),
+            other => script::latin(&line.text, other),
+        };
+        let romaji = memo.entry(line.text.clone()).or_insert_with(latin).clone();
         count += usize::from(romaji.is_some());
         line.romaji_words =
             romaji.as_deref().map(|r| words::estimate(r, line.start_ms, line.fill_end_ms)).filter(|w| !w.is_empty());

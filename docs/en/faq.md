@@ -28,7 +28,7 @@ Both record the sound through the same Windows interface as OBS or Discord. They
 
 ## How much space and power do the plugins need?
 
-The model takes 588 MB on disk, only once even with both plugins, each program 24 MB. Idle, a plugin takes about 30 MB of memory. After a song it computes with 2 cores at low priority and up to 1.5 GB of memory, Align for about 1 to 1.5 times the song length. Only one plugin computes at a time, and only while no fullscreen program is in front.
+The model takes 588 MB on disk, only once even with both plugins, each program 24 MB. Idle, a plugin takes about 30 MB of memory. After a song it computes with 2 cores (with "Compute faster" in the plugin's settings half the cores, 2 to 6) at low priority and up to 1.5 GB of memory, Align for about 1 to 1.5 times the song length. Only one plugin computes at a time, and only while no fullscreen program is in front.
 
 ## Do I need Spotify Premium or a Spotify login?
 
@@ -65,6 +65,16 @@ LyricHub uses the MIT License with the Commons Clause. The code is public, and a
 ## Can I use it while streaming?
 
 The licence allows it. Whether showing song lyrics on a stream is allowed is up to the streaming platform's rules and the rights holders.
+
+For OBS there is a browser source under Settings → Overlay → Streaming (off by default). Switched on, the card shows a URL; add it in OBS as a browser source, set the width there, and `scale=` in the URL sets the text size. The server only answers on 127.0.0.1 and only with the token from the URL, so other computers and web pages cannot reach it. While it runs, `%APPDATA%\LyricHub\now-playing.txt` holds "Title – Artist" for a text source. When a song has no lyrics, the source shows the small card with the cover, like the overlay.
+
+## Can the overlay sit somewhere else in each game?
+
+Yes. In the edit mode (Ctrl+Alt+E), "Remember for <program> only" is offered when a program other than LyricHub was in front. Place, size and layout then apply while that program is in front; otherwise the normal place applies. Settings → Overlay lists the remembered programs and removes them one by one.
+
+## Does it work without a keyboard?
+
+With an XInput controller (Xbox and compatible): switch on Settings → Hotkeys → Gamepad and pick a button to hold (Back/View, LB+RB or both sticks). With it held, Y shows or hides the overlay, X switches the layout, B the Latin script, and the D-pad left and right moves the lyrics by 100 ms. LyricHub only reads the controller and sends nothing to the game. For Stream Deck or AutoHotkey there is the command line: `lyrichub.exe --toggle`, `--edit`, `--layout`, `--romaji` or `--nudge -100` acts on the running LyricHub.
 
 ## How do I remove it completely?
 

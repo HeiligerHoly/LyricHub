@@ -19,6 +19,8 @@
     next: Line | null;
     /** Japanese lines in romaji. */
     romaji: boolean;
+    /** The original below the active romaji line. */
+    original?: boolean;
     /** Word glow for real word times (off with reduced motion). */
     glow?: boolean;
     /** Word-by-word fill; off shows the whole line in the fill colour. */
@@ -42,6 +44,7 @@
     activeKey,
     next,
     romaji,
+    original = false,
     glow = true,
     fill = true,
     status,
@@ -67,7 +70,7 @@
     {/key}
   {/if}
 
-  <ActiveRow {active} {activeKey} {romaji} {glow} {fill} {status} {clock} {clockVersion} {staticFill} />
+  <ActiveRow {active} {activeKey} {romaji} {glow} {fill} {status} {clock} {clockVersion} {staticFill} {original} />
 
   <div class="row upcoming">
     {#key next?.start_ms ?? -1}

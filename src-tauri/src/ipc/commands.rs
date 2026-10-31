@@ -203,6 +203,11 @@ pub async fn discard_plugin_lyrics(app: AppHandle) {
 }
 
 #[tauri::command]
+pub async fn overlay_edit_for_program(app: AppHandle, on: bool) {
+    overlay::edit_for_program(&app, on);
+}
+
+#[tauri::command]
 pub async fn lyrics_candidates(app: AppHandle) -> Result<app_state::LyricsCandidates, String> {
     tauri::async_runtime::spawn_blocking(move || app_state::lyrics_candidates(&app)).await.map_err(|e| e.to_string())?
 }

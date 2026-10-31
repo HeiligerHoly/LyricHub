@@ -57,7 +57,7 @@ Recognized text has errors (in the test about every fifth word, even when the re
 The same holds for Align and Recognize. Only one of them computes at a time; the other waits.
 
 - **Fullscreen:** while a game or another program runs fullscreen in front, the plugin does not compute. The status line shows "Paused while a fullscreen game runs". Heard songs wait until the game is closed or runs in a window.
-- **CPU:** computing, the plugin uses 2 cores at "below normal" priority; capturing, almost nothing (under 0.1 % of the CPU).
+- **CPU:** computing, the plugin uses 2 cores at "below normal" priority, with "Compute faster" in its settings half the cores (2 to 6) from the next song; capturing, almost nothing (under 0.1 % of the CPU).
 - **Memory:** idle a plugin takes about 30 MB, computing up to 1.5 GB. The model is loaded only while there is work. LyricHub allows each plugin at most 3 GB; a plugin that asks for more gets no memory, ends and starts again.
 - **Queue:** listening a lot while gaming for long collects songs. The queue holds a good two hours of music; then the oldest song goes.
 

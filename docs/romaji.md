@@ -77,3 +77,27 @@ Karaoke-Füllung und Zeilentiming bleiben unverändert: Die Zeile bekommt nur ei
 | Privater Speicher | LyricHub-Prozess 9,8 MB privat, das Wörterbuch eingeschlossen. Mit allen WebView2-Prozessen 195 MB privat (GPU-Prozess 89 MB), Working Set 480 MB. Der Anteil von Romaji liegt bei etwa 0,3 MB (Messung am Prototyp), die Gesamtsumme liegt trotzdem knapp unter der Grenze von 200 MB: Befund für Phase 5. | `Get-Process`, Prozessbaum wie in `measure-cpu.ps1` |
 
 Wunsch des Nutzers aus dem Live-Test: Die Vorschauzeile zeigt nur die Romaji der nächsten Zeile. Die erste Fassung hängte das Original klein dahinter.
+
+## Weitere Schriften (IDEEN.md, Paket D, 2026-10-31)
+
+Derselbe Schalter (Einstellungen → Overlay → „Lateinische Umschrift“, Strg+Alt+R) schreibt jetzt auch Koreanisch, Chinesisch, Kyrillisch und Griechisch in lateinischer Schrift. Ein Plugin, wie IDEEN.md vorschlug, war unnötig: Alles sind feste Regeln und Tabellen, nur Chinesisch braucht Lesungen, und die bringt das Crate `pinyin` (MIT) mit.
+
+| Schrift | Regel | Beispiel (erfunden) |
+|---|---|---|
+| Koreanisch | Revised Romanization; ein Schlusskonsonant vor stummem Anlaut rückt in die nächste Silbe, ㄹ vor ㄹ wird „ll“ | 한국어 → hangugeo, 몰라 → molla |
+| Chinesisch | Pinyin mit Tonzeichen, die häufigste Lesung jedes Zeichens, ein Leerzeichen pro Silbe | 我爱你 → wǒ ài nǐ |
+| Kyrillisch | russische und ukrainische Buchstaben nach der üblichen englischen Umschrift | Привет → Privet, Щастя → Shchastya |
+| Griechisch | nach ELOT 743, ohne Akzente; ου → ou | Καλημέρα → Kalimera |
+
+- **Erkennung** (`src-tauri/src/lyrics/script.rs`): Kana → Japanisch, Hangul → Koreanisch, Kyrillisch und Griechisch nach Unicode-Block. Eine Zeile nur aus Han-Zeichen gilt als Japanisch, wenn der Song irgendwo Kana hat, sonst als Chinesisch. Japanisch läuft weiter über lindera (oben).
+- **„Original dazu“** (Einstellungen → Overlay): Unter der aktiven umgeschriebenen Zeile steht klein das Original. Die Zeile bleibt den ganzen Song über reserviert, auch bei Zeilen ohne Umschrift, damit das Fenster nicht springt.
+
+### Grenzen
+
+- **Chinesisch:** Zeichen mit mehreren Lesungen (了, 行, 长) bekommen immer die häufigste. Silben stehen einzeln („wǒ men“ statt „wǒmen“), Satzzeichen bekommen Leerzeichen.
+- **Koreanisch:** Nur das Verbinden über die Silbengrenze; weitere Lautwandel wie die Nasalierung (국물 klingt „gungmul“, hier „gukmul“) wendet LyricHub nicht an.
+- **Kyrillisch:** Buchstaben anderer Sprachen (serbisch ђ, ј, љ; weißrussisch ў) bleiben stehen. Bulgarisch wird wie Russisch umgeschrieben (щ → shch statt sht).
+- **Griechisch:** αυ und ευ werden „ay“ und „ey“ statt „av“ und „ev“, μπ und ντ bleiben „mp“ und „nt“.
+- **Thai** fehlt: Ohne Wörterbuch lassen sich Thai-Wörter nicht trennen und Vokale nicht sicher lesen.
+
+Geprüft mit 4 Unit-Tests (Erkennung, Koreanisch, Chinesisch, Kyrillisch und Griechisch). Live mit einem koreanischen oder chinesischen Song ist es nicht getestet.

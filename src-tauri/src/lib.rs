@@ -5,8 +5,10 @@
 mod app_state;
 mod audio_devices;
 mod calibration;
+mod cli;
 mod crash;
 mod fonts;
+mod gamepad;
 mod hotkeys;
 mod i18n;
 mod ipc;
@@ -18,6 +20,7 @@ mod plugins;
 mod settings;
 mod settings_window;
 mod sources;
+mod stream;
 mod sync;
 mod sync_lab;
 mod tray;
@@ -32,13 +35,19 @@ pub fn run() {
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "LyricHub starting");
 
     paths::drop_webview_components();
-    let autostarted = std::env::args().any(|a| a == "--minimized");
+    let args: Vec<String> = std::env::args().collect();
+    // A first start with a command (lyrichub.exe --toggle) only starts LyricHub, minimised.
+    let autostarted = args.iter().any(|a| a == "--minimized") || !cli::parse(&args).is_empty();
     let selftest_mode = std::env::var("LYRICHUB_SELFTEST").ok();
 
     let app = tauri::Builder::default()
-        // A second start opens the settings of the running instance; a second autostart does nothing.
+        // A second start opens the settings of the running instance, or runs its commands
+        // (cli.rs); a second autostart does nothing.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            if !args.iter().any(|a| a == "--minimized") {
+            let commands = cli::parse(&args);
+            if !commands.is_empty() {
+                cli::run(app, &commands);
+            } else if !args.iter().any(|a| a == "--minimized") {
                 settings_window::open(app);
             }
         }))
@@ -100,6 +109,7 @@ pub fn run() {
             ipc::commands::enter_edit_mode,
             ipc::commands::overlay_edit_update,
             ipc::commands::overlay_edit_monitor,
+            ipc::commands::overlay_edit_for_program,
             ipc::commands::save_overlay_geometry,
             ipc::commands::cancel_edit_mode,
             ipc::commands::toggle_overlay,
@@ -125,6 +135,8 @@ pub fn run() {
             app_state::start(handle.clone(), sources::smtc::SmtcSource::new(player).spawn());
             plugins::init(&handle);
             audio_devices::spawn_watcher(handle.clone());
+            gamepad::spawn(handle.clone());
+            stream::spawn(handle.clone());
 
             if let Some(mode) = selftest_mode.clone() {
                 // Give the webview time to load and paint before measuring.

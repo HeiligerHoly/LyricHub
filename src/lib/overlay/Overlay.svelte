@@ -47,6 +47,9 @@
   /** What the backend makes of SAMPLE_NEXT (test `overlay_sample_line` in lyrics/romaji.rs). */
   const SAMPLE_NEXT_ROMAJI = "tsugi no kashi wa koko ni sukoshi chiisaku hyōji saremasu";
   const DIM_AFTER_MS = 2000;
+  /** A part without singing this long dims the overlay; how far. */
+  const INSTRUMENTAL_MIN_MS = 10_000;
+  const INSTRUMENTAL_OPACITY = 0.35;
   const HINT_MS = 3000;
   const REPORT_DEBOUNCE_MS = 50;
   /** Old title comes back if no new one arrives in this time (seek to 0, repeat). */
@@ -62,6 +65,9 @@
   let status = $state<PlaybackStatus>("closed");
   let layout = $state<OverlayLayout | null>(null);
   let hideAfterPauseS = $state(10);
+  let dimInstrumental = $state(true);
+  /** Inside a part of 10 s or more without singing (IDEEN.md, package D). */
+  let instrumental = $state(false);
   let appearance = $state<AppearanceSettings | null>(null);
   /** A browser is the chosen player (PLAN.md 13.4); idle texts then do not name Spotify. */
   let browserPlayer = $state(false);
@@ -120,7 +126,8 @@
     if (!track) return hint ? 0.75 : 0;
     // Spotify Free ads stay hidden (PLAN.md 5.5).
     if (track.kind === "ad") return 0;
-    return pauseStage === 0 ? 1 : pauseStage === 1 ? 0.6 : 0;
+    const paused = pauseStage === 0 ? 1 : pauseStage === 1 ? 0.6 : 0;
+    return instrumental && dimInstrumental ? Math.min(paused, INSTRUMENTAL_OPACITY) : paused;
   });
   const theme = $derived(appearance ? look(appearance, layout?.layout) : null);
   const reduced = $derived(osReducedMotion || !!appearance?.reduced_motion);
@@ -247,6 +254,37 @@
     const until = upcoming ? clock.timeUntil(upcoming.start_ms, now) : Infinity;
     countdown =
       measuring?.mode === "calibrate" && upcoming && Number.isFinite(until) ? { key: upcoming.start_ms, ms: until } : null;
+    scheduleDim(index, now);
+  }
+
+  // Instrumental parts: in a gap of INSTRUMENTAL_MIN_MS or more between the end of the last sung
+  // line (or the song start) and the next line, the overlay dims from 2 s after the singing
+  // until 1 s before the next line.
+  let dimTimer: ReturnType<typeof setTimeout> | undefined;
+  function scheduleDim(index: number, now: number) {
+    clearTimeout(dimTimer);
+    instrumental = false;
+    if (!lines || sample) return;
+    const upcoming = nextTextLine(lines, index);
+    if (!upcoming) return;
+    let sung = 0;
+    for (let i = index; i >= 0; i--) {
+      if (lines[i].text) {
+        sung = lines[i].fill_end_ms;
+        break;
+      }
+    }
+    if (upcoming.start_ms - sung < INSTRUMENTAL_MIN_MS) return;
+    const [from, to] = [sung + 2000, upcoming.start_ms - 1000];
+    const pos = clock.display(now);
+    if (pos < from) {
+      const wait = clock.timeUntil(from, now);
+      if (Number.isFinite(wait)) dimTimer = setTimeout(() => scheduleDim(index, performance.now()), wait + 2);
+    } else if (pos < to) {
+      instrumental = true;
+      const wait = clock.timeUntil(to, now);
+      if (Number.isFinite(wait)) dimTimer = setTimeout(() => (instrumental = false), wait + 2);
+    }
   }
 
   $effect(() => {
@@ -331,6 +369,7 @@
     // First, so a toast below already speaks the new language.
     setLanguage(s.behavior.language);
     hideAfterPauseS = s.overlay.hide_after_pause_s;
+    dimInstrumental = s.overlay.dim_instrumental;
     appearance = s.appearance;
     browserPlayer = s.player.app_id !== DEFAULT_PLAYER;
     // Feedback for Ctrl+Alt+R, which changes nothing visible while a non-Japanese song plays.
@@ -475,6 +514,7 @@
             activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
             upcoming={sample ? [sampleNext, sampleLater] : upcomingLines}
             {romaji}
+            original={romaji && (appearance?.romaji_original ?? false)}
             glow={!reduced}
             fill={appearance?.word_fill ?? true}
             status={rowStatus}
@@ -493,6 +533,7 @@
             active={sample ? sampleActive : activeLine}
             activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
             {romaji}
+            original={romaji && (appearance?.romaji_original ?? false)}
             glow={!reduced}
             fill={appearance?.word_fill ?? true}
             status={rowStatus}
@@ -510,6 +551,7 @@
             activeKey={sample ? "sample" : `${lyrics?.key ?? ""}#${lineIndex}`}
             next={sample ? sampleNext : nextLine}
             {romaji}
+            original={romaji && (appearance?.romaji_original ?? false)}
             glow={!reduced}
             fill={appearance?.word_fill ?? true}
             status={rowStatus}
@@ -538,6 +580,7 @@
       onsave={() => ipc.saveOverlayGeometry(currentDraft())}
       oncancel={() => ipc.cancelEditMode()}
       onmonitor={() => ipc.overlayEditMonitor(1)}
+      onprogram={(on) => ipc.overlayEditForProgram(on)}
     />
   {/if}
 </main>

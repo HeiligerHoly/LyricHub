@@ -21,6 +21,10 @@ pub struct Settings {
     pub hotkeys: HotkeySettings,
     pub player: PlayerSettings,
     pub plugins: PluginsSettings,
+    /// The overlay's own place per program, by lower-case program file name (IDEEN.md, package D).
+    pub profiles: BTreeMap<String, OverlayProfile>,
+    pub gamepad: GamepadSettings,
+    pub stream: StreamSettings,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -37,6 +41,9 @@ impl Default for Settings {
             hotkeys: HotkeySettings::default(),
             player: PlayerSettings::default(),
             plugins: PluginsSettings::default(),
+            profiles: BTreeMap::new(),
+            gamepad: GamepadSettings::default(),
+            stream: StreamSettings::default(),
             extra: Map::new(),
         }
     }
@@ -163,11 +170,103 @@ pub struct OverlaySettings {
     pub scale: f64,
     /// Fade the overlay out this many seconds into a pause; 0 keeps it visible.
     pub hide_after_pause_s: u32,
+    /// Dim the overlay in a part of 10 s or more without singing (IDEEN.md, package D).
+    pub dim_instrumental: bool,
     /// Show the overlay only while a fullscreen app (game, video) is in the foreground.
     pub only_fullscreen: bool,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
+}
+
+/// Where the overlay sits while one program is in front (IDEEN.md, package D): the place, size and
+/// layout part of `OverlaySettings`.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct OverlayProfile {
+    pub layout: Layout,
+    pub monitor_id: Option<String>,
+    pub anchor: Anchor,
+    pub offset_x_pct: f64,
+    pub offset_y_pct: f64,
+    pub width_pct: f64,
+    pub scale: f64,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
+
+impl OverlayProfile {
+    pub fn of(o: &OverlaySettings) -> Self {
+        Self {
+            layout: o.layout,
+            monitor_id: o.monitor_id.clone(),
+            anchor: o.anchor,
+            offset_x_pct: o.offset_x_pct,
+            offset_y_pct: o.offset_y_pct,
+            width_pct: o.width_pct,
+            scale: o.scale,
+            extra: Map::new(),
+        }
+    }
+
+    pub fn apply(&self, o: &mut OverlaySettings) {
+        o.layout = self.layout;
+        o.monitor_id = self.monitor_id.clone();
+        o.anchor = self.anchor;
+        o.offset_x_pct = self.offset_x_pct;
+        o.offset_y_pct = self.offset_y_pct;
+        o.width_pct = self.width_pct;
+        o.scale = self.scale;
+    }
+}
+
+/// At most this many programs with their own place.
+pub const PROFILES_MAX: usize = 50;
+
+/// The overlay as an OBS browser source and `now-playing.txt` (stream.rs, IDEEN.md, package D).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct StreamSettings {
+    /// Off by default: lyrics in a stream are shown to an audience.
+    pub enabled: bool,
+    /// Port on 127.0.0.1.
+    pub port: u16,
+    /// Secret part of the URL; made when the server first starts.
+    pub token: String,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
+
+impl Default for StreamSettings {
+    fn default() -> Self {
+        Self { enabled: false, port: 4790, token: String::new(), extra: Map::new() }
+    }
+}
+
+/// Gamepad buttons (gamepad.rs, IDEEN.md, package D).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct GamepadSettings {
+    pub enabled: bool,
+    pub modifier: GamepadModifier,
+    /// Fields this version does not know (a newer build, another branch): kept and written back.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
+
+/// What must be held for a gamepad combination; the game sees the same buttons.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum GamepadModifier {
+    /// Back (View on newer controllers).
+    #[default]
+    Back,
+    /// Both shoulder buttons.
+    Shoulders,
+    /// Both sticks pressed in.
+    Sticks,
 }
 
 pub const SCALE_MIN: f64 = 0.5;
@@ -188,6 +287,7 @@ impl Default for OverlaySettings {
             width_pct: 35.0,
             scale: 1.0,
             hide_after_pause_s: 10,
+            dim_instrumental: true,
             only_fullscreen: false,
             extra: Map::new(),
         }
@@ -259,6 +359,9 @@ pub struct AppearanceSettings {
     pub custom: CustomTheme,
     /// Show lines with kana or kanji in romaji, modified Hepburn (docs/romaji.md).
     pub romaji: bool,
+    /// With romaji on, the original line shows small below the active romaji line (IDEEN.md,
+    /// package D).
+    pub romaji_original: bool,
     /// The active line fills word by word. The word times are mostly estimated
     /// (lyrics/words.rs), so off shows the whole line in the fill colour at once.
     pub word_fill: bool,
@@ -278,6 +381,7 @@ impl Default for AppearanceSettings {
             reduced_motion: false,
             custom: CustomTheme::default(),
             romaji: false,
+            romaji_original: false,
             word_fill: true,
             extra: Map::new(),
         }
@@ -411,12 +515,50 @@ impl Settings {
         if o.monitor_id.as_deref().is_some_and(|m| m.trim().is_empty()) {
             o.monitor_id = None;
         }
+        if self.stream.port < 1024 {
+            self.stream.port = StreamSettings::default().port;
+        }
+        self.stream.token.retain(|c| c.is_ascii_hexdigit());
+        self.stream.token.truncate(64);
+        // Profiles: lower-case program names, values in range, at most PROFILES_MAX.
+        let profiles = std::mem::take(&mut self.profiles);
+        self.profiles = profiles
+            .into_iter()
+            .filter(|(name, _)| (1..=64).contains(&name.len()) && !name.chars().any(char::is_control))
+            .take(PROFILES_MAX)
+            .map(|(name, mut p)| {
+                p.offset_x_pct = finite_or(p.offset_x_pct, d.offset_x_pct).clamp(-100.0, 100.0);
+                p.offset_y_pct = finite_or(p.offset_y_pct, d.offset_y_pct).clamp(-100.0, 100.0);
+                p.width_pct = finite_or(p.width_pct, d.width_pct).clamp(WIDTH_PCT_MIN, WIDTH_PCT_MAX);
+                p.scale = finite_or(p.scale, d.scale).clamp(SCALE_MIN, SCALE_MAX);
+                if p.monitor_id.as_deref().is_some_and(|m| m.trim().is_empty()) {
+                    p.monitor_id = None;
+                }
+                (name.to_lowercase(), p)
+            })
+            .collect();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn profiles_keep_place_size_and_layout_and_stay_in_range() {
+        let mut o = OverlaySettings { anchor: Anchor::BottomRight, scale: 1.5, layout: Layout::Stack, ..OverlaySettings::default() };
+        let p = OverlayProfile::of(&o);
+        let mut back = OverlaySettings { hide_after_pause_s: 30, ..OverlaySettings::default() };
+        p.apply(&mut back);
+        assert_eq!((back.anchor, back.scale, back.layout, back.hide_after_pause_s), (Anchor::BottomRight, 1.5, Layout::Stack, 30));
+        o.scale = 99.0;
+        let mut s = Settings::default();
+        s.profiles.insert("VRChat.exe".into(), OverlayProfile::of(&o));
+        s.profiles.insert(String::new(), OverlayProfile::default());
+        s.sanitize();
+        assert_eq!(s.profiles.keys().collect::<Vec<_>>(), ["vrchat.exe"]);
+        assert_eq!(s.profiles["vrchat.exe"].scale, SCALE_MAX);
+    }
 
     #[test]
     fn anchor_cells_roundtrip() {
