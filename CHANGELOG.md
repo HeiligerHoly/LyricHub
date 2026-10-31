@@ -2,7 +2,9 @@
 
 The notable changes of each version. The release notes in [docs/release-notes/](docs/release-notes/) have the details.
 
-## Unreleased
+## 1.3.0 – 2026-10-31
+
+See [docs/release-notes/v1.3.0.md](docs/release-notes/v1.3.0.md).
 
 ### Added
 
