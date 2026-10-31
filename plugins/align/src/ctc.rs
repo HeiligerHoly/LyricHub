@@ -25,14 +25,11 @@ pub fn align(logp: &[f32], frames: usize, vocab: usize, targets: &[u32]) -> Opti
             let x1 = if s > 0 { prev[s - 1] } else { f32::NEG_INFINITY };
             let skip = s > 1 && !s.is_multiple_of(2) && targets[s / 2] != targets[s / 2 - 1];
             let x2 = if skip { prev[s - 2] } else { f32::NEG_INFINITY };
-            // Ties as in torchaudio: the skip only when strictly best, then the step, else stay.
-            let (best, from) = if x2 > x1 && x2 > x0 {
-                (x2, 2)
-            } else if x1 > x0 && x1 > x2 {
-                (x1, 1)
-            } else {
-                (x0, 0)
-            };
+            // The best of the three; on a tie, stay before step before skip. (torchaudio stays
+            // whenever no move is strictly best, even when step and skip tie above staying,
+            // which can pick an unreachable state; real emissions rarely tie, invented ones do.)
+            let best = x0.max(x1).max(x2);
+            let from = if x0 == best { 0 } else if x1 == best { 1 } else { 2 };
             cur[s] = best + lp(t, s);
             back[t * states + s] = from;
         }

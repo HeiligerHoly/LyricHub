@@ -60,10 +60,20 @@ pub struct LyricsEvent {
     /// Where the word times come from: "estimate", "lrc" (Enhanced LRC) or "plugin:<id>";
     /// empty without synced lines.
     pub word_source: String,
+    /// Auto-Sync moved the lines onto the singing: the median shift in ms (PLAN-plugins-2.md 3).
+    pub line_sync_ms: Option<i32>,
 }
 
 impl LyricsEvent {
     pub fn state(key: &str, state: LyricsState) -> Self {
-        Self { key: key.to_owned(), state, source: String::new(), lines: Vec::new(), lrc_offset_ms: 0, word_source: String::new() }
+        Self {
+            key: key.to_owned(),
+            state,
+            source: String::new(),
+            lines: Vec::new(),
+            lrc_offset_ms: 0,
+            word_source: String::new(),
+            line_sync_ms: None,
+        }
     }
 }

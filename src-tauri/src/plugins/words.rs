@@ -10,6 +10,13 @@ use crate::lyrics::types::{Line, Word};
 
 /// A word may start this much before its line or end this much after it.
 const LINE_SLACK_MS: u32 = 1000;
+/// Auto-Sync: a line appears this long before its first word, and moves at most this far from
+/// the LRC file's stamp (PLAN-plugins-2.md 3.1).
+const SYNC_LEAD_MS: i64 = 150;
+const SYNC_LIMIT_MS: i64 = 1500;
+/// Lyrics from a plugin: at most this many lines of at most this many characters.
+const MAX_FOUND_LINES: usize = 600;
+const MAX_LINE_CHARS: usize = 300;
 /// The last line has no next one to end it; its words may run this long after its start.
 const LAST_LINE_MS: u32 = 30_000;
 
@@ -86,6 +93,112 @@ pub fn apply(lines: &mut [Line], answer: &[PluginLine]) -> usize {
     changed
 }
 
+/// Auto-Sync (PLAN-plugins-2.md 3): every line with measured words starts shortly before its
+/// first word, at most 1.5 s from the LRC stamp and never before the line before it. Lines
+/// without a measurement move by the median of the measured ones, words included. Returns that
+/// median in ms (positive: the lines came too early), or `None` without measured lines.
+pub fn auto_sync(lines: &mut [Line]) -> Option<i32> {
+    let measured = |l: &Line| l.words.as_ref().and_then(|w| w.first()).filter(|w| !w.estimated).map(|w| w.start_ms);
+    let mut shifts: Vec<i64> = lines.iter().filter_map(|l| measured(l).map(|w| w as i64 - SYNC_LEAD_MS - l.start_ms as i64)).collect();
+    if shifts.is_empty() {
+        return None;
+    }
+    shifts.sort_unstable();
+    let median = shifts[shifts.len() / 2].clamp(-SYNC_LIMIT_MS, SYNC_LIMIT_MS);
+    let mut floor = 0i64;
+    for line in lines.iter_mut() {
+        let old = line.start_ms as i64;
+        let wanted = match measured(line) {
+            Some(w) => (w as i64 - SYNC_LEAD_MS).clamp(old - SYNC_LIMIT_MS, old + SYNC_LIMIT_MS),
+            None => old + median,
+        };
+        let start = wanted.max(floor).max(0);
+        let shift = start - old;
+        line.start_ms = start as u32;
+        line.fill_end_ms = (line.fill_end_ms as i64 + shift).max(start) as u32;
+        if measured(line).is_none() {
+            // Estimated words go along with their line.
+            for w in line.words.iter_mut().flatten() {
+                w.start_ms = (w.start_ms as i64 + shift).max(0) as u32;
+                w.end_ms = (w.end_ms as i64 + shift).max(0) as u32;
+            }
+        }
+        floor = start + 1;
+    }
+    // A line ends where the next one starts.
+    for i in 0..lines.len().saturating_sub(1) {
+        let next = lines[i + 1].start_ms;
+        if lines[i].end_ms.is_some() {
+            lines[i].end_ms = Some(next);
+        }
+        lines[i].fill_end_ms = lines[i].fill_end_ms.min(next).max(lines[i].start_ms);
+    }
+    Some(median as i32)
+}
+
+/// One line of lyrics from a plugin (`lyrics_found`): start, text and, optionally, word times.
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+pub struct FoundLine {
+    pub start_ms: u32,
+    pub text: String,
+    #[serde(default)]
+    pub words: Vec<[u32; 2]>,
+}
+
+/// `lyrics_found`: where the lyrics come from and the lines.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Found {
+    pub key: String,
+    /// "lrclib" (found with a broader search), "aligned_plain" or "recognized".
+    pub how: String,
+    pub lrclib_id: Option<i64>,
+    pub lines: Vec<FoundLine>,
+}
+
+pub fn parse_lyrics_found(params: &Value) -> Result<Found, String> {
+    let key = params.get("key").and_then(Value::as_str).ok_or("lyrics_found without key")?.to_owned();
+    let how = params.get("source").and_then(Value::as_str).unwrap_or("");
+    if !["lrclib", "aligned_plain", "recognized"].contains(&how) {
+        return Err(format!("lyrics_found with unknown source {how:?}"));
+    }
+    let mut lines: Vec<FoundLine> =
+        serde_json::from_value(params.get("lines").cloned().unwrap_or(Value::Null)).map_err(|e| format!("lyrics_found lines: {e}"))?;
+    if lines.is_empty() || lines.len() > MAX_FOUND_LINES {
+        return Err(format!("lyrics_found with {} lines", lines.len()));
+    }
+    if lines.windows(2).any(|p| p[1].start_ms < p[0].start_ms) {
+        return Err("lyrics_found with falling line starts".into());
+    }
+    for l in &mut lines {
+        l.text = l.text.chars().filter(|c| !c.is_control()).collect::<String>().trim().to_owned();
+        if l.text.chars().count() > MAX_LINE_CHARS {
+            return Err("lyrics_found with a line that is too long".into());
+        }
+    }
+    Ok(Found { key, how: how.to_owned(), lrclib_id: params.get("lrclib_id").and_then(Value::as_i64), lines })
+}
+
+/// The lines as an LRC file, which the cache stores like lyrics from LRCLIB.
+pub fn to_lrc(lines: &[FoundLine]) -> String {
+    let mut out = String::new();
+    for l in lines {
+        let cs = l.start_ms / 10;
+        out.push_str(&format!("[{:02}:{:02}.{:02}]{}\n", cs / 6000, cs / 100 % 60, cs % 100, l.text));
+    }
+    out
+}
+
+/// The plugin's word times for the parsed lines, where the counts fit LyricHub's units.
+pub fn found_words(parsed: &[Line], found: &[FoundLine]) -> Vec<PluginLine> {
+    parsed
+        .iter()
+        .zip(found)
+        .enumerate()
+        .filter(|(_, (l, f))| !f.words.is_empty() && l.words.as_ref().is_some_and(|w| w.len() == f.words.len()))
+        .map(|(index, (_, f))| PluginLine { index, words: f.words.clone() })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -136,6 +249,50 @@ mod tests {
         let last = [PluginLine { index: 1, words: vec![[5200, 9000], [12_000, 19_500]] }];
         assert_eq!(valid_lines(&open, &last).len(), 1);
         assert!(parse_word_times(&json!({ "key": "k" })).is_err());
+    }
+
+    #[test]
+    fn auto_sync_moves_lines_to_their_first_word() {
+        let mut ls = lines();
+        // Line 0 is measured: its first word comes 400 ms after the stamp.
+        apply(&mut ls, &[PluginLine { index: 0, words: vec![[1400, 1700], [1700, 1900], [1900, 2100], [2100, 2600]] }]);
+        let median = auto_sync(&mut ls).unwrap();
+        assert_eq!(median, 250, "400 ms late minus the 150 ms lead");
+        assert_eq!(ls[0].start_ms, 1250);
+        // Line 1 had no measurement: it moves by the median, words included.
+        assert_eq!(ls[1].start_ms, 5250);
+        assert!(ls[1].words.as_ref().unwrap()[0].start_ms >= 5250);
+        assert_eq!(ls[0].end_ms, Some(5250));
+    }
+
+    #[test]
+    fn auto_sync_stays_within_limits_and_order() {
+        let mut ls = lines();
+        // A first word 3 s after the stamp moves the line by at most 1.5 s.
+        apply(&mut ls, &[PluginLine { index: 0, words: vec![[4000, 4100], [4100, 4200], [4200, 4300], [4300, 4400]] }]);
+        auto_sync(&mut ls);
+        assert_eq!(ls[0].start_ms, 2500);
+        assert!(ls.windows(2).all(|p| p[0].start_ms < p[1].start_ms));
+        let mut none = lines();
+        assert_eq!(auto_sync(&mut none), None, "nothing measured, nothing moves");
+        assert_eq!(none, lines());
+    }
+
+    #[test]
+    fn found_lyrics_are_checked_and_become_lrc() {
+        let params = json!({ "key": "k", "source": "recognized", "lines": [
+            { "start_ms": 1000, "text": "paper boats at night", "words": [[1000, 1300], [1300, 1600], [1600, 1800], [1800, 2400]] },
+            { "start_ms": 5000, "text": "drifting\u{7} slowly home" },
+        ]});
+        let found = parse_lyrics_found(&params).unwrap();
+        assert_eq!(found.lines[1].text, "drifting slowly home", "control characters go");
+        let lrc = to_lrc(&found.lines);
+        assert_eq!(lrc, "[00:01.00]paper boats at night\n[00:05.00]drifting slowly home\n");
+        let parsed = parser::parse(&lrc).lines;
+        assert_eq!(found_words(&parsed, &found.lines), vec![PluginLine { index: 0, words: found.lines[0].words.clone() }]);
+        assert!(parse_lyrics_found(&json!({ "key": "k", "source": "guess", "lines": [{ "start_ms": 1, "text": "x" }] })).is_err());
+        let falling = json!({ "key": "k", "source": "recognized", "lines": [{ "start_ms": 9, "text": "a" }, { "start_ms": 5, "text": "b" }] });
+        assert!(parse_lyrics_found(&falling).is_err());
     }
 
     #[test]

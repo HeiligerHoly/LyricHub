@@ -1,11 +1,23 @@
 {
   "id": "lyrichub-align",
   "name": "Align",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "api": 1,
   "executable": "lyrichub-align.exe",
   "capabilities": ["word_timing"],
   "permissions": ["audio:player", "network:huggingface.co"],
+  "settings": [
+    {
+      "id": "auto_sync",
+      "type": "bool",
+      "default": true,
+      "label": { "de": "Auto-Sync", "en": "Auto-Sync" },
+      "help": {
+        "de": "Ab dem zweiten Hören beginnt jede Zeile dort, wo ihr erstes Wort gesungen wird, statt beim Zeitstempel der LRC-Datei.",
+        "en": "From the second listen on, every line starts where its first word is sung instead of at the LRC file's timestamp."
+      }
+    }
+  ],
   "homepage": "https://github.com/HeiligerHoly/LyricHub",
   "description": {
     "de": "Echte Wortzeiten aus dem Ton: Schneidet nur den Ton des Players mit, richtet nach dem Song den Liedtext darauf aus und rechnet nur, wenn kein Vollbildspiel läuft. Der Ton bleibt im Arbeitsspeicher. Lädt beim ersten Start ein Modell von 588 MB von huggingface.co.",

@@ -111,6 +111,14 @@
           : t(lyrics.word_source === "lrc" ? "diag.words.lrc" : "diag.words.estimate")}
       </dd>
     {/if}
+    {#if lyrics?.line_sync_ms != null}
+      <dt>{t("diag.lineSync")}</dt>
+      <dd>{t("diag.lineSync.value", { ms: lyrics.line_sync_ms })}</dd>
+    {/if}
+    {#if lyrics && /plugin:[^:]+:/.test(lyrics.source)}
+      <dt>{t("diag.lyricsOrigin")}</dt>
+      <dd>{t(`diag.lyricsOrigin.${lyrics.source.split(":").pop()}` as Key)}</dd>
+    {/if}
   </dl>
 </section>
 

@@ -77,6 +77,12 @@ pub fn discard_staged_plugin(app: AppHandle) {
     crate::plugins::discard_staged(&app);
 }
 
+/// A plugin's own switch (PLAN-plugins.md 4.7), e.g. Auto-Sync in Align.
+#[tauri::command]
+pub async fn set_plugin_setting(app: AppHandle, id: String, key: String, value: bool) -> Result<Vec<crate::plugins::PluginInfo>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::plugins::set_setting(&app, &id, &key, value)).await.map_err(|e| e.to_string())?
+}
+
 /// Switching a plugin off waits up to 2 s for it to end, so it runs off the async threads.
 #[tauri::command]
 pub async fn set_plugin_enabled(app: AppHandle, id: String, enabled: bool) -> Result<Vec<crate::plugins::PluginInfo>, String> {
@@ -189,6 +195,11 @@ pub async fn set_song_offset(app: AppHandle, offset_ms: i32) -> Option<i32> {
 #[tauri::command]
 pub async fn reload_lyrics(app: AppHandle) {
     app_state::reload_lyrics(&app);
+}
+
+#[tauri::command]
+pub async fn discard_plugin_lyrics(app: AppHandle) {
+    app_state::discard_plugin_lyrics(&app);
 }
 
 #[tauri::command]

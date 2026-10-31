@@ -65,6 +65,11 @@
     if (list) plugins = list;
   }
 
+  async function setSetting(p: PluginInfo, key: string, value: boolean) {
+    const list = await run(() => ipc.setPluginSetting(p.id, key, value));
+    if (list) plugins = list;
+  }
+
   async function remove(p: PluginInfo) {
     if (!confirm(t("plugins.removeConfirm", { name: p.name }))) return;
     const list = await run(() => ipc.removePlugin(p.id));
@@ -153,6 +158,15 @@
       </p>
     {/if}
     {#if p.detail && p.state !== "restarting"}<p class="warn">{p.detail}</p>{/if}
+    {#each p.settings as s (s.id)}
+      <label class="setting">
+        <input type="checkbox" checked={s.value} disabled={busy} onchange={(e) => setSetting(p, s.id, (e.currentTarget as HTMLInputElement).checked)} />
+        <span>
+          {describe(s.label)}
+          {#if describe(s.help)}<span class="hint block">{describe(s.help)}</span>{/if}
+        </span>
+      </label>
+    {/each}
     {#if p.permissions.length}
       <p class="hint">{t("plugins.permissions")}: {p.permissions.map(permissionText).join(" · ")}</p>
     {/if}
@@ -238,5 +252,18 @@
   }
   .status {
     margin: 0;
+  }
+  .setting {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .setting input {
+    accent-color: var(--accent);
+    margin-top: 3px;
+  }
+  .hint.block {
+    display: block;
   }
 </style>

@@ -2,6 +2,26 @@
 
 The notable changes of each version. The release notes in [docs/release-notes/](docs/release-notes/) have the details.
 
+## Unreleased
+
+### Added
+
+- Auto-Sync (PLAN-plugins-2.md, Q2): a switch in lyrichub-align, on by default. Once Align has measured a song, each line starts 150 ms before its first sung word, at most 1.5 s from the LRC stamp and never before the line above; lines without a measurement move by the song's median. Diagnostics shows the median shift. Measured on four JamendoLyrics songs whose stamps were moved by up to ±0.5 s: line starts 38 ms from the sung first word in the median, 165 ms for the slowest tenth ([docs/en/auto-sync.md](docs/en/auto-sync.md)).
+- The plugin lyrichub-recognize (Q3, `plugins/recognize`, not part of the installer) for songs without synced lyrics. It captures only the player's sound and, after the song, aligns LRCLIB's lyrics without timestamps over it, finds the song on LRCLIB with a broader search that it checks against what it heard, or shows the text it recognized from the singing, marked "recognized" in the overlay. The lyrics show from the second listen on. It shares Align's model, computing rules and limits ([docs/en/plugin-recognize.md](docs/en/plugin-recognize.md)).
+- Plugin settings: a plugin's manifest can declare switches (`settings`, on/off with German and English labels). Settings → Plugins shows them, and LyricHub sends their values with a `settings` notification.
+- Lyrics from plugins: the capability `lyrics_source` hears `lyrics_wanted` for songs without synced lyrics and answers with `lyrics_found`. LyricHub checks the lines and keeps them in its cache with the plugin as their source; synced lyrics from LRCLIB always win. Settings → Sync shows where the lyrics come from and can discard a plugin's lyrics for a song for good. Removing a plugin also removes its lyrics.
+- LRCLIB lookup: a last stage searches by the title alone, for songs whose artist LRCLIB spells differently ("A & B", "A feat. C"). A result still has to match the artist and the length.
+
+### Changed
+
+- When LRCLIB stays unavailable through all retries, a song counts as missing for two hours instead of a day; in a test, a third of the misses were only overload.
+- lyrichub-align 0.2.0 frees its model as soon as no song waits, instead of after 60 s, so Align and Recognize never hold two models at once. It logs a song it left out because too little of it was heard, and takes over Recognize's model as hard links instead of downloading it again.
+
+### Fixed
+
+- lyrichub-align computed only until its first idle minute: it unloads the model after 60 s without work, and loading it again failed ("only one environment is allowed per process"), so it measured nothing more until LyricHub restarted. The ONNX Runtime environment is now built once and kept. Fixed in Align 0.2.0.
+- Align's CTC path could take an impossible step when two paths scored exactly the same; ties now prefer staying, then the next character, then skipping a blank.
+
 ## 1.2.0 – 2026-10-29
 
 See [docs/release-notes/v1.2.0.md](docs/release-notes/v1.2.0.md).

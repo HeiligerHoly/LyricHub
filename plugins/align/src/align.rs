@@ -3,7 +3,9 @@
 //! and per unit the frames of its first and last character.
 
 use std::path::Path;
+use std::sync::OnceLock;
 
+use ort::environment::Environment;
 use ort::session::{RunOptions, Session};
 use ort::session::builder::GraphOptimizationLevel;
 use ort::value::TensorRef;
@@ -13,6 +15,8 @@ use crate::text::{Targets, Vocab, targets};
 
 /// A line's window starts this much before its start and ends this much after the next line
 /// starts (P0).
+/// Auto-Sync keeps it: windows that start 1.5 s ahead caught the end of the line before and
+/// measured worse, also with exact stamps (docs/auto-sync.md).
 pub const PAD_MS: u32 = 500;
 /// The last line has no next one: 15 s after its start.
 const LAST_MS: u32 = 15_000;
@@ -26,13 +30,14 @@ const CONTEXT_S: usize = 2;
 /// Samples per model frame (20 ms).
 const FRAME_SAMPLES: usize = 320;
 
-/// `[from, to)` in ms for each line, from the line starts and the end of the song.
-pub fn windows(starts: &[u32], end_ms: u32) -> Vec<(u32, u32)> {
+/// `[from, to)` in ms for each line, from the line starts and the end of the song; the window
+/// starts `before_ms` ahead of the line.
+pub fn windows(starts: &[u32], end_ms: u32, before_ms: u32) -> Vec<(u32, u32)> {
     starts
         .iter()
         .enumerate()
         .map(|(i, &s)| {
-            let from = s.saturating_sub(PAD_MS);
+            let from = s.saturating_sub(before_ms);
             let to = starts.get(i + 1).map_or(s + LAST_MS, |n| n + PAD_MS);
             (from, to.min(from + MAX_WINDOW_MS).min(end_ms.max(from)))
         })
@@ -43,7 +48,14 @@ pub struct Model {
     session: Session,
     run: RunOptions,
     frontend: Frontend,
-    vocab: Vocab,
+    pub vocab: Vocab,
+}
+
+/// ONNX Runtime allows one environment per process, ever, even after the first one is gone: it
+/// is built once and kept, so the model can be loaded again after it was unloaded.
+fn environment() -> Result<Environment, String> {
+    static ENV: OnceLock<Result<Environment, String>> = OnceLock::new();
+    ENV.get_or_init(|| ort::init().with_name("lyrichub-align").with_telemetry(false).build().map_err(|e| e.to_string())).clone()
 }
 
 impl Model {
@@ -56,7 +68,7 @@ impl Model {
     /// largest window's memory: attention grows with the square of the window length.
     pub fn load_with(onnx: &Path, vocab_json: &str, threads: usize, shrink: bool) -> Result<Self, String> {
         let e = |e: ort::Error| e.to_string();
-        let env = ort::init().with_name("lyrichub-align").with_telemetry(false).build().map_err(e)?;
+        let env = environment()?;
         let session = Session::builder(&env)
             .map_err(e)?
             .with_optimization_level(GraphOptimizationLevel::All)
@@ -77,9 +89,16 @@ impl Model {
     /// Log probabilities of 16 kHz samples: `frames × vocab`, with frames and vocab size. Long
     /// windows run in pieces; each keeps the frames between its context parts.
     pub fn logp(&mut self, audio: &[f32]) -> Result<Option<(Vec<f32>, usize, usize)>, String> {
+        self.logp_paced(audio, || {})
+    }
+
+    /// As `logp`, calling `between` before each piece: a whole song takes minutes, and the
+    /// caller waits there while a fullscreen game runs.
+    pub fn logp_paced(&mut self, audio: &[f32], mut between: impl FnMut()) -> Result<Option<(Vec<f32>, usize, usize)>, String> {
         let mut out = Vec::new();
         let (mut frames, mut vocab) = (0, 0);
         for p in pieces(audio.len()) {
+            between();
             let Some((lp, n, v)) = self.run_once(&audio[p.from..p.to])? else { return Ok(None) };
             let first = ((p.keep_from - p.from) / FRAME_SAMPLES).min(n);
             let last = if p.keep_to == audio.len() { n } else { ((p.keep_to - p.from) / FRAME_SAMPLES).min(n) };
@@ -146,6 +165,11 @@ struct Piece {
     keep_to: usize,
 }
 
+/// How many pieces a window of `len` samples takes, for a progress bar.
+pub fn piece_count(len: usize) -> usize {
+    pieces(len).len()
+}
+
 /// Pieces of a window of `len` samples. Short windows are one piece, as in P0.
 fn pieces(len: usize) -> Vec<Piece> {
     let piece = PIECE_S * SAMPLE_RATE as usize;
@@ -193,9 +217,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_environment_outlives_a_model() {
+        drop(environment().unwrap());
+        assert!(environment().is_ok(), "a model loaded again after the first was unloaded");
+    }
+
+    #[test]
     fn windows_follow_p0() {
-        assert_eq!(windows(&[1000, 4000, 40_000], 60_000), vec![(500, 4500), (3500, 31_500), (39_500, 55_000)]);
-        assert_eq!(windows(&[200], 5000), vec![(0, 5000)], "clipped at the song's end");
+        assert_eq!(windows(&[1000, 4000, 40_000], 60_000, PAD_MS), vec![(500, 4500), (3500, 31_500), (39_500, 55_000)]);
+        assert_eq!(windows(&[200], 5000, PAD_MS), vec![(0, 5000)], "clipped at the song's end");
+        assert_eq!(windows(&[3000, 6000], 9000, 1500)[1], (4500, 9000), "an earlier start");
     }
 
     #[test]

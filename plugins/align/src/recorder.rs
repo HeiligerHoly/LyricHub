@@ -6,8 +6,9 @@
 
 use std::collections::HashSet;
 
-use crate::align::windows;
+use crate::align::{PAD_MS, windows};
 use crate::capture::RATE;
+use crate::rpc::Out;
 
 /// A packet within this much of where the last one ended continues it, so the timing jitter of
 /// the anchors does not cut the sound into pieces.
@@ -65,6 +66,8 @@ pub struct JobLine {
 struct Song {
     key: String,
     hash: String,
+    /// The whole song counts, not line windows: a song without lyrics (Recognize).
+    whole: bool,
     lines: Vec<LineIn>,
     windows: Vec<(u32, u32)>,
     end_ms: u32,
@@ -80,9 +83,23 @@ pub struct Recorder {
     clock: Option<Clock>,
     /// Songs already handed to the worker in this session (key, lyrics hash).
     done: HashSet<(String, String)>,
+    /// Where to say that a song was left out; none in tests.
+    log: Option<Out>,
 }
 
 impl Recorder {
+    pub fn with_log(out: Out) -> Recorder {
+        Recorder { log: Some(out), ..Recorder::default() }
+    }
+
+    /// A song that ended with too little of it heard: said in the log, so a missing result can
+    /// be told apart from a failed one. Songs skipped right away stay quiet.
+    fn left_out(&self, what: &str, share: f64) {
+        if let Some(out) = self.log.as_ref().filter(|_| share > 0.0) {
+            out.log("info", format!("song left out: {:.0} % of {what} heard, {:.0} % needed", share * 100.0, SONG_HEARD * 100.0));
+        }
+    }
+
     /// The song to record from now on. The same song again keeps what was heard; another one
     /// finishes the one before.
     pub fn set_song(&mut self, key: &str, hash: &str, lines: Vec<LineIn>, duration_ms: u32) -> Option<RawJob> {
@@ -95,16 +112,42 @@ impl Recorder {
         }
         let starts: Vec<u32> = lines.iter().map(|l| l.start_ms).collect();
         let last = lines.last().map_or(0, |l| l.start_ms) + 15_000;
-        let windows = windows(&starts, if duration_ms > 0 { duration_ms } else { last });
+        let windows = windows(&starts, if duration_ms > 0 { duration_ms } else { last }, PAD_MS);
         // Recording ends with the last sung line; an empty line after it only marks its end.
         let end_ms = windows.iter().zip(&lines).filter(|(_, l)| !l.units.is_empty()).map(|(w, _)| w.1).max().unwrap_or(0);
         let samples = end_ms as usize * RATE as usize / 1000;
         self.song = Some(Song {
             key: key.to_owned(),
             hash: hash.to_owned(),
+            whole: false,
             lines,
             windows,
             end_ms,
+            buf: vec![0; samples],
+            covered: vec![false; samples.div_ceil(BLOCK)],
+            cursor: None,
+        });
+        job
+    }
+
+    /// Records a whole song without lyrics (PLAN-plugins-2.md 4.1): it counts when 85 % of it
+    /// was heard, and the job holds all of it. Songs over 15 minutes are left out.
+    pub fn set_whole_song(&mut self, key: &str, duration_ms: u32) -> Option<RawJob> {
+        if self.song.as_ref().is_some_and(|s| s.key == key && s.whole) {
+            return None;
+        }
+        let job = self.finish();
+        if self.done.contains(&(key.to_owned(), String::new())) || duration_ms == 0 || duration_ms > 15 * 60_000 {
+            return job;
+        }
+        let samples = duration_ms as usize * RATE as usize / 1000;
+        self.song = Some(Song {
+            key: key.to_owned(),
+            hash: String::new(),
+            whole: true,
+            lines: Vec::new(),
+            windows: vec![(0, duration_ms)],
+            end_ms: duration_ms,
             buf: vec![0; samples],
             covered: vec![false; samples.div_ceil(BLOCK)],
             cursor: None,
@@ -171,6 +214,15 @@ impl Recorder {
     fn finish(&mut self) -> Option<RawJob> {
         let song = self.song.take()?;
         let per_ms = RATE as usize / 1000;
+        if song.whole {
+            let heard = song.covered.iter().filter(|c| **c).count() as f64 / song.covered.len().max(1) as f64;
+            if heard < SONG_HEARD {
+                self.left_out("it", heard);
+                return None;
+            }
+            self.done.insert((song.key.clone(), String::new()));
+            return Some(RawJob { key: song.key, hash: String::new(), lines: Vec::new(), audio: song.buf, start_ms: 0 });
+        }
         let heard = |(a, b): (u32, u32)| {
             let (from, to) = (a as usize * per_ms / BLOCK, (b as usize * per_ms).div_ceil(BLOCK).min(song.covered.len()));
             if to <= from {
@@ -191,6 +243,7 @@ impl Recorder {
             })
             .collect();
         if singing.is_empty() || (lines.len() as f64) < SONG_HEARD * singing.len() as f64 {
+            self.left_out("its lines", lines.len() as f64 / singing.len().max(1) as f64);
             return None;
         }
         self.done.insert((song.key.clone(), song.hash.clone()));
@@ -283,6 +336,20 @@ mod tests {
         // 3 s later: a seek.
         r.push(30_000_000, &vec![0.1; 480]);
         assert_eq!(r.song.as_ref().unwrap().cursor, Some(3000 * 48 + 480));
+    }
+
+    #[test]
+    fn a_whole_song_counts_when_most_of_it_was_heard() {
+        let mut r = Recorder::default();
+        r.set_whole_song("w", 10_000);
+        r.set_clock(clock(0.0, 0.0));
+        play(&mut r, 0, 8000, 0.2);
+        assert!(r.clear().is_none(), "80 % is not enough");
+        r.set_whole_song("w2", 10_000);
+        r.set_clock(clock(0.0, 0.0));
+        let job = play(&mut r, 0, 11_100, 0.2).expect("past the end finishes it");
+        assert!(job.lines.is_empty());
+        assert_eq!((job.start_ms, job.audio.len()), (0, 10_000 * 48));
     }
 
     #[test]

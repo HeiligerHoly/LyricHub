@@ -61,6 +61,8 @@ pub const DEFAULT_PLAYER: &str = "Spotify";
 #[serde(default)]
 pub struct PluginsSettings {
     pub enabled: Vec<String>,
+    /// The plugins' own switches (PLAN-plugins.md 4.7): plugin id → setting id → value.
+    pub values: BTreeMap<String, BTreeMap<String, bool>>,
     /// Fields this version does not know (a newer build, another branch): kept and written back.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -382,6 +384,10 @@ impl Settings {
         }
         let mut seen = std::collections::BTreeSet::new();
         self.plugins.enabled.retain(|id| crate::plugins::manifest::valid_id(id) && seen.insert(id.clone()));
+        self.plugins.values.retain(|id, v| {
+            v.retain(|k, _| (1..=32).contains(&k.len()));
+            crate::plugins::manifest::valid_id(id) && !v.is_empty()
+        });
         self.player.app_id = self.player.app_id.trim().to_owned();
         if self.player.app_id.is_empty() {
             // An empty filter would match every session.

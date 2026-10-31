@@ -15,8 +15,9 @@ use super::types::{LyricsEvent, LyricsState};
 
 /// Waits before retrying while LRCLIB is busy or unreachable.
 const RETRY_DELAYS: [Duration; 3] = [Duration::from_secs(5), Duration::from_secs(30), Duration::from_secs(120)];
-/// How long a song that stayed unavailable through all retries counts as missing.
-const GIVE_UP_TTL_S: i64 = 24 * 3600;
+/// How long a song that stayed unavailable through all retries counts as missing. Short: in Q0
+/// a third of the misses were only LRCLIB overload (docs/spike-recognize.md, M4).
+const GIVE_UP_TTL_S: i64 = 2 * 3600;
 
 #[derive(Clone, Debug)]
 pub struct Request {
@@ -91,8 +92,9 @@ impl LyricsService {
                             }
                             None => {
                                 // LRCLIB answers 503 for empty searches too, so "busy every time"
-                                // usually means "not there". Remember it for a day, not a week.
-                                tracing::warn!(key = %req.key, "LRCLIB unavailable, giving up for this song today");
+                                // often means "not there", but just as often overload. Remember it
+                                // for two hours, not a week.
+                                tracing::warn!(key = %req.key, "LRCLIB unavailable, giving up for this song for two hours");
                                 if let Some(cache) = cache.as_ref() {
                                     let _ = cache.put_negative_for(&req.key, unix_now(), GIVE_UP_TTL_S);
                                 }
@@ -216,6 +218,7 @@ pub fn to_event(key: &str, c: &Cached, via: &str) -> LyricsEvent {
                     lines: parsed.lines,
                     lrc_offset_ms: parsed.offset_ms,
                     word_source: if lrc_words { "lrc" } else { "estimate" }.into(),
+                    line_sync_ms: None,
                 };
             }
             LyricsState::Unsynced
@@ -224,7 +227,7 @@ pub fn to_event(key: &str, c: &Cached, via: &str) -> LyricsEvent {
         Format::None if c.instrumental => LyricsState::Instrumental,
         Format::None => LyricsState::Missing,
     };
-    LyricsEvent { key: key.to_owned(), state, source, lines: Vec::new(), lrc_offset_ms: 0, word_source: String::new() }
+    LyricsEvent { source, ..LyricsEvent::state(key, state) }
 }
 
 fn unix_now() -> i64 {

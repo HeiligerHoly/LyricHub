@@ -7,6 +7,11 @@
 //! `<raw>` holds `songs.txt` (song and language per line), `<song>.f32` (mono float32) and
 //! `<song>.sr` from the scratchpad; audio and dataset stay out of the repository. Without
 //! `--float` the audio goes through 16-bit samples, as in the plugin's queue.
+//!
+//! Auto-Sync check (PLAN-plugins-2.md Q2): `--before <ms>` starts the windows earlier and
+//! `--jitter <song ms> <line ms>` moves the stamps like a sloppy LRC file (a fixed offset per song
+//! plus one per line, both pseudo-random); the line start error then shows whether the first
+//! sung word is still found.
 
 use std::path::Path;
 use std::time::Instant;
@@ -20,6 +25,15 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let [jamendo, raw, model_dir, p0, threads] = &args[..5] else { panic!("see the header for the arguments") };
     let float = args.iter().any(|a| a == "--float");
+    let flag = |name: &str, n: usize| args.iter().position(|a| a == name).map(|i| args[i + n].parse::<f64>().unwrap());
+    let before = flag("--before", 1).map_or(lyrichub_align::align::PAD_MS, |v| v as u32);
+    let (jitter_song, jitter_line) = (flag("--jitter", 1).unwrap_or(0.0), flag("--jitter", 2).unwrap_or(0.0));
+    let mut rng: u64 = 0x5eed;
+    let mut uniform = move |range: f64| {
+        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        ((rng >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0) * range
+    };
+    let mut first_err = Vec::new();
     let (jamendo, raw, model_dir) = (Path::new(jamendo), Path::new(raw), Path::new(model_dir));
     let p0: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(p0).unwrap()).unwrap();
     let vocab = std::fs::read_to_string(model_dir.join("vocab.json")).unwrap();
@@ -42,9 +56,10 @@ fn main() {
         }
         let per_ms = SAMPLE_RATE as usize / 1000;
         let dur_ms = (x.len() / per_ms) as u32;
-        let stamps: Vec<u32> = lines.iter().map(|l| (l[0].1 * 1000.0).round() as u32).collect();
+        let song_shift = uniform(jitter_song);
+        let stamps: Vec<u32> = lines.iter().map(|l| (l[0].1 * 1000.0 + song_shift + uniform(jitter_line)).round().max(0.0) as u32).collect();
         let mut errors = Vec::new();
-        for ((line, (from, to)), &stamp) in lines.iter().zip(windows(&stamps, dur_ms)).zip(&stamps) {
+        for ((line, (from, to)), &stamp) in lines.iter().zip(windows(&stamps, dur_ms, before)).zip(&stamps) {
             let seg = &x[from as usize * per_ms..(to as usize * per_ms).min(x.len())];
             let units: Vec<String> = line.iter().map(|(w, _)| w.clone()).collect();
             let text = units.join(" ");
@@ -52,6 +67,7 @@ fn main() {
                 Some(words) => words.iter().map(|w| w[0] as f64).collect(),
                 None => vec![stamp as f64; units.len()],
             };
+            first_err.push((starts[0] - line[0].1 * 1000.0).abs());
             errors.extend(starts.iter().zip(line).map(|(s, (_, truth))| (s - truth * 1000.0).abs()));
         }
         let secs = t0.elapsed().as_secs_f64();
@@ -85,6 +101,12 @@ fn main() {
         within(&all, 150.0),
         within(&all_p0, 150.0),
         all.len()
+    );
+    println!(
+        "line start (first word): median {:.0} ms, p90 {:.0} ms, within 100 ms {:.1} %  [before {before} ms, jitter {jitter_song}/{jitter_line} ms]",
+        quantile(&first_err, 0.5),
+        quantile(&first_err, 0.9),
+        within(&first_err, 100.0)
     );
     println!("audio {:.1} min, work {:.1} min, rtf {:.2}, peak memory {:.2} GB", audio_s / 60.0, work_s / 60.0, work_s / audio_s, peak_gb());
     let out = raw.join(format!("results_rust_{threads}{}.json", if float { "_float" } else { "" }));

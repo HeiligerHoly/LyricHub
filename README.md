@@ -19,7 +19,8 @@ Synced, karaoke-style lyrics of the song playing in Spotify, on top of your game
 - Corrections are kept per song, every output device has its own offset, and a calibration assistant and the Sync Lab help with the setup.
 - Japanese lines can be shown in romaji ([docs/en/romaji.md](docs/en/romaji.md)).
 - Experimentally, a browser can be the player instead of Spotify (YouTube Music, YouTube, the Spotify web player).
-- Optional plugin **Align**: real word times from the player's sound instead of the estimate, computed after the song while no game runs fullscreen ([docs/en/plugins.md](docs/en/plugins.md)).
+- Optional plugin **Align**: real word times from the player's sound instead of the estimate, computed after the song while no game runs fullscreen. With Auto-Sync it also moves each line onto its first sung word ([docs/en/plugins.md](docs/en/plugins.md)).
+- Optional plugin **Recognize**: lyrics for songs that LRCLIB has no synced lyrics for, found with a broader search, aligned from lyrics without timestamps or recognized from the singing and marked as such.
 - German and English interface. It follows the Windows display language and can be switched under Settings → Behavior → Language.
 
 Current version: `1.2.0` (2026-10-29), with the plugin Align. Changes are in [CHANGELOG.md](CHANGELOG.md). The promo video was made in code with Remotion; the project is in [promo-video/](promo-video/).
@@ -49,7 +50,7 @@ If you do not trust the binaries, you can follow or rebuild everything yourself:
 
 Download `LyricHub_<version>_x64-setup.exe` from the [releases](https://github.com/HeiligerHoly/LyricHub/releases) and run it (to build it yourself, see below: `npx tauri build`, output in `src-tauri/target/release/bundle/nsis/`). The installer sets LyricHub up for the current user only and needs no administrator rights. It is not signed: Windows SmartScreen reports an unknown publisher; choose "More info" → "Run anyway". If the WebView2 Runtime is missing (Windows 11 has it), the installer fetches it. Then start Spotify; LyricHub sits in the tray and shows the current song.
 
-The plugin Align is a separate download, `lyrichub-align-<version>.zip` in the same release; install it under Settings → Plugins ([docs/en/plugins.md](docs/en/plugins.md)).
+The plugins are separate downloads, `lyrichub-align-<version>.zip` and `lyrichub-recognize-<version>.zip` in the same release; install them under Settings → Plugins ([docs/en/plugins.md](docs/en/plugins.md)).
 
 ## Requirements for building
 
@@ -75,7 +76,7 @@ npm run check          # check Svelte/TypeScript
 npx tauri build        # release build and installer (NSIS)
 ```
 
-Published releases are built with `toolsuild-release.ps1`: it builds the installer and the align plugin ZIP, replaces the Cargo home folder in the source paths Rust embeds for panic messages, and checks that no path with a local user folder is left in the executables.
+Published releases are built with `tools\build-release.ps1`: it builds the installer and the plugin ZIPs, replaces the Cargo home folder in the source paths Rust embeds for panic messages, and checks that no path with a local user folder is left in the executables.
 
 The app starts in the tray. A left click on the tray icon shows or hides the overlay; the right-click menu opens the edit mode and the settings. The settings window only exists while it is open. With `--minimized` (as the autostart uses it) no window opens.
 
@@ -133,9 +134,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\seek-test.ps1 -Co
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync\nudge-test.ps1
 ```
 
-114 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, browser titles, ads and podcasts, shortcuts with AltGr detection, plugin manifests, ZIP checks and processes, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. Six more run with `cargo test -- --ignored`: one needs a desktop session, one measures the word timing estimate against the JamendoLyrics dataset ([docs/en/word-timing.md](docs/en/word-timing.md)), and four run the plugin host against the example plugin in `plugins/example`, which they build first.
+121 Rust unit tests (LRC parser, estimated word times, playback clock with source fusion, offsets, tap evaluation, matcher, LRCLIB client against recorded answers, cache, geometry, settings store with migration, SMTC track-change detection, browser titles, ads and podcasts, shortcuts with AltGr detection, plugin manifests with settings, ZIP checks and processes, plugin word times, lyrics and Auto-Sync, diagnostics export without song details): `cargo test` in `src-tauri`. The tests make no live requests to LRCLIB. Six more run with `cargo test -- --ignored`: one needs a desktop session, one measures the word timing estimate against the JamendoLyrics dataset ([docs/en/word-timing.md](docs/en/word-timing.md)), and four run the plugin host against the example plugin in `plugins/example`, which they build first.
 
-The align plugin in `plugins/align` has 29 tests of its own (`cargo test` there): resampler, features and CTC path against reference values from torchaudio and transformers (`tests/make_golden.py`, synthetic sound), text targets, windows, the recorder and the status line. `cargo run --release --example jamendo` compares its pipeline with the P0 prototype on JamendoLyrics songs, `--example memory` measures the model's memory per window length ([docs/en/plugin-align.md](docs/en/plugin-align.md)).
+The align plugin in `plugins/align` has 39 tests of its own (`cargo test` there): resampler, features and CTC path against reference values from torchaudio and transformers (`tests/make_golden.py`, synthetic sound), text targets, windows, the recorder, the status line, the shared model and compute lock, and the recognition helpers that `plugins/recognize` uses (2 more tests there, for its LRCLIB search). `cargo run --release --example jamendo` compares its pipeline with the P0 prototype on JamendoLyrics songs, `--example memory` measures the model's memory per window length ([docs/en/plugin-align.md](docs/en/plugin-align.md)). `--example jamendo` with `--before` and `--jitter` checks Auto-Sync ([docs/en/auto-sync.md](docs/en/auto-sync.md)), `--example recognize` the recognition and the alignment of lyrics without timestamps ([docs/en/plugin-recognize.md](docs/en/plugin-recognize.md)).
 
 ## Notes
 

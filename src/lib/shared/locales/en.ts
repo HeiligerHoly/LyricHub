@@ -48,6 +48,7 @@ export const en: Record<Key, string> = {
   "layout.minimal": "Minimal",
 
   // Overlay window: sample text (invented), idle hint, states, toasts
+  "overlay.recognized": "recognized",
   "overlay.sample.line": "This is a sample line for alignment",
   "overlay.sample.previous": "The line before is dimmed",
   "overlay.sample.later": "and one more line after that",
@@ -200,6 +201,9 @@ export const en: Record<Key, string> = {
   "sync.lyrics.cached": "LRCLIB (from the cache)",
   "sync.lyrics.reloading": "Reloading…",
   "sync.lyrics.reload": "Reload lyrics",
+  "sync.lyrics.discard": "Discard the plugin's lyrics",
+  "sync.lyrics.discard.hint":
+    "Discarded lyrics do not come back for this song: LyricHub asks LRCLIB again and no longer asks a plugin for this song.",
   "sync.lyrics.crossfade":
     "Crossfade and Automix in Spotify blur the song boundaries. For the most accurate sync, turn them off in Spotify under Settings → Playback.",
 
@@ -306,6 +310,12 @@ export const en: Record<Key, string> = {
   "diag.words.estimate": "estimated",
   "diag.words.lrc": "from the LRC file",
   "diag.words.plugin": "from the plugin {id}",
+  "diag.lineSync": "Lines",
+  "diag.lineSync.value": "moved onto the singing (Auto-Sync), {ms} ms in the median",
+  "diag.lyricsOrigin": "Lyrics from a plugin",
+  "diag.lyricsOrigin.lrclib": "found on LRCLIB and aligned",
+  "diag.lyricsOrigin.aligned_plain": "lyrics without timestamps aligned",
+  "diag.lyricsOrigin.recognized": "recognized from the singing",
   "diag.lyrics.lines": "{n} lines",
   "diag.lyrics.lrcOffset": "LRC offset {ms} ms",
   "diag.latency.title": "Track change to display",

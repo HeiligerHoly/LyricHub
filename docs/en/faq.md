@@ -16,19 +16,19 @@ No. The installer is not signed, so Windows SmartScreen reports an unknown publi
 
 ## Does LyricHub collect data?
 
-No. There is no telemetry and no account. The only online service it talks to is [LRCLIB](https://lrclib.net), over HTTPS: to find lyrics it sends the song's title, artist, album and length. Lyrics, settings and logs stay on your PC in `%APPDATA%\LyricHub`. The diagnostics export hides song details, so it can go into a public bug report. The plugin Align, if installed, downloads its model from huggingface.co once and sends nothing else (next question).
+No. There is no telemetry and no account. The only online service it talks to is [LRCLIB](https://lrclib.net), over HTTPS: to find lyrics it sends the song's title, artist, album and length. Lyrics, settings and logs stay on your PC in `%APPDATA%\LyricHub`. The diagnostics export hides song details, so it can go into a public bug report. The plugins Align and Recognize, if installed, download their model from huggingface.co once. Recognize also asks LRCLIB for the song's title. Neither ever sends sound or text (next question).
 
-## Does the plugin Align listen in? What happens to the sound?
+## Do the plugins listen in? What happens to the sound?
 
-Align captures only the player's sound, never the game's sound or the microphone, and only while a song with estimated word times plays. The sound stays in memory, is dropped after the alignment and never leaves the PC. Only the word times are stored. Align is optional and has to be installed first ([docs/en/plugins.md](plugins.md)).
+Align and Recognize capture only the player's sound, never the game's sound or the microphone. Align does so only while a song with estimated word times plays, Recognize only for a song without synced lyrics. The sound stays in memory, is dropped after the computation and never leaves the PC. Only word times and lyrics are stored, recognized text too only on the PC. Both plugins are optional and have to be installed first ([docs/en/plugins.md](plugins.md)).
 
-## Is Align safe with anti-cheat?
+## Are Align and Recognize safe with anti-cheat?
 
-Align records the sound through the same Windows interface as OBS or Discord. It does not touch games and injects nothing. While a game runs fullscreen it does not even compute. As with LyricHub itself, there is no guarantee.
+Both record the sound through the same Windows interface as OBS or Discord. They do not touch games and inject nothing. While a game runs fullscreen they do not even compute. As with LyricHub itself, there is no guarantee.
 
-## How much space and power does Align need?
+## How much space and power do the plugins need?
 
-The model takes 588 MB on disk, the program 24 MB. Idle, Align takes about 30 MB of memory. After a song it computes with 2 cores at low priority and up to 1.5 GB of memory for about 1 to 1.5 times the song length, but only while no fullscreen program is in front.
+The model takes 588 MB on disk, only once even with both plugins, each program 24 MB. Idle, a plugin takes about 30 MB of memory. After a song it computes with 2 cores at low priority and up to 1.5 GB of memory, Align for about 1 to 1.5 times the song length. Only one plugin computes at a time, and only while no fullscreen program is in front.
 
 ## Do I need Spotify Premium or a Spotify login?
 
@@ -40,11 +40,11 @@ The Spotify desktop app, from the Microsoft Store or from spotify.com. Since 1.1
 
 ## The lyrics are early or late. What can I do?
 
-Press Ctrl+Alt+, or Ctrl+Alt+. to move the lyrics of the current song 100 ms earlier or later (add Shift for 25 ms steps). LyricHub remembers the correction for that song. If every song is off by about the same amount, run the calibration under Settings → Sync: it sets an offset for your audio device.
+Press Ctrl+Alt+, or Ctrl+Alt+. to move the lyrics of the current song 100 ms earlier or later (add Shift for 25 ms steps). LyricHub remembers the correction for that song. If every song is off by about the same amount, run the calibration under Settings → Sync: it sets an offset for your audio device. If single lines are off, the plugin Align with Auto-Sync moves them onto the singing from the second listen on.
 
 ## A song shows no lyrics.
 
-LyricHub gets lyrics from LRCLIB, a community-maintained database. If LRCLIB has no synced lyrics for a song, the overlay shrinks to a small card with cover, title and artist. It grows again with the next song that has lyrics.
+LyricHub gets lyrics from LRCLIB, a community-maintained database. If LRCLIB has no synced lyrics for a song, the overlay shrinks to a small card with cover, title and artist. It grows again with the next song that has lyrics. The plugin Recognize can get lyrics for such songs from the second listen on: it searches more broadly, aligns lyrics without timestamps or recognizes the text from the singing ([docs/en/plugins.md](plugins.md)).
 
 ## Does it work on Windows 10?
 

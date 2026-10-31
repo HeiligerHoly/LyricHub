@@ -1,0 +1,18 @@
+[package]
+name = "lyrichub-recognize"
+version = "0.1.0"
+description = "LyricHub plugin: lyrics for songs without, found or recognized from the sound (PLAN-plugins-2.md, Q3)"
+authors = ["HeiligerHoly"]
+license-file = "../../LICENSE"
+edition = "2024"
+publish = false
+
+[dependencies]
+# Capture, recording, model, CTC and status are the align plugin's library.
+lyrichub-align = { path = "../align" }
+serde_json = "1.0.154"
+ureq = { version = "3.5.0", default-features = false, features = ["native-tls"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 4

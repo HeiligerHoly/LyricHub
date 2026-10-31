@@ -15,6 +15,7 @@ use serde_json::json;
 use crate::align::Model;
 use crate::capture::RATE;
 use crate::features::SAMPLE_RATE;
+use crate::lock::ComputeLock;
 use crate::model;
 use crate::recorder::{JobLine, RawJob};
 use crate::resample::resample;
@@ -23,7 +24,7 @@ use crate::status::{Problem, Status};
 
 const THREADS: usize = 2;
 const QUEUE_BYTES: usize = 256 * 1024 * 1024;
-/// The model goes after this long without work, or paused by a game.
+/// The model goes after this long paused by a game; without work it goes at once.
 const UNLOAD_AFTER: Duration = Duration::from_secs(60);
 
 /// A heard song at the model's rate.
@@ -109,7 +110,6 @@ impl Worker {
     fn run(&self) {
         let s = &self.0;
         let mut model: Option<Model> = None;
-        let mut idle = Instant::now();
         loop {
             let job = {
                 let mut q = s.queue.lock().unwrap();
@@ -117,10 +117,6 @@ impl Worker {
                     let fullscreen = s.fullscreen.load(Ordering::SeqCst);
                     if s.ready.load(Ordering::SeqCst) && !fullscreen && let Some(job) = q.pop_front() {
                         break job;
-                    }
-                    if model.is_some() && idle.elapsed() > UNLOAD_AFTER {
-                        model = None;
-                        s.out.log("info", "model unloaded");
                     }
                     let n = q.len();
                     s.status.update(|b| {
@@ -131,11 +127,19 @@ impl Worker {
                     q = s.wake.wait_timeout(q, Duration::from_secs(1)).unwrap().0;
                 }
             };
+            // One audio plugin computes at a time (PLAN-plugins-2.md 5).
+            let _lock = loop {
+                if let Some(lock) = ComputeLock::acquire(1000) {
+                    break lock;
+                }
+                s.status.update(|b| b.waiting = true);
+            };
             let queued = s.queue.lock().unwrap().len();
             s.status.update(|b| {
                 b.queued = queued;
                 b.working = Some(0.0);
                 b.paused = false;
+                b.waiting = false;
             });
             let started = Instant::now();
             match self.align(&job, &mut model) {
@@ -153,7 +157,11 @@ impl Worker {
                     model = None;
                 }
             }
-            idle = Instant::now();
+            // Nothing else waits: the model goes before the lock does, so the other audio plugin
+            // never finds a second model in memory.
+            if s.queue.lock().unwrap().is_empty() && model.take().is_some() {
+                s.out.log("info", "model unloaded");
+            }
         }
     }
 

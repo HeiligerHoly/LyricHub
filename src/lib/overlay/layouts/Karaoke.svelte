@@ -27,6 +27,7 @@
     status: "loading" | "instrumental" | null;
     toast: string | null;
     offline?: boolean;
+    recognized?: boolean;
     clock: LocalClock;
     clockVersion: number;
     staticFill?: number | null;
@@ -46,6 +47,7 @@
     status,
     toast,
     offline = false,
+    recognized = false,
     clock,
     clockVersion,
     staticFill = null,
@@ -57,7 +59,7 @@
 </script>
 
 <div class="karaoke" style="--justify: {justify}">
-  <TrackHeader {track} {placeholder} {toast} {offline} />
+  <TrackHeader {track} {placeholder} {toast} {offline} {recognized} />
 
   {#if countdown}
     {#key countdown.key}

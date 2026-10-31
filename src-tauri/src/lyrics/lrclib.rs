@@ -187,6 +187,10 @@ fn stages(q: &Query) -> Vec<Stage> {
         path: "/api/search",
         query: vec![("q", format!("{stripped_title} {main_artist}"))],
     });
+    // LRCLIB filters the artist strictly: a different spelling ("A & B", "A feat. C") hides the
+    // song from both searches above. The title alone finds it; the matcher still checks the
+    // artist and the length (docs/spike-recognize.md, M4).
+    list.push(Stage { name: "search-title", path: "/api/search", query: vec![("track_name", stripped_title.clone())] });
     list
 }
 
@@ -348,6 +352,29 @@ mod tests {
             ("/api/search?q=Unknown Song The Inventions", 200, "[]"),
         ]);
         assert_eq!(lookup(t, &query("Unknown Song", Some("Inventions"))), Outcome::NotFound);
+    }
+
+    #[test]
+    fn the_title_alone_finds_another_spelling_of_the_artist() {
+        let found = format!("[{}]", track(9, "Paper Boats", "The Inventions & Friends", 231.0, true));
+        let t = Recorded::new(&[
+            ("/api/search?track_name=Paper Boats&artist_name=The Inventions", 200, "[]"),
+            ("/api/search?q=Paper Boats The Inventions", 200, "[]"),
+            ("/api/search?track_name=Paper Boats", 200, &found),
+        ]);
+        let out = lookup(t, &query("Paper Boats", None));
+        assert!(matches!(out, Outcome::Found { stage: "search-title", ref track } if track.id == 9), "{out:?}");
+    }
+
+    #[test]
+    fn the_title_alone_does_not_take_another_artist() {
+        let other = format!("[{}]", track(10, "Paper Boats", "Somebody Else Entirely", 231.0, true));
+        let t = Recorded::new(&[
+            ("/api/search?track_name=Paper Boats&artist_name=The Inventions", 200, "[]"),
+            ("/api/search?q=Paper Boats The Inventions", 200, "[]"),
+            ("/api/search?track_name=Paper Boats", 200, &other),
+        ]);
+        assert_eq!(lookup(t, &query("Paper Boats", None)), Outcome::NotFound);
     }
 
     #[test]

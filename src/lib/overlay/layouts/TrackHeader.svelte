@@ -12,8 +12,10 @@
     toast: string | null;
     /** Small mark for a lyrics lookup that failed on the network (PLAN.md 9.6). */
     offline?: boolean;
+    /** The lyrics were recognized from the singing (PLAN-plugins-2.md 4.1). */
+    recognized?: boolean;
   }
-  let { track, placeholder, toast, offline = false }: Props = $props();
+  let { track, placeholder, toast, offline = false, recognized = false }: Props = $props();
 
   const title = $derived(track?.title ?? placeholder.title);
   const artist = $derived(track ? track.artist : placeholder.artist);
@@ -31,6 +33,7 @@
         <span class="title">{title}</span>
         {#if artist}<span class="sep" aria-hidden="true">–</span><span class="artist">{artist}</span>{/if}
         {#if offline}<span class="offline" title={t("overlay.offline")} aria-label={t("overlay.offline")}></span>{/if}
+        {#if recognized}<span class="recognized">{t("overlay.recognized")}</span>{/if}
       </span>
     {/key}
   {/if}
@@ -113,6 +116,17 @@
     height: calc(7px * var(--s));
     border-radius: 50%;
     border: max(1px, calc(1.5px * var(--s))) solid var(--text-dim);
+  }
+  /* Recognized lyrics: machine text, marked as such. */
+  .recognized {
+    flex: none;
+    padding: 0 calc(6px * var(--s));
+    border-radius: 999px;
+    border: max(1px, calc(1px * var(--s))) solid var(--text-dim);
+    color: var(--text-dim);
+    font-size: calc(10.5px * var(--s));
+    line-height: calc(16px * var(--s));
+    white-space: nowrap;
   }
   .toast {
     padding: 0 calc(10px * var(--s));

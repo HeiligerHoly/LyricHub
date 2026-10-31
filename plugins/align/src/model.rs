@@ -46,6 +46,26 @@ pub fn ready(dir: &Path) -> bool {
     FILES.iter().all(|f| fs::metadata(dir.join(f.name)).is_ok_and(|m| m.len() == f.size))
 }
 
+/// Takes the model from another plugin's model folder when it is complete there (Align and
+/// Recognize use the same files): as hard links, so the 588 MB are on disk once, and removing
+/// one plugin leaves the other's model whole. Returns whether `dir` is ready afterwards.
+pub fn share_from(other: &Path, dir: &Path) -> bool {
+    if ready(dir) || !ready(other) || fs::create_dir_all(dir).is_err() {
+        return ready(dir);
+    }
+    for f in &FILES {
+        let to = dir.join(f.name);
+        if fs::metadata(&to).is_ok_and(|m| m.len() == f.size) {
+            continue;
+        }
+        let _ = fs::remove_file(to.with_extension("part"));
+        if fs::hard_link(other.join(f.name), &to).is_err() {
+            return false;
+        }
+    }
+    ready(dir)
+}
+
 /// Downloads what is missing. `progress` gets the bytes done and the total.
 pub fn download(dir: &Path, mut progress: impl FnMut(u64, u64)) -> Result<(), String> {
     fs::create_dir_all(dir).map_err(|e| format!("model folder: {e}"))?;
@@ -152,6 +172,24 @@ mod tests {
         f.set_len(FILES[1].size - 1).unwrap();
         assert!(!ready(&dir));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_complete_model_is_shared_by_hard_links() {
+        let root = std::env::temp_dir().join(format!("lyrichub-align-share-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let (other, dir) = (root.join("other"), root.join("mine"));
+        fs::create_dir_all(&other).unwrap();
+        fs::write(other.join("vocab.json"), vec![0u8; FILES[0].size as usize]).unwrap();
+        assert!(!share_from(&other, &dir), "nothing to share while the other one is incomplete");
+        File::create(other.join("aligner-int8.onnx")).unwrap().set_len(FILES[1].size).unwrap();
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("aligner-int8.part"), b"half").unwrap();
+        assert!(share_from(&other, &dir));
+        assert!(!dir.join("aligner-int8.part").exists(), "a half download goes");
+        fs::remove_dir_all(&other).unwrap();
+        assert!(ready(&dir), "the other plugin's removal leaves this model whole");
+        let _ = fs::remove_dir_all(&root);
     }
 
     /// Downloads the small file from huggingface.co. Network, so not in the normal run.

@@ -9,8 +9,26 @@ use serde::{Deserialize, Serialize};
 /// Version of the plugin protocol this LyricHub speaks.
 pub const API_VERSION: u32 = 1;
 pub const MANIFEST_FILE: &str = "plugin.json";
-/// What a plugin can do for LyricHub. Version 1 knows only word times.
-const CAPABILITIES: [&str; 1] = ["word_timing"];
+/// What a plugin can do for LyricHub: word times for synced lyrics, lyrics for songs without
+/// (PLAN-plugins-2.md 4.3).
+const CAPABILITIES: [&str; 2] = ["word_timing", "lyrics_source"];
+/// At most this many switches per plugin.
+const MAX_SETTINGS: usize = 8;
+
+/// A switch the plugin offers on LyricHub's plugin page (PLAN-plugins.md 4.7). Only `bool` for now.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct PluginSetting {
+    /// Lower case letters, digits and underscores.
+    pub id: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    #[serde(default)]
+    pub default: bool,
+    /// Label per language code ("de", "en").
+    pub label: BTreeMap<String, String>,
+    #[serde(default)]
+    pub help: BTreeMap<String, String>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Manifest {
@@ -33,6 +51,8 @@ pub struct Manifest {
     /// Short description per language code ("de", "en").
     #[serde(default)]
     pub description: BTreeMap<String, String>,
+    #[serde(default)]
+    pub settings: Vec<PluginSetting>,
 }
 
 impl Manifest {
@@ -66,6 +86,22 @@ impl Manifest {
         }
         if let Some(p) = self.permissions.iter().find(|p| !valid_permission(p)) {
             return Err(format!("unknown permission {p:?}"));
+        }
+        if self.settings.len() > MAX_SETTINGS {
+            return Err(format!("more than {MAX_SETTINGS} settings"));
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        for s in &self.settings {
+            let id_ok = (1..=32).contains(&s.id.len()) && s.id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+            if !id_ok || !seen.insert(s.id.as_str()) {
+                return Err(format!("invalid or repeated setting id {:?}", s.id));
+            }
+            if s.kind != "bool" {
+                return Err(format!("setting {:?}: only the type bool is known", s.id));
+            }
+            if s.label.values().all(|l| l.trim().is_empty()) || s.label.values().chain(s.help.values()).any(|l| l.chars().count() > 300) {
+                return Err(format!("setting {:?}: label missing or text too long", s.id));
+            }
         }
         Ok(())
     }
@@ -136,5 +172,18 @@ mod tests {
     fn another_api_version_parses_but_is_not_compatible() {
         let m = Manifest::parse(&with("api", "2")).unwrap();
         assert!(!m.compatible());
+    }
+
+    #[test]
+    fn settings_are_switches_with_a_label() {
+        let with = |settings: &str| GOOD.replacen("\"description\"", &format!("\"settings\": {settings}, \"description\""), 1);
+        let m = Manifest::parse(&with(r#"[{ "id": "auto_sync", "type": "bool", "default": true, "label": { "de": "Auto-Sync", "en": "Auto-Sync" } }]"#)).unwrap();
+        assert_eq!((m.settings[0].id.as_str(), m.settings[0].default), ("auto_sync", true));
+        assert!(Manifest::parse(&with(r#"[{ "id": "level", "type": "number", "label": { "en": "Level" } }]"#)).is_err(), "only bool");
+        assert!(Manifest::parse(&with(r#"[{ "id": "Bad-Id", "type": "bool", "label": { "en": "x" } }]"#)).is_err());
+        assert!(Manifest::parse(&with(r#"[{ "id": "x", "type": "bool", "label": {} }]"#)).is_err(), "label needed");
+        assert!(Manifest::parse(&with(r#"[{ "id": "x", "type": "bool", "label": { "en": "a" } }, { "id": "x", "type": "bool", "label": { "en": "b" } }]"#)).is_err());
+        let source = GOOD.replace(r#"["word_timing"]"#, r#"["lyrics_source"]"#);
+        assert!(Manifest::parse(&source).is_ok(), "lyrics_source is a known capability");
     }
 }

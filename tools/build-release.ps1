@@ -1,7 +1,7 @@
-# Release build: the LyricHub installer and the align plugin ZIP. Rust embeds the source paths of
+# Release build: the LyricHub installer and the plugin ZIPs. Rust embeds the source paths of
 # the crates in the Cargo home folder for panic messages (C:\Users\<name>\.cargo\registry\...);
 # here that folder is replaced by ~/.cargo, so no local user name ends up in the files. At the
-# end both executables are checked for paths with a user folder.
+# end every executable is checked for paths with a user folder.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-release.ps1
 param([switch]$SkipPlugin)
 $ErrorActionPreference = 'Stop'
@@ -18,8 +18,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'tauri build failed' }
     $exes = @(Join-Path $root 'src-tauri\target\release\lyrichub.exe')
     if (-not $SkipPlugin) {
-        & (Join-Path $root 'plugins\align\package.ps1')
-        $exes += Join-Path $root 'plugins\align\target\release\lyrichub-align.exe'
+        foreach ($plugin in 'align', 'recognize') {
+            & (Join-Path $root "plugins\$plugin\package.ps1")
+            $exes += Join-Path $root "plugins\$plugin\target\release\lyrichub-$plugin.exe"
+        }
     }
     foreach ($exe in $exes) {
         $text = [Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes($exe))

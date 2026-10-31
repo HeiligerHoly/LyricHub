@@ -48,6 +48,7 @@ export const de = {
   "layout.minimal": "Minimal",
 
   // Overlay window: sample text (invented), idle hint, states, toasts
+  "overlay.recognized": "erkannt",
   "overlay.sample.line": "Dies ist eine Beispielzeile zum Ausrichten",
   "overlay.sample.previous": "Die Zeile davor wird gedimmt",
   "overlay.sample.later": "und noch eine weitere Zeile",
@@ -201,6 +202,9 @@ export const de = {
   "sync.lyrics.cached": "LRCLIB (aus dem Cache)",
   "sync.lyrics.reloading": "Wird neu geladen …",
   "sync.lyrics.reload": "Lyrics neu laden",
+  "sync.lyrics.discard": "Lyrics vom Plugin verwerfen",
+  "sync.lyrics.discard.hint":
+    "Verworfene Lyrics kommen für diesen Song nicht wieder: LyricHub fragt LRCLIB erneut und bittet kein Plugin mehr um diesen Song.",
   "sync.lyrics.crossfade":
     "Überblendung (Crossfade) und Automix in Spotify verwischen die Songgrenzen. Für die genaueste Synchronisation in Spotify unter Einstellungen → Wiedergabe ausschalten.",
 
@@ -307,6 +311,12 @@ export const de = {
   "diag.words.estimate": "geschätzt",
   "diag.words.lrc": "aus der LRC-Datei",
   "diag.words.plugin": "vom Plugin {id}",
+  "diag.lineSync": "Zeilen",
+  "diag.lineSync.value": "nach dem Gesang ausgerichtet (Auto-Sync), im Mittel {ms} ms",
+  "diag.lyricsOrigin": "Lyrics vom Plugin",
+  "diag.lyricsOrigin.lrclib": "bei LRCLIB gefunden und ausgerichtet",
+  "diag.lyricsOrigin.aligned_plain": "Text ohne Zeitstempel ausgerichtet",
+  "diag.lyricsOrigin.recognized": "aus dem Gesang erkannt",
   "diag.lyrics.lines": "{n} Zeilen",
   "diag.lyrics.lrcOffset": "LRC-Offset {ms} ms",
   "diag.latency.title": "Titelwechsel bis zur Anzeige",

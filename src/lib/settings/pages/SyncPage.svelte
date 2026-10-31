@@ -3,7 +3,7 @@
   // (set by the nudge hotkeys, kept per song), offsets per audio device, the calibration
   // assistant (5.7) and the tap-based sync protocol (11.3), plus the lyrics of the current song.
   import { onMount, untrack } from "svelte";
-  import { t } from "#lib/shared/i18n.svelte.js";
+  import { t, type Key } from "#lib/shared/i18n.svelte.js";
   import { ipc, on, subscribe } from "#lib/shared/ipc.js";
   import {
     DEFAULT_PLAYER,
@@ -85,6 +85,13 @@
   async function reload() {
     reloading = true;
     await ipc.reloadLyrics();
+    setTimeout(() => (reloading = false), 1500);
+  }
+  // Lyrics a plugin found or recognized: "cache:plugin:<id>:<how>".
+  const pluginHow = $derived(current?.source.match(/plugin:[^:]+:(\w+)$/)?.[1] ?? null);
+  async function discard() {
+    reloading = true;
+    await ipc.discardPluginLyrics();
     setTimeout(() => (reloading = false), 1500);
   }
 
@@ -286,12 +293,24 @@
         <dt>{t("sync.lyrics.lines")}</dt>
         <dd>{current.lines.filter((l) => l.text).length}</dd>
         <dt>{t("sync.lyrics.source")}</dt>
-        <dd>{current.source === "cache:lrclib" ? t("sync.lyrics.cached") : "LRCLIB"}</dd>
+        <dd>
+          {#if pluginHow}
+            {t("diag.lyricsOrigin")}, {t(`diag.lyricsOrigin.${pluginHow}` as Key)}
+          {:else}
+            {current.source === "cache:lrclib" ? t("sync.lyrics.cached") : "LRCLIB"}
+          {/if}
+        </dd>
       {/if}
     </dl>
     <div class="actions">
       <button onclick={reload} disabled={reloading}>{reloading ? t("sync.lyrics.reloading") : t("sync.lyrics.reload")}</button>
+      {#if pluginHow}
+        <button onclick={discard} disabled={reloading}>{t("sync.lyrics.discard")}</button>
+      {/if}
     </div>
+    {#if pluginHow}
+      <p class="hint">{t("sync.lyrics.discard.hint")}</p>
+    {/if}
   {:else}
     <p class="muted">{t("sync.nothingPlaying")}</p>
   {/if}

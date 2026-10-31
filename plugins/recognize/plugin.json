@@ -1,0 +1,14 @@
+{
+  "id": "lyrichub-recognize",
+  "name": "Recognize",
+  "version": "0.1.0",
+  "api": 1,
+  "executable": "lyrichub-recognize.exe",
+  "capabilities": ["lyrics_source"],
+  "permissions": ["audio:player", "network:lrclib.net", "network:huggingface.co"],
+  "homepage": "https://github.com/HeiligerHoly/LyricHub",
+  "description": {
+    "de": "Lyrics für Songs ohne: Schneidet nur den Ton des Players mit und richtet nach dem Song Text ohne Zeitstempel aus, sucht sonst breiter bei LRCLIB oder erkennt den Text aus dem Gesang (als „erkannt“ markiert). Rechnet nur, wenn kein Vollbildspiel läuft. Nutzt das Modell von Align oder lädt es einmal von huggingface.co (588 MB).",
+    "en": "Lyrics for songs without: captures only the player's sound and, after the song, aligns lyrics without timestamps, otherwise searches LRCLIB more broadly or recognizes the text from the singing (marked as recognized). Computes only while no fullscreen game runs. Uses Align's model or downloads it once from huggingface.co (588 MB)."
+  }
+}

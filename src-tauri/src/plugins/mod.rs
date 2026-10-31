@@ -66,6 +66,17 @@ pub struct PluginInfo {
     /// The plugin's own status line and progress 0..1.
     pub status_text: Option<String>,
     pub progress: Option<f64>,
+    /// The plugin's switches with their current values.
+    pub settings: Vec<SettingInfo>,
+}
+
+/// One switch of a plugin, as the settings page shows it.
+#[derive(Serialize, Clone, Debug)]
+pub struct SettingInfo {
+    pub id: String,
+    pub label: BTreeMap<String, String>,
+    pub help: BTreeMap<String, String>,
+    pub value: bool,
 }
 
 /// A checked ZIP, shown for confirmation before it is installed.
@@ -168,6 +179,7 @@ fn start(app: &AppHandle, id: &str) {
             },
             Event::Stderr(line) => tracing::debug!(plugin = %id, "stderr: {line}"),
             Event::Notification { method, params } if method == "word_times" => on_word_times(&app, &id, &params),
+            Event::Notification { method, params } if method == "lyrics_found" => on_lyrics_found(&app, &id, &params),
             Event::Notification { method, .. } => tracing::debug!(plugin = %id, method, "unknown plugin notification"),
         })
     };
@@ -203,6 +215,7 @@ fn update(app: &AppHandle, id: &str, change: impl FnOnce(&mut Entry)) {
 
 pub fn list(app: &AppHandle) -> Vec<PluginInfo> {
     let enabled = app.state::<SettingsState>().get().plugins.enabled;
+    let values = app.state::<SettingsState>().get().plugins.values;
     let state = app.state::<PluginsState>();
     let entries = state.entries.lock().unwrap();
     entries
@@ -236,9 +249,58 @@ pub fn list(app: &AppHandle) -> Vec<PluginInfo> {
                 detail,
                 status_text: e.status_text.clone(),
                 progress: e.progress,
+                settings: m
+                    .map(|m| {
+                        let stored = values.get(&m.id);
+                        m.settings
+                            .iter()
+                            .map(|s| SettingInfo {
+                                id: s.id.clone(),
+                                label: s.label.clone(),
+                                help: s.help.clone(),
+                                value: stored.and_then(|v| v.get(&s.id)).copied().unwrap_or(s.default),
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             }
         })
         .collect()
+}
+
+/// Current values of a plugin's switches: the stored one, else the manifest's default.
+fn setting_values(app: &AppHandle, m: &Manifest) -> BTreeMap<String, bool> {
+    let stored = app.state::<SettingsState>().get().plugins.values.get(&m.id).cloned().unwrap_or_default();
+    m.settings.iter().map(|s| (s.id.clone(), stored.get(&s.id).copied().unwrap_or(s.default))).collect()
+}
+
+/// A switch of a plugin that is installed and on; false otherwise.
+pub fn setting_on(app: &AppHandle, plugin: &str, key: &str) -> bool {
+    if !app.state::<SettingsState>().get().plugins.enabled.iter().any(|x| x == plugin) {
+        return false;
+    }
+    let manifest = app.state::<PluginsState>().entries.lock().unwrap().get(plugin).and_then(|e| e.manifest.clone().ok());
+    manifest.is_some_and(|m| setting_values(app, &m).get(key).copied().unwrap_or(false))
+}
+
+/// Changes a plugin's switch, tells the plugin and shows the lyrics again (Auto-Sync works on
+/// them).
+pub fn set_setting(app: &AppHandle, id: &str, key: &str, value: bool) -> Result<Vec<PluginInfo>, String> {
+    let manifest = app.state::<PluginsState>().entries.lock().unwrap().get(id).and_then(|e| e.manifest.clone().ok());
+    let Some(m) = manifest.filter(|m| m.settings.iter().any(|s| s.id == key)) else {
+        return Err(format!("plugin {id} has no setting {key}"));
+    };
+    let (before, after) = app.state::<SettingsState>().update(|s| {
+        s.plugins.values.entry(id.to_owned()).or_default().insert(key.to_owned(), value);
+    });
+    crate::ipc::settings_changed(app, &before, &after);
+    if let Some((_, p)) = running(app, id) {
+        p.notify("settings", json!(setting_values(app, &m)));
+    }
+    crate::app_state::refresh_lyrics(app);
+    let list = list(app);
+    let _ = app.emit(EVENT, &list);
+    Ok(list)
 }
 
 pub fn set_enabled(app: &AppHandle, id: &str, on: bool) -> Result<Vec<PluginInfo>, String> {
@@ -311,7 +373,7 @@ pub fn discard_staged(app: &AppHandle) {
 pub fn uninstall(app: &AppHandle, id: &str) -> Result<Vec<PluginInfo>, String> {
     stop(app, id);
     install::remove(&program_dir(), &data_root(), id)?;
-    crate::app_state::forget_plugin_words(app, id);
+    crate::app_state::forget_plugin_results(app, id);
     app.state::<PluginsState>().entries.lock().unwrap().remove(id);
     let (before, after) = app.state::<SettingsState>().update(|s| s.plugins.enabled.retain(|x| x != id));
     crate::ipc::settings_changed(app, &before, &after);
@@ -321,7 +383,8 @@ pub fn uninstall(app: &AppHandle, id: &str) -> Result<Vec<PluginInfo>, String> {
 }
 
 /// Running plugins with the capability `word_timing`, with their manifests.
-fn word_timing(app: &AppHandle) -> Vec<(Manifest, Arc<process::Process>)> {
+/// Running plugins with any of these capabilities.
+fn with_capability(app: &AppHandle, any_of: &[&str]) -> Vec<(Manifest, Arc<process::Process>)> {
     let state = app.state::<PluginsState>();
     let entries = state.entries.lock().unwrap();
     entries
@@ -330,9 +393,25 @@ fn word_timing(app: &AppHandle) -> Vec<(Manifest, Arc<process::Process>)> {
         .filter_map(|e| {
             let m = e.manifest.as_ref().ok()?;
             let p = e.supervisor.as_ref()?.process()?;
-            m.capabilities.iter().any(|c| c == "word_timing").then(|| (m.clone(), p))
+            m.capabilities.iter().any(|c| any_of.contains(&c.as_str())).then(|| (m.clone(), p))
         })
         .collect()
+}
+
+fn word_timing(app: &AppHandle) -> Vec<(Manifest, Arc<process::Process>)> {
+    with_capability(app, &["word_timing"])
+}
+
+/// Plugins that listen to the player: they need the track, the clock and the screen.
+fn audio(app: &AppHandle) -> Vec<(Manifest, Arc<process::Process>)> {
+    with_capability(app, &["word_timing", "lyrics_source"])
+}
+
+fn running(app: &AppHandle, id: &str) -> Option<(Manifest, Arc<process::Process>)> {
+    let state = app.state::<PluginsState>();
+    let entries = state.entries.lock().unwrap();
+    let e = entries.get(id).filter(|e| e.state == Some(State::Running))?;
+    Some((e.manifest.as_ref().ok()?.clone(), e.supervisor.as_ref()?.process()?))
 }
 
 fn track_params(t: Option<&TrackInfo>, manifest: &Manifest, app: &AppHandle) -> Value {
@@ -352,7 +431,7 @@ fn track_params(t: Option<&TrackInfo>, manifest: &Manifest, app: &AppHandle) -> 
 }
 
 pub fn on_track(app: &AppHandle, track: Option<&TrackInfo>) {
-    for (m, p) in word_timing(app) {
+    for (m, p) in audio(app) {
         p.notify("track", track_params(track, &m, app));
     }
 }
@@ -376,7 +455,7 @@ fn playback_params(clock: &ClockEvent) -> Value {
 }
 
 pub fn on_playback(app: &AppHandle, clock: &ClockEvent) {
-    let plugins = word_timing(app);
+    let plugins = audio(app);
     if plugins.is_empty() {
         return;
     }
@@ -413,7 +492,7 @@ pub fn on_lyrics(app: &AppHandle, event: &LyricsEvent) {
 /// A fullscreen app came to the front or left it (overlay/guard.rs): plugins that compute in the
 /// background pause meanwhile (PLAN-plugins.md 5.4).
 pub fn on_screen(app: &AppHandle, fullscreen: bool) {
-    for (_, p) in word_timing(app) {
+    for (_, p) in audio(app) {
         p.notify("screen", json!({ "fullscreen": fullscreen }));
     }
 }
@@ -422,17 +501,70 @@ fn fullscreen_now() -> bool {
     crate::overlay::guard::screen() != crate::overlay::guard::Screen::Normal
 }
 
-/// A plugin that just started hears what plays now.
+/// Asks the plugins with `lyrics_source` for lyrics of a song that has none, or only lyrics
+/// without timestamps (PLAN-plugins-2.md 4.3).
+fn lyrics_wanted_params(app: &AppHandle, event: &LyricsEvent) -> Option<Value> {
+    if !matches!(event.state, LyricsState::Missing | LyricsState::Unsynced) {
+        return None;
+    }
+    let now = app.state::<crate::app_state::NowPlayingState>().snapshot();
+    let t = now.track.as_ref().filter(|t| t.key == event.key && !crate::app_state::plugin_lyrics_rejected(app, &t.key))?;
+    let plain = (event.state == LyricsState::Unsynced).then(|| crate::app_state::plain_lyrics(app, &t.key)).flatten();
+    Some(json!({
+        "key": t.key, "title": t.title, "artist": t.artist, "album": t.album, "duration_ms": t.duration_ms, "plain": plain,
+    }))
+}
+
+pub fn on_lyrics_wanted(app: &AppHandle, event: &LyricsEvent) {
+    let Some(params) = lyrics_wanted_params(app, event) else { return };
+    for (_, p) in with_capability(app, &["lyrics_source"]) {
+        p.notify("lyrics_wanted", params.clone());
+    }
+}
+
+/// A plugin that just started gets its settings and hears what plays now.
 fn send_current(app: &AppHandle, id: &str) {
-    let Some((m, p)) = word_timing(app).into_iter().find(|(m, _)| m.id == id) else { return };
+    let Some((m, p)) = running(app, id) else { return };
+    if !m.settings.is_empty() {
+        p.notify("settings", json!(setting_values(app, &m)));
+    }
+    let has = |c: &str| m.capabilities.iter().any(|x| x == c);
+    if !has("word_timing") && !has("lyrics_source") {
+        return;
+    }
     let state = app.state::<crate::app_state::NowPlayingState>();
     let now = state.snapshot();
     p.notify("track", track_params(now.track.as_ref(), &m, app));
-    if let Some(params) = state.lyrics().as_ref().and_then(lyrics_params) {
+    let lyrics = state.lyrics();
+    if has("word_timing")
+        && let Some(params) = lyrics.as_ref().and_then(lyrics_params)
+    {
         p.notify("lyrics", params);
+    }
+    if has("lyrics_source")
+        && let Some(params) = lyrics.as_ref().and_then(|l| lyrics_wanted_params(app, l))
+    {
+        p.notify("lyrics_wanted", params);
     }
     p.notify("playback", playback_params(&crate::app_state::clock_event(app, "query")));
     p.notify("screen", json!({ "fullscreen": fullscreen_now() }));
+}
+
+fn on_lyrics_found(app: &AppHandle, id: &str, params: &Value) {
+    let found = match words::parse_lyrics_found(params) {
+        Ok(f) => f,
+        Err(e) => return tracing::warn!(plugin = id, error = %e, "lyrics not readable"),
+    };
+    // Only a plugin that declared the capability may deliver lyrics.
+    let version = {
+        let state = app.state::<PluginsState>();
+        let entries = state.entries.lock().unwrap();
+        entries.get(id).and_then(|e| e.manifest.as_ref().ok()).filter(|m| m.capabilities.iter().any(|c| c == "lyrics_source")).map(|m| m.version.clone())
+    };
+    let Some(version) = version else {
+        return tracing::warn!(plugin = id, "lyrics from a plugin without the capability lyrics_source ignored");
+    };
+    crate::app_state::store_plugin_lyrics(app, (id, &version), found);
 }
 
 fn on_word_times(app: &AppHandle, id: &str, params: &Value) {

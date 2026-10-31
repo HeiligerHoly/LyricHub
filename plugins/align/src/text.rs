@@ -9,7 +9,9 @@ use unicode_normalization::UnicodeNormalization;
 
 pub struct Vocab {
     ids: HashMap<char, u32>,
-    bar: u32,
+    /// The character of each id; `None` for `<blank>`, `<unk>` and other non-characters.
+    chars: Vec<Option<char>>,
+    pub bar: u32,
     pub size: usize,
 }
 
@@ -18,14 +20,23 @@ impl Vocab {
     pub fn parse(json: &str) -> Result<Self, String> {
         let map: serde_json::Map<String, serde_json::Value> = serde_json::from_str(json).map_err(|e| format!("vocab: {e}"))?;
         let mut ids = HashMap::new();
+        let mut by_id = vec![None; map.len()];
         for (k, v) in &map {
             let mut chars = k.chars();
             if let (Some(c), None, Some(id)) = (chars.next(), chars.next(), v.as_u64()) {
                 ids.insert(c, id as u32);
+                if let Some(slot) = by_id.get_mut(id as usize) {
+                    *slot = Some(c);
+                }
             }
         }
         let bar = *ids.get(&'|').ok_or("vocab without |")?;
-        Ok(Vocab { ids, bar, size: map.len() })
+        Ok(Vocab { ids, chars: by_id, bar, size: map.len() })
+    }
+
+    /// The character of a token id, if it is one.
+    pub fn char_of(&self, id: usize) -> Option<char> {
+        self.chars.get(id).copied().flatten()
     }
 }
 

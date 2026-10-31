@@ -167,6 +167,8 @@
   const upcomingLines = $derived(lines && layout?.layout === "stack" ? nextTextLines(lines, lineIndex, 2) : []);
   /** The lyrics service could not be reached (PLAN.md 9.6: a small mark, no text in the game). */
   const offline = $derived(!!lyrics && !!track && lyrics.key === track.key && lyrics.state === "error");
+  // Lyrics recognized from the singing by a plugin carry a small mark (PLAN-plugins-2.md 4.1).
+  const recognized = $derived(!!lyrics && !!track && lyrics.key === track.key && lyrics.source.endsWith(":recognized"));
   /** Nothing to sing along to: the compact card instead of the layout. Podcast episodes and
    *  browser videos get no lyrics lookup at all (PLAN.md 5.5, 13.4). */
   const compact = $derived(
@@ -472,6 +474,7 @@
             status={rowStatus}
             toast={headerNote}
             {offline}
+            {recognized}
             {clock}
             {clockVersion}
             staticFill={sample ? 0.45 : null}
@@ -506,6 +509,7 @@
             status={rowStatus}
             toast={headerNote}
             {offline}
+            {recognized}
             countdown={sample ? null : countdown}
             {clock}
             {clockVersion}

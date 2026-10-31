@@ -7,7 +7,8 @@ use std::path::Path;
 use rusqlite::{Connection, OptionalExtension, params};
 
 /// 2: table `plugin_words` (PLAN-plugins.md 4.6), created like the others if missing.
-const SCHEMA_VERSION: i64 = 2;
+/// 3: table `plugin_rejects` (PLAN-plugins-2.md 4.4), likewise.
+const SCHEMA_VERSION: i64 = 3;
 pub const NEGATIVE_TTL_S: i64 = 7 * 24 * 3600;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,7 +94,8 @@ impl Cache {
              CREATE TABLE IF NOT EXISTS plugin_words (
                key TEXT NOT NULL, lyrics_hash TEXT NOT NULL, plugin_id TEXT NOT NULL,
                plugin_version TEXT NOT NULL, words_json TEXT NOT NULL, created_at INTEGER NOT NULL,
-               PRIMARY KEY (key, lyrics_hash));",
+               PRIMARY KEY (key, lyrics_hash));
+             CREATE TABLE IF NOT EXISTS plugin_rejects (key TEXT PRIMARY KEY, at INTEGER NOT NULL);",
         )?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         if version < SCHEMA_VERSION {
@@ -274,6 +276,23 @@ impl Cache {
         self.conn.execute("DELETE FROM plugin_words WHERE plugin_id = ?1", [plugin_id])
     }
 
+    /// Drops the lyrics a plugin found (the plugin was removed). Returns how many songs.
+    pub fn forget_plugin_lyrics(&self, plugin_id: &str) -> rusqlite::Result<usize> {
+        self.conn.execute("DELETE FROM lyrics WHERE source LIKE 'plugin:' || ?1 || ':%'", [plugin_id])
+    }
+
+    /// The user threw away a plugin's lyrics for this song: they go, and no plugin is asked for
+    /// this song again. Like the offsets this is the user's correction and stays.
+    pub fn reject_plugin_lyrics(&self, key: &str, now: i64) -> rusqlite::Result<()> {
+        self.conn.execute("INSERT OR REPLACE INTO plugin_rejects (key, at) VALUES (?1, ?2)", params![key, now])?;
+        self.conn.execute("DELETE FROM lyrics WHERE key = ?1 AND source LIKE 'plugin:%'", [key])?;
+        Ok(())
+    }
+
+    pub fn plugin_lyrics_rejected(&self, key: &str) -> rusqlite::Result<bool> {
+        self.conn.query_row("SELECT 1 FROM plugin_rejects WHERE key = ?1", [key], |_| Ok(())).optional().map(|r| r.is_some())
+    }
+
     /// Drops what is known about a song, so the next lookup asks LRCLIB again.
     pub fn forget(&self, key: &str) -> rusqlite::Result<()> {
         self.conn.execute("DELETE FROM lyrics WHERE key = ?1", [key])?;
@@ -375,6 +394,22 @@ mod tests {
         c.touch_track("k", "T", "A", None, None, 0).unwrap();
         c.prune(1000, 10).unwrap();
         assert_eq!(c.plugin_words("k", "h1").unwrap(), None);
+    }
+
+    #[test]
+    fn plugin_lyrics_can_be_rejected_and_forgotten() {
+        let c = Cache::in_memory().unwrap();
+        let from = |source: &str| Cached { source: source.into(), ..cached(Format::Lrc) };
+        c.put("a", &from("plugin:rec:recognized")).unwrap();
+        c.put("b", &from("plugin:rec:lrclib")).unwrap();
+        c.put("c", &from("lrclib")).unwrap();
+        c.reject_plugin_lyrics("a", 5).unwrap();
+        assert_eq!(c.get("a", 10).unwrap(), Lookup::Miss);
+        assert!(c.plugin_lyrics_rejected("a").unwrap() && !c.plugin_lyrics_rejected("b").unwrap());
+        c.reject_plugin_lyrics("c", 5).unwrap();
+        assert!(matches!(c.get("c", 10).unwrap(), Lookup::Hit(_)), "lyrics from LRCLIB stay");
+        assert_eq!(c.forget_plugin_lyrics("rec").unwrap(), 1);
+        assert_eq!(c.get("b", 10).unwrap(), Lookup::Miss);
     }
 
     #[test]

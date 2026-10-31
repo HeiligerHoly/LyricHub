@@ -41,6 +41,10 @@ impl Plugin {
         let data_dir = PathBuf::from(params["data_dir"].as_str().unwrap_or("."));
         let status = Arc::new(Status::new(params["language"].as_str().unwrap_or("en"), out.clone()));
         let dir = model::dir(&data_dir);
+        // Recognize uses the same model: shared on disk instead of a second download.
+        if let Some(root) = data_dir.parent() {
+            model::share_from(&model::dir(&root.join("lyrichub-recognize")), &dir);
+        }
         let worker = Worker::start(dir.clone(), status.clone(), out.clone());
         if model::ready(&dir) {
             worker.set_ready();
@@ -49,7 +53,8 @@ impl Plugin {
             let (status, worker, out) = (status.clone(), worker.clone(), out.clone());
             std::thread::spawn(move || download(&dir, &status, &worker, &out));
         }
-        Plugin { out, status, worker, recorder: Arc::default(), capture: None, track: None, pid: None, duration_ms: 0 }
+        let recorder = Arc::new(Mutex::new(Recorder::with_log(out.clone())));
+        Plugin { out, status, worker, recorder, capture: None, track: None, pid: None, duration_ms: 0 }
     }
 
     fn queue(&self, job: Option<RawJob>) {

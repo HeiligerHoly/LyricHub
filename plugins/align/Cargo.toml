@@ -1,6 +1,6 @@
 [package]
 name = "lyrichub-align"
-version = "0.1.0"
+version = "0.2.0"
 description = "LyricHub plugin: real word times from the player's sound (PLAN-plugins.md, P3)"
 authors = ["HeiligerHoly"]
 license-file = "../../LICENSE"
@@ -21,6 +21,7 @@ windows = { version = "0.62.2", features = [
   "Win32_System_Com",
   "Win32_System_Com_StructuredStorage",
   "Win32_System_Variant",
+  "Win32_Security",
   "Win32_System_ProcessStatus",
   "Win32_System_Threading",
 ] }

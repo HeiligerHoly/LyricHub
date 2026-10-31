@@ -43,6 +43,7 @@ export const ipc = {
   installStagedPlugin: () => invoke<PluginInfo[]>("install_staged_plugin"),
   discardStagedPlugin: () => invoke<void>("discard_staged_plugin"),
   setPluginEnabled: (id: string, enabled: boolean) => invoke<PluginInfo[]>("set_plugin_enabled", { id, enabled }),
+  setPluginSetting: (id: string, key: string, value: boolean) => invoke<PluginInfo[]>("set_plugin_setting", { id, key, value }),
   removePlugin: (id: string) => invoke<PluginInfo[]>("remove_plugin", { id }),
   getNowPlaying: () => invoke<NowPlaying>("get_now_playing"),
   trackLatencies: () => invoke<LatencySample[]>("track_latencies"),
@@ -60,6 +61,7 @@ export const ipc = {
   syncLab: () => invoke<SyncLab>("sync_lab"),
   exportDiagnostics: () => invoke<string>("export_diagnostics"),
   reloadLyrics: () => invoke<void>("reload_lyrics"),
+  discardPluginLyrics: () => invoke<void>("discard_plugin_lyrics"),
   getOverlayLayout: () => invoke<OverlayLayout | null>("get_overlay_layout"),
   reportOverlaySize: (width: number, height: number, uiScale: number) =>
     invoke<void>("report_overlay_size", { width, height, uiScale }),

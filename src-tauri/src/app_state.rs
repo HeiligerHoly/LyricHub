@@ -371,6 +371,7 @@ fn on_lyrics(app: &AppHandle, mut event: LyricsEvent) {
     }
     emit(app, events::LYRICS, &event);
     crate::plugins::on_lyrics(app, &event);
+    crate::plugins::on_lyrics_wanted(app, &event);
 }
 
 /// Word times a plugin stored for these lyrics (PLAN-plugins.md 4.6); they replace the estimate.
@@ -386,14 +387,105 @@ fn add_plugin_words(app: &AppHandle, event: &mut LyricsEvent) {
     if lines > 0 {
         event.word_source = format!("plugin:{plugin}");
         tracing::info!(key = %event.key, plugin = %plugin, lines, "word times from a plugin");
+        // Auto-Sync, a switch of the plugin Align (PLAN-plugins-2.md 3).
+        if crate::plugins::setting_on(app, "lyrichub-align", "auto_sync") {
+            event.line_sync_ms = crate::plugins::words::auto_sync(&mut event.lines);
+            tracing::info!(key = %event.key, shift_ms = ?event.line_sync_ms, "lines moved onto the singing");
+        }
     }
 }
 
-/// A removed plugin's word times go; the song that plays falls back to the estimate at once.
-pub fn forget_plugin_words(app: &AppHandle, plugin_id: &str) {
+/// Shows the current song's lyrics again from the cache, after a plugin setting changed.
+pub fn refresh_lyrics(app: &AppHandle) {
+    let state = app.state::<NowPlayingState>();
+    let Some(key) = state.current_key() else { return };
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    if let Some(crate::lyrics::cache::Lookup::Hit(c)) = state.with_db(|db| db.get(&key, now)) {
+        on_lyrics(app, crate::lyrics::service::to_event(&key, &c, "cache"));
+    }
+}
+
+/// The cached lyrics without timestamps of a song, for a plugin that aligns them.
+pub fn plain_lyrics(app: &AppHandle, key: &str) -> Option<String> {
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    match app.state::<NowPlayingState>().with_db(|db| db.get(key, now)) {
+        Some(crate::lyrics::cache::Lookup::Hit(c)) if c.format == crate::lyrics::cache::Format::Plain => Some(c.raw),
+        _ => None,
+    }
+}
+
+/// Lyrics a plugin found or recognized for a song without synced lyrics (PLAN-plugins-2.md 4):
+/// stored like lyrics from LRCLIB, with the plugin as source, and its word times next to them.
+/// Synced lyrics from LRCLIB always win.
+pub fn store_plugin_lyrics(app: &AppHandle, plugin: (&str, &str), found: crate::plugins::words::Found) {
+    use crate::lyrics::cache::{Cached, Format, Lookup};
+    use crate::plugins::words;
+    let state = app.state::<NowPlayingState>();
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    if plugin_lyrics_rejected(app, &found.key) {
+        return tracing::info!(plugin = plugin.0, key = %found.key, "plugin lyrics ignored: the user threw them away for this song");
+    }
+    if let Some(Lookup::Hit(c)) = state.with_db(|db| db.get(&found.key, now))
+        && c.format == Format::Lrc
+        && !c.source.starts_with("plugin:")
+    {
+        return tracing::info!(plugin = plugin.0, key = %found.key, "plugin lyrics ignored: the song has synced lyrics");
+    }
+    let raw = words::to_lrc(&found.lines);
+    let cached = Cached {
+        source: format!("plugin:{}:{}", plugin.0, found.how),
+        source_id: found.lrclib_id,
+        format: Format::Lrc,
+        raw: raw.clone(),
+        instrumental: false,
+        fetched_at: now,
+    };
+    if state.with_db(|db| db.put(&found.key, &cached)).is_none() {
+        return;
+    }
+    let parsed = crate::lyrics::parser::parse(&raw).lines;
+    let times = words::valid_lines(&parsed, &words::found_words(&parsed, &found.lines));
+    if !times.is_empty() {
+        let json = serde_json::to_string(&times).unwrap_or_default();
+        state.with_db(|db| db.set_plugin_words(&found.key, &words::lyrics_hash(&parsed), plugin, &json, now));
+    }
+    tracing::info!(plugin = plugin.0, key = %found.key, how = %found.how, lines = found.lines.len(), timed = times.len(), "lyrics from a plugin");
+    if state.current_key().as_deref() == Some(found.key.as_str()) {
+        on_lyrics(app, crate::lyrics::service::to_event(&found.key, &cached, "cache"));
+    }
+}
+
+pub fn plugin_lyrics_rejected(app: &AppHandle, key: &str) -> bool {
+    app.state::<NowPlayingState>().with_db(|db| db.plugin_lyrics_rejected(key)).unwrap_or(false)
+}
+
+/// Throws away the plugin's lyrics of the current song for good (PLAN-plugins-2.md 4.4) and asks
+/// LRCLIB again; no plugin is asked for this song any more.
+pub fn discard_plugin_lyrics(app: &AppHandle) {
+    let state = app.state::<NowPlayingState>();
+    let (Some(t), Some(lyrics)) = (state.snapshot().track, state.lyrics()) else { return };
+    if lyrics.key != t.key || !lyrics.source.contains("plugin:") {
+        return;
+    }
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    state.with_db(|db| db.reject_plugin_lyrics(&t.key, now));
+    tracing::info!(key = %t.key, source = %lyrics.source, "plugin lyrics thrown away");
+    request_lyrics(app, &t, true);
+}
+
+/// A removed plugin's word times and lyrics go; the song that plays falls back to the estimate
+/// or to LRCLIB at once.
+pub fn forget_plugin_results(app: &AppHandle, plugin_id: &str) {
     let state = app.state::<NowPlayingState>();
     let songs = state.with_db(|db| db.forget_plugin_words(plugin_id)).unwrap_or(0);
-    tracing::info!(plugin = plugin_id, songs, "plugin word times removed");
+    let lyrics = state.with_db(|db| db.forget_plugin_lyrics(plugin_id)).unwrap_or(0);
+    tracing::info!(plugin = plugin_id, songs, lyrics, "plugin word times and lyrics removed");
+    if let (Some(t), Some(l)) = (state.snapshot().track, state.lyrics())
+        && l.key == t.key
+        && l.source.contains(&format!("plugin:{plugin_id}:"))
+    {
+        return request_lyrics(app, &t, true);
+    }
     let Some(current) = state.lyrics().filter(|l| l.word_source == format!("plugin:{plugin_id}")) else { return };
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
     if let Some(crate::lyrics::cache::Lookup::Hit(c)) = state.with_db(|db| db.get(&current.key, now)) {

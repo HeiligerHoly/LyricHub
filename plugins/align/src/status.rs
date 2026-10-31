@@ -20,6 +20,8 @@ pub struct Board {
     pub working: Option<f64>,
     /// Songs wait while a fullscreen app is in front.
     pub paused: bool,
+    /// Another audio plugin computes; this one waits its turn.
+    pub waiting: bool,
     pub aligned: usize,
 }
 
@@ -32,19 +34,25 @@ pub enum Problem {
 
 pub struct Status {
     german: bool,
+    /// What the plugin does while it computes, German and English.
+    work: (&'static str, &'static str),
     board: Mutex<(Board, String)>,
     out: Out,
 }
 
 impl Status {
     pub fn new(language: &str, out: Out) -> Self {
-        Status { german: language.starts_with("de"), board: Mutex::new((Board::default(), String::new())), out }
+        Self::with_work(language, out, ("Richtet einen Song aus", "Aligning a song"))
+    }
+
+    pub fn with_work(language: &str, out: Out, work: (&'static str, &'static str)) -> Self {
+        Status { german: language.starts_with("de"), work, board: Mutex::new((Board::default(), String::new())), out }
     }
 
     pub fn update(&self, f: impl FnOnce(&mut Board)) {
         let mut guard = self.board.lock().unwrap();
         f(&mut guard.0);
-        let text = render(self.german, &guard.0);
+        let text = render_with(self.german, &guard.0, self.work);
         if text != guard.1 {
             guard.1 = text.clone();
             self.out.notify("status", json!({ "text": text, "progress": progress(&guard.0) }));
@@ -62,6 +70,10 @@ pub fn progress(b: &Board) -> Option<f64> {
 }
 
 pub fn render(de: bool, b: &Board) -> String {
+    render_with(de, b, ("Richtet einen Song aus", "Aligning a song"))
+}
+
+pub fn render_with(de: bool, b: &Board, work: (&str, &str)) -> String {
     let pct = |x: f64| (x * 100.0).floor().clamp(0.0, 100.0) as u32;
     let waiting = |n: usize| match (de, n) {
         (_, 0) => String::new(),
@@ -88,9 +100,13 @@ pub fn render(de: bool, b: &Board) -> String {
         let w = waiting(b.queued);
         return if de { format!("Pausiert, solange ein Vollbildspiel läuft{w}") } else { format!("Paused while a fullscreen game runs{w}") };
     }
+    if b.waiting {
+        let w = waiting(b.queued);
+        return if de { format!("Wartet, bis ein anderes Plugin fertig gerechnet hat{w}") } else { format!("Waiting for another plugin to finish{w}") };
+    }
     if let Some(p) = b.working {
         let (p, w) = (pct(p), waiting(b.queued));
-        return if de { format!("Richtet einen Song aus: {p} %{w}") } else { format!("Aligning a song: {p} %{w}") };
+        return if de { format!("{}: {p} %{w}", work.0) } else { format!("{}: {p} %{w}", work.1) };
     }
     if let Some(Problem::Capture(e)) = &b.problem {
         return if de { format!("Kein Mitschnitt möglich: {e}") } else { format!("Cannot capture the sound: {e}") };

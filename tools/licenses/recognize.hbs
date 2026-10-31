@@ -1,0 +1,76 @@
+# Third-party notices: lyrichub-recognize
+
+The recognize plugin (`plugins/recognize`) is one program, `lyrichub-recognize.exe`, with ONNX
+Runtime built in; it shares its audio and model code with the align plugin (`plugins/align`).
+This file lists what it contains and what it downloads, with their licenses. The Rust part is
+generated with `cargo about` (see `tools/licenses/README.md`); the other sections are kept by
+hand in `tools/licenses/recognize.hbs`. The plugin itself is licensed like LyricHub, under MIT
+with the Commons Clause (`LICENSE.txt` in the ZIP).
+
+## ONNX Runtime 1.31.0
+
+Microsoft's ONNX Runtime runs the model. It is linked statically from the prebuilt package
+that the `ort` crate fetches (CPU; the DirectML provider is compiled in but its DLL is not
+shipped or used). Its own third-party notices (protobuf, Abseil, Eigen, ONNX, FlatBuffers and
+more) are in `onnxruntime-ThirdPartyNotices.txt` next to this file, unchanged from
+https://github.com/microsoft/onnxruntime/blob/v1.31.0/ThirdPartyNotices.txt
+
+```
+MIT License
+
+Copyright (c) Microsoft Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## The model (downloaded, not shipped)
+
+When the align plugin has not downloaded them already, the plugin downloads `aligner-int8.onnx` and `vocab.json` from
+https://huggingface.co/redbaty/ytm-lyrics-aligner at revision
+5a75dac46091289a9040ac88fca5cf288ea85699 and checks their SHA-256. They are an ONNX conversion of
+mrfakename/w2v-bert-2.0-music-lyrics-ctc, a CTC model fine-tuned from Meta's
+facebook/w2v-bert-2.0. All three are published under the MIT License; the training data of the
+fine-tune is not documented.
+
+The feature extraction (SeamlessM4T), the CTC alignment and the greedy CTC decoding are written in Rust after
+transformers (Apache-2.0) and torchaudio (BSD-2-Clause); no code of either is shipped.
+
+## Rust crates
+
+Crates compiled into the plugin, grouped by license. Where a crate offers a choice, the first
+license of the accepted list in `tools/licenses/about.toml` is the one shown.
+
+{{#each overview}}
+- {{{name}}}: {{count}} crates
+{{/each}}
+
+{{#each licenses}}
+### {{{name}}}
+
+Used by:
+
+{{#each used_by}}
+- [{{{crate.name}}} {{{crate.version}}}]({{#if crate.repository}}{{{crate.repository}}}{{else}}https://crates.io/crates/{{{crate.name}}}{{/if}})
+{{/each}}
+
+```
+{{{text}}}
+```
+
+{{/each}}

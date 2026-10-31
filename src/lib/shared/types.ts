@@ -141,6 +141,15 @@ export interface PluginInfo {
   detail: string | null;
   status_text: string | null;
   progress: number | null;
+  /** The plugin's own switches (PLAN-plugins.md 4.7). */
+  settings: PluginSetting[];
+}
+
+export interface PluginSetting {
+  id: string;
+  label: Record<string, string>;
+  help: Record<string, string>;
+  value: boolean;
 }
 
 /** A checked plugin ZIP, shown for confirmation (`check_plugin_zip`). */
@@ -329,6 +338,8 @@ export interface LyricsEvent {
   lrc_offset_ms: number;
   /** "estimate", "lrc" (Enhanced LRC) or "plugin:<id>"; empty without synced lines. */
   word_source: string;
+  /** Auto-Sync moved the lines onto the singing: median shift in ms. */
+  line_sync_ms: number | null;
 }
 
 export interface NudgeEvent {
