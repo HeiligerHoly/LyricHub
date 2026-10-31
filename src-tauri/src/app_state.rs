@@ -97,6 +97,8 @@ pub struct NowPlayingState {
     inner: Mutex<Inner>,
     clock: Mutex<PlaybackClock>,
     lyrics_service: OnceLock<LyricsService>,
+    /// The worker's way to LRCLIB, also for the list of entries to pick from.
+    transport: OnceLock<Arc<dyn Transport>>,
     /// Device and song parts; the global part comes from the settings when an anchor is built.
     offsets: Mutex<Offsets>,
     /// Own connection to lyrichub.db for song and device offsets (the lyrics worker has one too).
@@ -128,6 +130,7 @@ impl Default for NowPlayingState {
             }),
             clock: Mutex::new(PlaybackClock::new(Instant::now())),
             lyrics_service: OnceLock::new(),
+            transport: OnceLock::new(),
             offsets: Mutex::new(Offsets::default()),
             db: Mutex::new(None),
             pending_seek: Mutex::new(None),
@@ -179,8 +182,12 @@ pub fn start(app: AppHandle, rx: Receiver<SourceEvent>) {
         Ok(db) => *app.state::<NowPlayingState>().db.lock().unwrap() = Some(db),
         Err(e) => tracing::error!(error = %e, "offset store unavailable, song and device offsets stay 0"),
     }
+    let local_dir = crate::lyrics::local::dir();
+    // Made at once, so the folder is there to be found (Settings → Sync opens it).
+    let _ = std::fs::create_dir_all(&local_dir);
+    let _ = app.state::<NowPlayingState>().transport.set(transport.clone());
     let emit_app = app.clone();
-    let service = LyricsService::spawn(db_path, transport, move |event| on_lyrics(&emit_app, event));
+    let service = LyricsService::spawn(db_path, local_dir, transport, move |event| on_lyrics(&emit_app, event));
     let _ = app.state::<NowPlayingState>().lyrics_service.set(service);
 
     let consumer = app.clone();
@@ -395,18 +402,26 @@ fn add_plugin_words(app: &AppHandle, event: &mut LyricsEvent) {
     }
 }
 
-/// Shows the current song's lyrics again from the cache, after a plugin setting changed.
+/// Shows the current song's lyrics again, after a plugin setting changed. Through the worker, so
+/// a local file or the user's pick wins as always.
 pub fn refresh_lyrics(app: &AppHandle) {
-    let state = app.state::<NowPlayingState>();
-    let Some(key) = state.current_key() else { return };
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
-    if let Some(crate::lyrics::cache::Lookup::Hit(c)) = state.with_db(|db| db.get(&key, now)) {
-        on_lyrics(app, crate::lyrics::service::to_event(&key, &c, "cache"));
+    if let Some(t) = app.state::<NowPlayingState>().snapshot().track {
+        request_lyrics(app, &t, false);
     }
 }
 
-/// The cached lyrics without timestamps of a song, for a plugin that aligns them.
+/// The user's own lyrics file for a song, if one fits (IDEEN.md, package B).
+fn own_file(app: &AppHandle, key: &str) -> Option<(std::path::PathBuf, String)> {
+    let (title, artist) = app.state::<NowPlayingState>().with_db(|db| db.track_names(key)).flatten()?;
+    crate::lyrics::local::find(&crate::lyrics::local::dir(), &title, &artist)
+}
+
+/// The lyrics without timestamps of a song, for a plugin that aligns them: the user's own file,
+/// or what LRCLIB had.
 pub fn plain_lyrics(app: &AppHandle, key: &str) -> Option<String> {
+    if let Some((_, text)) = own_file(app, key) {
+        return (!crate::lyrics::parser::parse(&text).synced).then_some(text);
+    }
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
     match app.state::<NowPlayingState>().with_db(|db| db.get(key, now)) {
         Some(crate::lyrics::cache::Lookup::Hit(c)) if c.format == crate::lyrics::cache::Format::Plain => Some(c.raw),
@@ -425,9 +440,11 @@ pub fn store_plugin_lyrics(app: &AppHandle, plugin: (&str, &str), found: crate::
     if plugin_lyrics_rejected(app, &found.key) {
         return tracing::info!(plugin = plugin.0, key = %found.key, "plugin lyrics ignored: the user threw them away for this song");
     }
+    // Own text without timestamps asked for this alignment, even where LRCLIB has synced lyrics.
     if let Some(Lookup::Hit(c)) = state.with_db(|db| db.get(&found.key, now))
         && c.format == Format::Lrc
         && !c.source.starts_with("plugin:")
+        && own_file(app, &found.key).is_none()
     {
         return tracing::info!(plugin = plugin.0, key = %found.key, "plugin lyrics ignored: the song has synced lyrics");
     }
@@ -455,8 +472,115 @@ pub fn store_plugin_lyrics(app: &AppHandle, plugin: (&str, &str), found: crate::
     }
 }
 
+/// No plugin may bring lyrics for this song: the user threw a plugin's lyrics away, or picked
+/// lyrics (or none) themselves.
 pub fn plugin_lyrics_rejected(app: &AppHandle, key: &str) -> bool {
-    app.state::<NowPlayingState>().with_db(|db| db.plugin_lyrics_rejected(key)).unwrap_or(false)
+    app.state::<NowPlayingState>()
+        .with_db(|db| Ok(db.plugin_lyrics_rejected(key)? || db.lyrics_choice(key)?.is_some()))
+        .unwrap_or(false)
+}
+
+/// An entry the user can pick for the current song (Settings → Sync, IDEEN.md, package B).
+#[derive(Serialize)]
+pub struct LyricsCandidate {
+    pub id: i64,
+    pub title: String,
+    pub artist: String,
+    pub album: Option<String>,
+    pub duration_s: f64,
+    pub synced: bool,
+    pub plain: bool,
+    pub instrumental: bool,
+}
+
+/// Two fields, as JSON would turn both "no lyrics" and "automatic" of a nested option into null.
+#[derive(Serialize)]
+pub struct LyricsCandidates {
+    /// The picked entry, if the user picked one.
+    pub chosen_id: Option<i64>,
+    /// The user wants no lyrics for this song.
+    pub chose_none: bool,
+    pub items: Vec<LyricsCandidate>,
+}
+
+/// LRCLIB's entries for the current song, for the user to pick from. Blocks on the network.
+pub fn lyrics_candidates(app: &AppHandle) -> Result<LyricsCandidates, String> {
+    let state = app.state::<NowPlayingState>();
+    let t = state.snapshot().track.ok_or("nothing plays")?;
+    let transport = state.transport.get().ok_or("LRCLIB client not ready")?.clone();
+    let found = crate::lyrics::lrclib::candidates(transport.as_ref(), &t.title, &t.artist, t.duration_ms.map(|d| f64::from(d) / 1000.0))?;
+    tracing::info!(key = %t.key, candidates = found.len(), "lyrics candidates listed");
+    let choice = state.with_db(|db| db.lyrics_choice(&t.key)).flatten();
+    Ok(LyricsCandidates {
+        chosen_id: choice.flatten(),
+        chose_none: choice == Some(None),
+        items: found
+            .into_iter()
+            .map(|c| LyricsCandidate {
+                synced: c.has_synced(),
+                plain: c.plain_lyrics.as_deref().is_some_and(|p| !p.trim().is_empty()),
+                id: c.id,
+                title: c.track_name,
+                artist: c.artist_name,
+                album: c.album_name,
+                duration_s: c.duration,
+                instrumental: c.instrumental,
+            })
+            .collect(),
+    })
+}
+
+/// Longest own lyrics; a whole song in LRC is a few KB.
+const OWN_LYRICS_MAX_BYTES: usize = 256 * 1024;
+
+/// The user's own lyrics for the current song: the text of the local file that fits it.
+pub fn own_lyrics(app: &AppHandle) -> Option<String> {
+    let t = app.state::<NowPlayingState>().snapshot().track?;
+    crate::lyrics::local::find(&crate::lyrics::local::dir(), &t.title, &t.artist).map(|f| f.1)
+}
+
+/// Saves own lyrics for the current song as a local LRC file (the one that fits it already, or
+/// "Artist - Title.lrc") and shows them. With timestamps they run synced; without, Recognize can
+/// align them.
+pub fn save_own_lyrics(app: &AppHandle, text: &str) -> Result<(), String> {
+    let t = app.state::<NowPlayingState>().snapshot().track.ok_or("nothing plays")?;
+    if text.trim().is_empty() || text.len() > OWN_LYRICS_MAX_BYTES {
+        return Err("lyrics empty or too long".into());
+    }
+    let dir = crate::lyrics::local::dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = crate::lyrics::local::find(&dir, &t.title, &t.artist)
+        .map(|f| f.0)
+        .unwrap_or_else(|| dir.join(crate::lyrics::local::file_name(&t.title, &t.artist)));
+    std::fs::write(&path, text).map_err(|e| e.to_string())?;
+    let synced = crate::lyrics::parser::parse(text).synced;
+    tracing::info!(key = %t.key, synced, lines = text.lines().count(), "own lyrics saved");
+    request_lyrics(app, &t, false);
+    Ok(())
+}
+
+/// Removes the own lyrics file of the current song; LRCLIB's lyrics show again.
+pub fn delete_own_lyrics(app: &AppHandle) -> Result<(), String> {
+    let t = app.state::<NowPlayingState>().snapshot().track.ok_or("nothing plays")?;
+    let (path, _) = crate::lyrics::local::find(&crate::lyrics::local::dir(), &t.title, &t.artist).ok_or("no own lyrics")?;
+    std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+    tracing::info!(key = %t.key, "own lyrics removed");
+    request_lyrics(app, &t, false);
+    Ok(())
+}
+
+/// The user's pick for the current song: `Some(Some(id))` a LRCLIB entry, `Some(None)` no
+/// lyrics, `None` back to the automatic search. Kept per song; plugins bring no lyrics for it.
+pub fn choose_lyrics(app: &AppHandle, choice: Option<Option<i64>>) {
+    let state = app.state::<NowPlayingState>();
+    let Some(t) = state.snapshot().track else { return };
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    match choice {
+        Some(id) => state.with_db(|db| db.set_lyrics_choice(&t.key, id, now)),
+        None => state.with_db(|db| db.clear_lyrics_choice(&t.key)),
+    };
+    tracing::info!(key = %t.key, choice = ?choice, "lyrics choice set");
+    request_lyrics(app, &t, true);
 }
 
 /// Throws away the plugin's lyrics of the current song for good (PLAN-plugins-2.md 4.4) and asks
@@ -486,10 +610,8 @@ pub fn forget_plugin_results(app: &AppHandle, plugin_id: &str) {
     {
         return request_lyrics(app, &t, true);
     }
-    let Some(current) = state.lyrics().filter(|l| l.word_source == format!("plugin:{plugin_id}")) else { return };
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
-    if let Some(crate::lyrics::cache::Lookup::Hit(c)) = state.with_db(|db| db.get(&current.key, now)) {
-        on_lyrics(app, crate::lyrics::service::to_event(&current.key, &c, "cache"));
+    if state.lyrics().is_some_and(|l| l.word_source == format!("plugin:{plugin_id}")) {
+        refresh_lyrics(app);
     }
 }
 

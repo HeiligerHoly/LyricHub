@@ -2,7 +2,7 @@
 
 > Stand: 2026-10-31 · Basis: 1.2.0 plus Auto-Sync und Recognize (für 1.3.0 gebaut, noch nicht veröffentlicht)
 > Herkunft: vier Fable-Agenten mit je einem Blickwinkel (Kern-App, Plugins, Gaming/VR/Streaming, Technik und Verteilung), zusammengeführt; die Aussagen über den heutigen Code sind nachgeprüft.
-> Status: **Paket A ist gebaut** (2026-10-31, für 1.3.0, siehe Abschnitt 2). Der Rest ist ein Vorschlag; die Entscheidungen stehen in Abschnitt 6.
+> Status: **Pakete A und B sind gebaut** (2026-10-31, für 1.3.0, siehe Abschnitte 2 und 3). Der Rest ist ein Vorschlag; die Entscheidungen stehen in Abschnitt 6.
 
 ## 1. Kurzfassung
 
@@ -31,7 +31,7 @@ Empfohlene Reihenfolge: **A, dann B oder C**. A braucht wenig und senkt das Risi
 
 - **Speichergrenze 3 GB statt 2 GB:** Gemessen belegte Recognize beim Rechnen bis 1,75 GB zugesagten Speicher (1,2 GB im Arbeitsspeicher). 2 GB hätten kaum Luft gelassen. Der Test mit dem Beispiel-Plugin (3,5 GB) zeigt: Es bekommt keinen Speicher, endet und startet neu.
 - **Kein Minidump:** Ein Absturz außerhalb von Rusts Prüfungen (Zugriffsfehler in `unsafe`-Code) hinterlässt weiter keine Datei. Code, der in einem schon kaputten Prozess eine Datei schreibt, kann hängen bleiben, statt zu beenden; das wäre schlimmer. Windows führt solche Abstürze im Zuverlässigkeitsverlauf.
-- **CI:** `npm audit` prüft nur die ausgelieferten Pakete (`--omit=dev`); die vier schwachen Meldungen betreffen nur Werkzeuge zum Bauen. `cargo audit` meldet fünf Warnungen zu Linux-Paketen von Tauri, keine Sicherheitslücke. Ob ein Lauf unter 25 min bleibt, zeigt erst der erste Lauf auf GitHub.
+- **CI:** `npm audit` prüft nur die ausgelieferten Pakete (`--omit=dev`); die vier schwachen Meldungen betreffen nur Werkzeuge zum Bauen. `cargo audit` meldet fünf Warnungen zu Linux-Paketen von Tauri, keine Sicherheitslücke. Der erste Lauf auf GitHub war grün und brauchte ohne Cache 8,9 min (Tests 4,6 min, Clippy 2,2 min).
 
 ## 3. Paket B – Mehr Songs mit Lyrics
 
@@ -42,6 +42,18 @@ Empfohlene Reihenfolge: **A, dann B oder C**. A braucht wenig und senkt das Risi
 | **Lokale LRC-Dateien** | Eigene `.lrc`-Dateien in `%APPDATA%\LyricHub\lrc` haben Vorrang vor LRCLIB. Später ein Tap-Editor auf Basis der Kalibrierung, der Zeilen neu stempelt, nur lokal, ohne Upload. | S (Ordner), L (Editor) | Copyright: bleibt lokal | Datei im Ordner erscheint beim nächsten Songwechsel |
 
 Recognize ergänzt das: Es hilft erst ab dem zweiten Hören, B schon beim ersten.
+
+**Stand 2026-10-31: alle drei gebaut, ohne den Tap-Editor.** Abweichungen und Befunde:
+
+- **Längenverhältnis etwas weiter:** 1,08–1,5 (schneller) und 0,65–0,92 (langsamer) statt 1,1–1,45 und 0,7–0,9, weil Titel und Artist ohnehin passen müssen.
+- **Genauigkeit des Streckens:** LRCLIB kennt Längen nur auf die Sekunde, und Einträge desselben Songs nennen verschiedene Längen (200 s, 202 s, 198 s). Gegen das echte LRCLIB lag bei einer simulierten Sped-up-Fassung (80 % von „Blinding Lights“) die letzte Zeile 1,6 s zu spät, weil der gewählte Eintrag 198 s statt 200 s nannte. Live gemessen an der Slowed-Fassung von „Shut Up and Dance“ (Align maß danach die echten Wortzeiten): Das erste gesungene Wort kam im Median 182 ms (erstes Drittel), 182 ms (mittleres) und 84 ms (letztes) nach dem gestreckten Zeilenbeginn, ohne wachsenden Versatz zum Songende; Auto-Sync verschob die Zeilen im Median nur um 11 ms. Ein Sync-Protokoll mit Taps an drei Songs steht noch aus.
+- **Weitere Live-Treffer:** „Dancin - Sped Up Version“ (Aaron Smith) gestreckt mit 0,781; „Just The Way You Are - slowed down“ (Kanal) gestreckt mit 1,126 auf das Original von Bruno Mars (220 s), nicht auf den gleichnamigen Song von Milky (210 s).
+- **Gefundener Fehler:** War LRCLIB nur bei der Suche nach dem Original überlastet, merkte sich LyricHub die Version 7 Tage als „nicht gefunden“. Jetzt zählt das als „nicht erreichbar“ und wird nach 5 s, 30 s und 120 s erneut versucht (live geprüft).
+- **Live in Spotify (2026-10-31):** „Shut Up and Dance - sped up“ (Kanal „sped up + slowed“, 170 s) hat bei LRCLIB einen eigenen synchronen Eintrag (letzte Zeile bei 165 s); den nahm LyricHub direkt, ohne zu strecken. Die Slowed-Fassung desselben Kanals (229,6 s) bekam die Lyrics des Originals von Walk the Moon, gestreckt mit 1,154, und das Overlay zeigte „gestreckt“. Bei der Suche nur nach dem Titel passten auch Einträge des Originals mit falscher Länge (246 s statt 199 s); bei Gleichstand gewinnt deshalb die Länge, auf die sich die meisten Einträge desselben Artists einigen.
+- **Neu dabei:** Ein LRCLIB-Eintrag, dessen letzte Zeile nach dem Songende beginnt, zählt nicht mehr als Treffer. Der Test fand so einen Eintrag (Länge 160 s, Lyrics bis 195 s), der ohne die Prüfung ungestreckt genommen worden wäre.
+- **Lokale Dateien:** Der Titel muss strenger passen als bei LRCLIB (0,95 statt 0,85), weil keine Länge mitprüft; „Paper Planes“ und „Paper Boats“ wären sonst derselbe Song.
+- **Eigene Lyrics (Wunsch des Nutzers, dazugekommen):** Einstellungen → Sync → „Eigene Lyrics …“ öffnet einen Editor für den laufenden Song, vorgefüllt mit den gezeigten Zeilen. Gespeichert wird die lokale LRC-Datei des Songs. Text ohne Zeitstempel richtet Recognize nach einmal Hören aus; das Ergebnis gilt, solange die Datei danach nicht mehr geändert wurde.
+- **Tap-Editor:** nicht gebaut (Aufwand L). Er wäre der nächste Schritt für eigene Lyrics ohne Recognize: Zeilen beim Hören per Taste stempeln.
 
 ## 4. Paket C – VR
 

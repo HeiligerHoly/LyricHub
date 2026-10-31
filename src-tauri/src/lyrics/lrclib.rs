@@ -57,6 +57,10 @@ impl LrclibTrack {
             duration_s: self.duration,
             synced: self.has_synced(),
             instrumental: self.instrumental,
+            last_line_s: self
+                .synced_lyrics
+                .as_deref()
+                .and_then(|lrc| super::parser::parse(lrc).lines.last().map(|l| f64::from(l.start_ms) / 1000.0)),
         }
     }
 }
@@ -100,9 +104,12 @@ impl Transport for HttpTransport {
 #[derive(Clone, Copy, Debug)]
 pub struct Query<'a> {
     pub title: &'a str,
+    /// Empty when unknown (an upload channel such as "Nightcore").
     pub artist: &'a str,
     pub album: Option<&'a str>,
     pub duration_s: Option<f64>,
+    /// Looking for the original of a sped-up or slowed version (matcher::speed_variant).
+    pub speed: Option<matcher::Speed>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -171,6 +178,19 @@ fn stages(q: &Query) -> Vec<Stage> {
         Stage { name, path: "/api/get", query }
     };
     let mut list = Vec::new();
+    // The original of a sped-up or slowed version has another length, which `/api/get` would
+    // reject, and maybe no known artist: only the searches fit.
+    if q.speed.is_some() {
+        if !main_artist.is_empty() {
+            list.push(Stage {
+                name: "search",
+                path: "/api/search",
+                query: vec![("track_name", stripped_title.clone()), ("artist_name", main_artist.clone())],
+            });
+        }
+        list.push(Stage { name: "search-title", path: "/api/search", query: vec![("track_name", stripped_title)] });
+        return list;
+    }
     if q.album.is_some() {
         list.push(get("get", q.title, q.artist, q.album));
     }
@@ -198,13 +218,13 @@ fn stages(q: &Query) -> Vec<Stage> {
 /// lookup at once; plain-only or instrumental results win only when no stage has synced ones.
 pub fn lookup(t: &Arc<dyn Transport>, q: &Query) -> Outcome {
     let stages: Arc<Vec<Stage>> = Arc::new(stages(q));
-    let wanted = Arc::new((q.title.to_owned(), q.artist.to_owned(), q.duration_s));
+    let wanted = Arc::new((q.title.to_owned(), q.artist.to_owned(), q.duration_s, q.speed));
     let (tx, rx) = mpsc::channel::<(usize, Answer)>();
     let launch = |i: usize| {
         let (t, stages, wanted, tx) = (Arc::clone(t), Arc::clone(&stages), Arc::clone(&wanted), tx.clone());
         // Detached: a slow request may finish after the lookup has returned; its answer is dropped.
         std::thread::spawn(move || {
-            let w = Wanted { title: &wanted.0, artist: &wanted.1, duration_s: wanted.2 };
+            let w = Wanted { title: &wanted.0, artist: &wanted.1, duration_s: wanted.2, speed: wanted.3 };
             let _ = tx.send((i, run_stage(t.as_ref(), &stages[i], &w)));
         });
     };
@@ -270,6 +290,64 @@ pub fn lookup(t: &Arc<dyn Transport>, q: &Query) -> Outcome {
     }
 }
 
+/// Tries per search for the list to pick from: the user waits for it, and an overloaded LRCLIB
+/// often answers the next request (module docs).
+const PICK_ATTEMPTS: usize = 3;
+const PICK_RETRY_AFTER: Duration = Duration::from_millis(600);
+
+/// LRCLIB entries for a song that the user can pick from (IDEEN.md, package B): the search by
+/// title and artist and the search by title alone, without the matcher's checks, merged, those
+/// with synced lyrics and a fitting length first. At most 30.
+pub fn candidates(t: &dyn Transport, title: &str, artist: &str, duration_s: Option<f64>) -> Result<Vec<LrclibTrack>, String> {
+    let title = matcher::strip_decorations(title);
+    let searches = [
+        vec![("track_name", title.clone()), ("artist_name", matcher::main_artist(artist))],
+        vec![("track_name", title)],
+    ];
+    let mut found: Vec<LrclibTrack> = Vec::new();
+    let mut trouble = None;
+    for query in &searches {
+        for attempt in 1..=PICK_ATTEMPTS {
+            let failed = match t.get("/api/search", query) {
+                Ok((200, body)) => match serde_json::from_str::<Vec<LrclibTrack>>(&body) {
+                    Ok(list) => {
+                        let new: Vec<LrclibTrack> = list.into_iter().filter(|x| !found.iter().any(|f| f.id == x.id)).collect();
+                        found.extend(new);
+                        None
+                    }
+                    Err(e) => Some(format!("unreadable answer: {e}")),
+                },
+                Ok((400 | 404, _)) => None,
+                Ok((status, _)) => Some(format!("HTTP {status}")),
+                Err(e) => Some(e),
+            };
+            let Some(e) = failed else { break };
+            trouble = Some(e);
+            if attempt < PICK_ATTEMPTS {
+                std::thread::sleep(PICK_RETRY_AFTER);
+            }
+        }
+    }
+    if found.is_empty()
+        && let Some(e) = trouble
+    {
+        return Err(e);
+    }
+    let off = |x: &LrclibTrack| duration_s.map_or(0.0, |d| (x.duration - d).abs());
+    found.sort_by(|a, b| b.has_synced().cmp(&a.has_synced()).then(off(a).total_cmp(&off(b))));
+    found.truncate(30);
+    Ok(found)
+}
+
+/// One LRCLIB entry by its id; `None` if LRCLIB no longer has it.
+pub fn by_id(t: &dyn Transport, id: i64) -> Result<Option<LrclibTrack>, String> {
+    match t.get(&format!("/api/get/{id}"), &[])? {
+        (200, body) => serde_json::from_str(&body).map(Some).map_err(|e| format!("unreadable answer: {e}")),
+        (404, _) => Ok(None),
+        (status, _) => Err(format!("HTTP {status}")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,7 +386,7 @@ mod tests {
     }
 
     fn query<'a>(title: &'a str, album: Option<&'a str>) -> Query<'a> {
-        Query { title, artist: "The Inventions", album, duration_s: Some(231.0) }
+        Query { title, artist: "The Inventions", album, duration_s: Some(231.0), speed: None }
     }
 
     fn lookup(t: Recorded, q: &Query) -> Outcome {
@@ -425,8 +503,40 @@ mod tests {
             artist: "The Inventions, Guest",
             album: None,
             duration_s: Some(231.0),
+            speed: None,
         };
         assert!(matches!(lookup(t, &q), Outcome::Found { stage: "get-normalised", ref track } if track.id == 5));
+    }
+
+    #[test]
+    fn the_original_of_a_sped_up_version_is_found_by_searching() {
+        let t = Recorded::new(&[
+            ("/api/search?track_name=Paper Boats&artist_name=The Inventions", 200, &format!("[{}]", track(6, "Paper Boats", "The Inventions", 231.0, true))),
+            ("/api/search?track_name=Paper Boats", 200, "[]"),
+        ]);
+        let q = Query { title: "Paper Boats", artist: "The Inventions", album: None, duration_s: Some(180.0), speed: Some(matcher::Speed::Faster) };
+        assert!(matches!(lookup(t, &q), Outcome::Found { stage: "search", ref track } if track.id == 6));
+    }
+
+    #[test]
+    fn candidates_are_merged_with_synced_and_fitting_ones_first() {
+        let t = Recorded::new(&[
+            (
+                "/api/search?track_name=Paper Boats&artist_name=The Inventions",
+                200,
+                &format!("[{},{}]", track(1, "Paper Boats", "The Inventions", 300.0, true), track(2, "Paper Boats", "The Inventions", 231.0, false)),
+            ),
+            (
+                "/api/search?track_name=Paper Boats",
+                200,
+                &format!("[{},{}]", track(2, "Paper Boats", "The Inventions", 231.0, false), track(3, "Paper Boats", "Others", 232.0, true)),
+            ),
+        ]);
+        let ids: Vec<i64> = candidates(&t, "Paper Boats (Live)", "The Inventions, Guest", Some(231.0)).unwrap().iter().map(|c| c.id).collect();
+        assert_eq!(ids, [3, 1, 2]);
+        let busy = Recorded::new(&[]);
+        assert!(candidates(&busy, "Paper Boats", "The Inventions", None).is_err());
+        assert_eq!(by_id(&Recorded::new(&[("/api/get/2?", 200, &track(2, "Paper Boats", "The Inventions", 231.0, false))]), 2).unwrap().map(|t| t.id), Some(2));
     }
 
     #[test]
@@ -440,7 +550,7 @@ mod tests {
             ("/api/search?track_name=Interlude&artist_name=The Inventions", 200, "[]"),
             ("/api/search?q=Interlude The Inventions", 200, "[]"),
         ]);
-        let q = Query { title: "Interlude", artist: "The Inventions", album: None, duration_s: Some(95.0) };
+        let q = Query { title: "Interlude", artist: "The Inventions", album: None, duration_s: Some(95.0), speed: None };
         assert!(matches!(lookup(t, &q), Outcome::Found { ref track, .. } if track.instrumental));
     }
 

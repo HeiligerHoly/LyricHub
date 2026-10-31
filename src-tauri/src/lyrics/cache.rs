@@ -8,7 +8,8 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 /// 2: table `plugin_words` (PLAN-plugins.md 4.6), created like the others if missing.
 /// 3: table `plugin_rejects` (PLAN-plugins-2.md 4.4), likewise.
-const SCHEMA_VERSION: i64 = 3;
+/// 4: table `lyrics_choices` (IDEEN.md, package B), likewise.
+const SCHEMA_VERSION: i64 = 4;
 pub const NEGATIVE_TTL_S: i64 = 7 * 24 * 3600;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,7 +97,8 @@ impl Cache {
                key TEXT NOT NULL, lyrics_hash TEXT NOT NULL, plugin_id TEXT NOT NULL,
                plugin_version TEXT NOT NULL, words_json TEXT NOT NULL, created_at INTEGER NOT NULL,
                PRIMARY KEY (key, lyrics_hash));
-             CREATE TABLE IF NOT EXISTS plugin_rejects (key TEXT PRIMARY KEY, at INTEGER NOT NULL);",
+             CREATE TABLE IF NOT EXISTS plugin_rejects (key TEXT PRIMARY KEY, at INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS lyrics_choices (key TEXT PRIMARY KEY, lrclib_id INTEGER, at INTEGER NOT NULL);",
         )?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         if version < SCHEMA_VERSION {
@@ -137,6 +139,11 @@ impl Cache {
             params![key, title, artist, album, duration_ms, now],
         )?;
         Ok(())
+    }
+
+    /// Title and artist of a song the player reported.
+    pub fn track_names(&self, key: &str) -> rusqlite::Result<Option<(String, String)>> {
+        self.conn.query_row("SELECT title, artist FROM tracks WHERE key = ?1", [key], |r| Ok((r.get(0)?, r.get(1)?))).optional()
     }
 
     pub fn get(&self, key: &str, now: i64) -> rusqlite::Result<Lookup> {
@@ -301,6 +308,25 @@ impl Cache {
     }
 
     /// Drops what is known about a song, so the next lookup asks LRCLIB again.
+    /// The user's pick for a song: `Some(Some(id))` a LRCLIB entry, `Some(None)` no lyrics at all.
+    /// Picks stay when the cache is pruned, like offsets: they are the user's corrections.
+    pub fn lyrics_choice(&self, key: &str) -> rusqlite::Result<Option<Option<i64>>> {
+        self.conn.query_row("SELECT lrclib_id FROM lyrics_choices WHERE key = ?1", [key], |r| r.get(0)).optional()
+    }
+
+    pub fn set_lyrics_choice(&self, key: &str, lrclib_id: Option<i64>, now: i64) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO lyrics_choices (key, lrclib_id, at) VALUES (?1, ?2, ?3)",
+            params![key, lrclib_id, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn clear_lyrics_choice(&self, key: &str) -> rusqlite::Result<()> {
+        self.conn.execute("DELETE FROM lyrics_choices WHERE key = ?1", [key])?;
+        Ok(())
+    }
+
     pub fn forget(&self, key: &str) -> rusqlite::Result<()> {
         self.conn.execute("DELETE FROM lyrics WHERE key = ?1", [key])?;
         self.conn.execute("DELETE FROM negative_cache WHERE key = ?1", [key])?;
@@ -417,6 +443,19 @@ mod tests {
         assert!(matches!(c.get("c", 10).unwrap(), Lookup::Hit(_)), "lyrics from LRCLIB stay");
         assert_eq!(c.forget_plugin_lyrics("rec").unwrap(), 1);
         assert_eq!(c.get("b", 10).unwrap(), Lookup::Miss);
+    }
+
+    #[test]
+    fn lyrics_choices_survive_pruning() {
+        let c = Cache::in_memory().unwrap();
+        assert_eq!(c.lyrics_choice("a").unwrap(), None);
+        c.set_lyrics_choice("a", Some(7), 1).unwrap();
+        c.set_lyrics_choice("b", None, 1).unwrap();
+        c.touch_track("a", "T", "A", None, None, 0).unwrap();
+        c.prune(1000, 10).unwrap();
+        assert_eq!((c.lyrics_choice("a").unwrap(), c.lyrics_choice("b").unwrap()), (Some(Some(7)), Some(None)));
+        c.clear_lyrics_choice("a").unwrap();
+        assert_eq!(c.lyrics_choice("a").unwrap(), None);
     }
 
     #[test]

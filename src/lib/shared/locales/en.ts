@@ -49,6 +49,7 @@ export const en: Record<Key, string> = {
 
   // Overlay window: sample text (invented), idle hint, states, toasts
   "overlay.recognized": "recognized",
+  "overlay.stretched": "stretched",
   "overlay.sample.line": "This is a sample line for alignment",
   "overlay.sample.previous": "The line before is dimmed",
   "overlay.sample.later": "and one more line after that",
@@ -204,6 +205,34 @@ export const en: Record<Key, string> = {
   "sync.lyrics.discard": "Discard the plugin's lyrics",
   "sync.lyrics.discard.hint":
     "Discarded lyrics do not come back for this song: LyricHub asks LRCLIB again and no longer asks a plugin for this song.",
+  "sync.lyrics.state.none": "None (your pick)",
+  "sync.lyrics.source.local": "Local LRC file",
+  "sync.lyrics.source.chosen": "LRCLIB, picked by you",
+  "sync.lyrics.source.stretched": "LRCLIB, stretched from the original onto this version",
+  "sync.lyrics.pick": "Pick other lyrics…",
+  "sync.lyrics.pick.loading": "Searching LRCLIB…",
+  "sync.lyrics.pick.error": "LRCLIB unreachable: {error}",
+  "sync.lyrics.pick.empty": "LRCLIB has nothing under this title.",
+  "sync.lyrics.pick.synced": "synced",
+  "sync.lyrics.pick.plain": "text only",
+  "sync.lyrics.pick.instrumental": "instrumental",
+  "sync.lyrics.pick.nothing": "empty",
+  "sync.lyrics.pick.take": "Use",
+  "sync.lyrics.pick.taken": "picked",
+  "sync.lyrics.pick.none": "No lyrics for this song",
+  "sync.lyrics.pick.auto": "Search automatically again",
+  "sync.lyrics.pick.close": "Close",
+  "sync.lyrics.pick.hint":
+    "Your pick applies to this song only and is kept, also through \"Reload lyrics\". Plugins no longer bring lyrics for it.",
+  "sync.lyrics.own": "Own lyrics…",
+  "sync.lyrics.own.hint":
+    "With timestamps like [01:23.45] before each line they run synced; the lines shown now are filled in to correct. Without timestamps LyricHub shows them as text, and the plugin Recognize aligns them after one listen. Saved as a local LRC file, only on your PC.",
+  "sync.lyrics.own.save": "Save",
+  "sync.lyrics.own.cancel": "Cancel",
+  "sync.lyrics.own.delete": "Delete own lyrics",
+  "sync.lyrics.local": "Open LRC folder",
+  "sync.lyrics.local.hint":
+    "Your own .lrc files in this folder win over everything else. Name them \"Artist - Title.lrc\" or give them [ar:] and [ti:] tags; they apply from the next song change or after \"Reload lyrics\".",
   "sync.lyrics.crossfade":
     "Crossfade and Automix in Spotify blur the song boundaries. For the most accurate sync, turn them off in Spotify under Settings → Playback.",
 

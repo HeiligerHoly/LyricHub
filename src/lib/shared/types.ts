@@ -419,6 +419,24 @@ export interface AppInfo {
   autostart_registered: boolean | null;
 }
 
+/** A LRCLIB entry the user can pick for the current song (IDEEN.md, package B). */
+export interface LyricsCandidate {
+  id: number;
+  title: string;
+  artist: string;
+  album: string | null;
+  duration_s: number;
+  synced: boolean;
+  plain: boolean;
+  instrumental: boolean;
+}
+
+export interface LyricsCandidates {
+  chosen_id: number | null;
+  chose_none: boolean;
+  items: LyricsCandidate[];
+}
+
 /** The newest `logs/crash-<unix>.txt` (src-tauri/src/crash.rs). */
 export interface LastCrash {
   unix: number;

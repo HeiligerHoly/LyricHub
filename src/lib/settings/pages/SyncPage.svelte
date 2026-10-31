@@ -10,6 +10,8 @@
     OFFSET_LIMIT_MS,
     type AudioDevice,
     type CalibrationView,
+    type LyricsCandidate,
+    type LyricsCandidates,
     type LyricsEvent,
     type NowPlaying,
     type Offsets,
@@ -94,6 +96,86 @@
     await ipc.discardPluginLyrics();
     setTimeout(() => (reloading = false), 1500);
   }
+  // A local file, the user's pick, or the stretched original of a sped-up or slowed version
+  // (IDEEN.md, package B).
+  const sourceKind = $derived.by(() => {
+    const s = current?.source ?? "";
+    if (s === "local") return "local";
+    if (s.endsWith("lrclib:chosen")) return "chosen";
+    if (s.endsWith("lrclib:stretched")) return "stretched";
+    return null;
+  });
+  const choseNone = $derived(current?.source === "choice:none");
+
+  // ---- Picking other lyrics from LRCLIB ----
+  let picker = $state<{ key: string; list: LyricsCandidates } | null>(null);
+  let picking = $state(false);
+  let pickError = $state<string | null>(null);
+  const shownPicker = $derived(picker && picker.key === now.track?.key ? picker.list : null);
+  async function openPicker() {
+    const key = now.track?.key;
+    if (!key) return;
+    picking = true;
+    pickError = null;
+    try {
+      picker = { key, list: await ipc.lyricsCandidates() };
+    } catch (e) {
+      pickError = String(e);
+    } finally {
+      picking = false;
+    }
+  }
+  async function choose(mode: "lrclib" | "none" | "auto", id: number | null = null) {
+    await ipc.chooseLyrics(mode, id);
+    picker = null;
+  }
+  const length = (s: number) => {
+    const r = Math.round(s);
+    return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, "0")}`;
+  };
+  const lengthDiff = (s: number) => {
+    const d = now.track?.duration_ms ? Math.round(s - now.track.duration_ms / 1000) : 0;
+    return d === 0 ? "" : ` (${d > 0 ? "+" : "−"}${Math.abs(d)} s)`;
+  };
+  // ---- Own lyrics, kept as a local LRC file (IDEEN.md, package B) ----
+  let editor = $state<{ key: string; text: string; own: boolean } | null>(null);
+  let editError = $state<string | null>(null);
+  const stamp = (ms: number) => {
+    const cs = Math.round(ms / 10);
+    const two = (n: number) => String(n).padStart(2, "0");
+    return `[${two(Math.floor(cs / 6000))}:${two(Math.floor(cs / 100) % 60)}.${two(cs % 100)}]`;
+  };
+  async function openEditor() {
+    const key = now.track?.key;
+    if (!key) return;
+    editError = null;
+    const own = await ipc.ownLyrics();
+    // Without own lyrics, the synced lines shown now are a starting point to correct.
+    const shown = current?.state === "synced" ? current.lines.map((l) => `${stamp(l.start_ms)}${l.text}`).join("\n") + "\n" : "";
+    editor = { key, text: own ?? shown, own: own !== null };
+  }
+  async function saveOwn() {
+    if (!editor) return;
+    editError = null;
+    try {
+      await ipc.saveOwnLyrics(editor.text);
+      editor = null;
+    } catch (e) {
+      editError = String(e);
+    }
+  }
+  async function deleteOwn() {
+    editError = null;
+    try {
+      await ipc.deleteOwnLyrics();
+      editor = null;
+    } catch (e) {
+      editError = String(e);
+    }
+  }
+
+  const kind = (c: LyricsCandidate) =>
+    t(c.synced ? "sync.lyrics.pick.synced" : c.plain ? "sync.lyrics.pick.plain" : c.instrumental ? "sync.lyrics.pick.instrumental" : "sync.lyrics.pick.nothing");
 
   const describe = (ms: number) =>
     ms === 0 ? t("sync.shift.none") : ms > 0 ? t("sync.shift.later", { ms }) : t("sync.shift.earlier", { ms: -ms });
@@ -288,7 +370,15 @@
   {#if now.track}
     <dl class="kv">
       <dt>{t("sync.lyrics.state")}</dt>
-      <dd>{current ? stateText(current.state) : now.track.kind === "podcast" ? t("sync.lyrics.podcast") : "–"}</dd>
+      <dd>
+        {current
+          ? choseNone
+            ? t("sync.lyrics.state.none")
+            : stateText(current.state)
+          : now.track.kind === "podcast"
+            ? t("sync.lyrics.podcast")
+            : "–"}
+      </dd>
       {#if current?.state === "synced"}
         <dt>{t("sync.lyrics.lines")}</dt>
         <dd>{current.lines.filter((l) => l.text).length}</dd>
@@ -296,6 +386,8 @@
         <dd>
           {#if pluginHow}
             {t("diag.lyricsOrigin")}, {t(`diag.lyricsOrigin.${pluginHow}` as Key)}
+          {:else if sourceKind}
+            {t(`sync.lyrics.source.${sourceKind}` as Key)}
           {:else}
             {current.source === "cache:lrclib" ? t("sync.lyrics.cached") : "LRCLIB"}
           {/if}
@@ -307,10 +399,69 @@
       {#if pluginHow}
         <button onclick={discard} disabled={reloading}>{t("sync.lyrics.discard")}</button>
       {/if}
+      {#if now.track.kind !== "podcast"}
+        <button onclick={openPicker} disabled={picking}>{picking ? t("sync.lyrics.pick.loading") : t("sync.lyrics.pick")}</button>
+      {/if}
+      {#if now.track.kind !== "podcast"}
+        <button onclick={openEditor}>{t("sync.lyrics.own")}</button>
+      {/if}
+      <button onclick={() => ipc.openLrcFolder()}>{t("sync.lyrics.local")}</button>
     </div>
+    {#if editor && editor.key === now.track.key}
+      <div class="editor">
+        <textarea bind:value={editor.text} rows="14" spellcheck="false" aria-label={t("sync.lyrics.own")}></textarea>
+        <p class="hint">{t("sync.lyrics.own.hint")}</p>
+        {#if editError}<p class="hint error">{editError}</p>{/if}
+        <div class="actions">
+          <button class="primary" onclick={saveOwn} disabled={!editor.text.trim()}>{t("sync.lyrics.own.save")}</button>
+          <button onclick={() => (editor = null)}>{t("sync.lyrics.own.cancel")}</button>
+          {#if editor.own}
+            <button onclick={deleteOwn}>{t("sync.lyrics.own.delete")}</button>
+          {/if}
+        </div>
+      </div>
+    {/if}
     {#if pluginHow}
       <p class="hint">{t("sync.lyrics.discard.hint")}</p>
     {/if}
+    {#if pickError}
+      <p class="hint error">{t("sync.lyrics.pick.error", { error: pickError })}</p>
+    {/if}
+    {#if shownPicker}
+      <div class="picker">
+        {#if shownPicker.items.length}
+          <table>
+            <tbody>
+              {#each shownPicker.items as c (c.id)}
+                <tr class:taken={shownPicker.chosen_id === c.id}>
+                  <td>{c.title} – {c.artist}{c.album ? ` · ${c.album}` : ""}</td>
+                  <td class="num">{length(c.duration_s)}{lengthDiff(c.duration_s)}</td>
+                  <td class="kind">{kind(c)}</td>
+                  <td class="pick">
+                    {#if shownPicker.chosen_id === c.id}
+                      {t("sync.lyrics.pick.taken")}
+                    {:else}
+                      <button onclick={() => choose("lrclib", c.id)} disabled={!c.synced && !c.plain}>{t("sync.lyrics.pick.take")}</button>
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {:else}
+          <p class="muted">{t("sync.lyrics.pick.empty")}</p>
+        {/if}
+        <div class="actions">
+          <button onclick={() => choose("none")} disabled={shownPicker.chose_none}>{t("sync.lyrics.pick.none")}</button>
+          {#if shownPicker.chosen_id !== null || shownPicker.chose_none}
+            <button onclick={() => choose("auto")}>{t("sync.lyrics.pick.auto")}</button>
+          {/if}
+          <button onclick={() => (picker = null)}>{t("sync.lyrics.pick.close")}</button>
+        </div>
+        <p class="hint">{t("sync.lyrics.pick.hint")}</p>
+      </div>
+    {/if}
+    <p class="hint">{t("sync.lyrics.local.hint")}</p>
   {:else}
     <p class="muted">{t("sync.nothingPlaying")}</p>
   {/if}
@@ -391,6 +542,42 @@
   }
   tr.current td:first-child {
     font-weight: 600;
+  }
+  .picker {
+    margin-top: 6px;
+    font-size: 12.5px;
+  }
+  .picker td {
+    vertical-align: middle;
+    word-break: break-word;
+  }
+  .picker td.pick {
+    text-align: right;
+    white-space: nowrap;
+    color: var(--muted);
+  }
+  .picker td.kind {
+    white-space: nowrap;
+    color: var(--muted);
+  }
+  tr.taken td:first-child {
+    font-weight: 600;
+  }
+  .editor {
+    margin-top: 10px;
+  }
+  .editor textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    resize: vertical;
   }
   .songs {
     margin: 8px 0 0;

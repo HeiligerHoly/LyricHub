@@ -505,6 +505,7 @@ fn fullscreen_now() -> bool {
 /// Asks the plugins with `lyrics_source` for lyrics of a song that has none, or only lyrics
 /// without timestamps (PLAN-plugins-2.md 4.3).
 fn lyrics_wanted_params(app: &AppHandle, event: &LyricsEvent) -> Option<Value> {
+    // An own file without timestamps ("local", unsynced) is asked for too: Recognize aligns it.
     if !matches!(event.state, LyricsState::Missing | LyricsState::Unsynced) {
         return None;
     }

@@ -46,6 +46,14 @@ Press Ctrl+Alt+, or Ctrl+Alt+. to move the lyrics of the current song 100 ms ear
 
 LyricHub gets lyrics from LRCLIB, a community-maintained database. If LRCLIB has no synced lyrics for a song, the overlay shrinks to a small card with cover, title and artist. It grows again with the next song that has lyrics. The plugin Recognize can get lyrics for such songs from the second listen on: it searches more broadly, aligns lyrics without timestamps or recognizes the text from the singing ([docs/en/plugins.md](plugins.md)).
 
+For sped-up, slowed and Nightcore versions LyricHub itself looks for the original and stretches its times to the version's length; the overlay then shows "stretched". Measured, the lines then started 0.1 to 0.2 s before the singing in the median, as with regular lyrics. If LRCLIB gives the original a wrong length, late lines can be off by up to about 2 s; Align with Auto-Sync puts them right from the second listen on.
+
+Your own lyrics always work: under Settings → Sync → "Own lyrics…" you paste or write them for the current song, with timestamps like `[01:23.45]` or without. Without timestamps LyricHub shows them as text, and the plugin Recognize aligns them after one listen. They are saved as an `.lrc` file in the folder behind "Open LRC folder" (`%APPDATA%\LyricHub\lrc`). You can put files there yourself too: name them "Artist - Title.lrc" or give them `[ar:]` and `[ti:]` tags. Own lyrics win over everything else and stay on your PC.
+
+## A song shows the wrong lyrics.
+
+Settings → Sync → "Pick other lyrics…" shows the entries LRCLIB has under the title, with artist, length and whether they are synced. Your pick applies to this song and is kept, also through "Reload lyrics". There you can also choose "No lyrics for this song" or go back to the automatic search.
+
 ## Does it work on Windows 10?
 
 It is built for Windows 10 from version 2004 and Windows 11, but it has only been tested on Windows 11.

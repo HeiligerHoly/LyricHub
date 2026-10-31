@@ -49,6 +49,7 @@ export const de = {
 
   // Overlay window: sample text (invented), idle hint, states, toasts
   "overlay.recognized": "erkannt",
+  "overlay.stretched": "gestreckt",
   "overlay.sample.line": "Dies ist eine Beispielzeile zum Ausrichten",
   "overlay.sample.previous": "Die Zeile davor wird gedimmt",
   "overlay.sample.later": "und noch eine weitere Zeile",
@@ -205,6 +206,34 @@ export const de = {
   "sync.lyrics.discard": "Lyrics vom Plugin verwerfen",
   "sync.lyrics.discard.hint":
     "Verworfene Lyrics kommen für diesen Song nicht wieder: LyricHub fragt LRCLIB erneut und bittet kein Plugin mehr um diesen Song.",
+  "sync.lyrics.state.none": "keine (deine Wahl)",
+  "sync.lyrics.source.local": "lokale LRC-Datei",
+  "sync.lyrics.source.chosen": "LRCLIB, von dir gewählt",
+  "sync.lyrics.source.stretched": "LRCLIB, vom Original auf diese Version gestreckt",
+  "sync.lyrics.pick": "Andere Lyrics wählen …",
+  "sync.lyrics.pick.loading": "Suche bei LRCLIB …",
+  "sync.lyrics.pick.error": "LRCLIB nicht erreichbar: {error}",
+  "sync.lyrics.pick.empty": "LRCLIB hat nichts unter diesem Titel.",
+  "sync.lyrics.pick.synced": "synchron",
+  "sync.lyrics.pick.plain": "nur Text",
+  "sync.lyrics.pick.instrumental": "Instrumental",
+  "sync.lyrics.pick.nothing": "leer",
+  "sync.lyrics.pick.take": "Nehmen",
+  "sync.lyrics.pick.taken": "gewählt",
+  "sync.lyrics.pick.none": "Für diesen Song keine Lyrics",
+  "sync.lyrics.pick.auto": "Wieder automatisch suchen",
+  "sync.lyrics.pick.close": "Schließen",
+  "sync.lyrics.pick.hint":
+    "Deine Wahl gilt nur für diesen Song und bleibt gespeichert, auch nach „Lyrics neu laden“. Plugins bringen für ihn keine Lyrics mehr.",
+  "sync.lyrics.own": "Eigene Lyrics …",
+  "sync.lyrics.own.hint":
+    "Mit Zeitstempeln wie [01:23.45] vor jeder Zeile laufen sie synchron; hier stehen anfangs die gezeigten Zeilen zum Korrigieren. Ohne Zeitstempel zeigt LyricHub sie als Text, und das Plugin Recognize richtet sie nach einmal Hören aus. Gespeichert als lokale LRC-Datei, nur auf deinem PC.",
+  "sync.lyrics.own.save": "Speichern",
+  "sync.lyrics.own.cancel": "Abbrechen",
+  "sync.lyrics.own.delete": "Eigene Lyrics löschen",
+  "sync.lyrics.local": "LRC-Ordner öffnen",
+  "sync.lyrics.local.hint":
+    "Eigene .lrc-Dateien in diesem Ordner haben Vorrang vor allem anderen. Benenne sie „Artist - Titel.lrc“ oder gib ihnen [ar:]- und [ti:]-Tags; sie gelten ab dem nächsten Songwechsel oder nach „Lyrics neu laden“.",
   "sync.lyrics.crossfade":
     "Überblendung (Crossfade) und Automix in Spotify verwischen die Songgrenzen. Für die genaueste Synchronisation in Spotify unter Einstellungen → Wiedergabe ausschalten.",
 

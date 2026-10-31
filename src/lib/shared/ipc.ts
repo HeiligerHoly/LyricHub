@@ -14,6 +14,7 @@ import type {
   HotkeyStatus,
   LastCrash,
   LatencySample,
+  LyricsCandidates,
   LyricsEvent,
   Monitor,
   NudgeEvent,
@@ -63,6 +64,14 @@ export const ipc = {
   exportDiagnostics: () => invoke<string>("export_diagnostics"),
   reloadLyrics: () => invoke<void>("reload_lyrics"),
   discardPluginLyrics: () => invoke<void>("discard_plugin_lyrics"),
+  lyricsCandidates: () => invoke<LyricsCandidates>("lyrics_candidates"),
+  /** "lrclib" with an entry's id, "none" for no lyrics, "auto" back to the automatic search. */
+  chooseLyrics: (mode: "lrclib" | "none" | "auto", lrclibId: number | null = null) =>
+    invoke<void>("choose_lyrics", { mode, lrclibId }),
+  openLrcFolder: () => invoke<void>("open_lrc_folder"),
+  ownLyrics: () => invoke<string | null>("own_lyrics"),
+  saveOwnLyrics: (text: string) => invoke<void>("save_own_lyrics", { text }),
+  deleteOwnLyrics: () => invoke<void>("delete_own_lyrics"),
   getOverlayLayout: () => invoke<OverlayLayout | null>("get_overlay_layout"),
   reportOverlaySize: (width: number, height: number, uiScale: number) =>
     invoke<void>("report_overlay_size", { width, height, uiScale }),

@@ -46,6 +46,14 @@ Mit Strg+Alt+, oder Strg+Alt+. die Lyrics des laufenden Songs 100 ms früher ode
 
 LyricHub holt die Lyrics von LRCLIB, einer von der Community gepflegten Datenbank. Hat LRCLIB keine synchronen Lyrics zu einem Song, schrumpft das Overlay zu einer kleinen Karte mit Cover, Titel und Artist. Beim nächsten Song mit Lyrics wird es wieder groß. Das Plugin Recognize kann solche Songs ab dem zweiten Hören mit Lyrics versorgen: Es sucht breiter, richtet Text ohne Zeitstempel aus oder erkennt den Text aus dem Gesang ([docs/plugins.md](plugins.md)).
 
+Bei Sped-up-, Slowed- und Nightcore-Versionen sucht LyricHub selbst das Original und streckt dessen Zeiten auf die Länge der Version; das Overlay zeigt dann „gestreckt“. Gemessen lagen die Zeilen dabei im Median 0,1 bis 0,2 s vor dem Gesang, wie bei normalen Lyrics. Nennt LRCLIB für das Original eine falsche Länge, können späte Zeilen bis zu etwa 2 s danebenliegen; Align mit Auto-Sync rückt sie ab dem zweiten Hören zurecht.
+
+Eigene Lyrics gehen immer: Unter Einstellungen → Sync → „Eigene Lyrics …“ fügst du sie für den laufenden Song ein oder schreibst sie, mit Zeitstempeln wie `[01:23.45]` oder ohne. Ohne Zeitstempel zeigt LyricHub sie als Text, und das Plugin Recognize richtet sie nach einmal Hören aus. Gespeichert wird eine `.lrc`-Datei im Ordner hinter „LRC-Ordner öffnen“ (`%APPDATA%\LyricHub\lrc`). Dort kannst du auch selbst Dateien ablegen: Nenne sie „Artist - Titel.lrc“ oder gib ihnen `[ar:]`- und `[ti:]`-Tags. Eigene Lyrics haben Vorrang vor allem anderen und bleiben auf deinem PC.
+
+## Ein Song zeigt falsche Lyrics.
+
+Unter Einstellungen → Sync → „Andere Lyrics wählen …“ zeigt LyricHub die Einträge, die LRCLIB unter dem Titel hat, mit Artist, Länge und ob sie synchron sind. Deine Wahl gilt für diesen Song und bleibt gespeichert, auch nach „Lyrics neu laden“. Dort kannst du auch „Für diesen Song keine Lyrics“ wählen oder zur automatischen Suche zurückkehren.
+
 ## Läuft es unter Windows 10?
 
 Es ist für Windows 10 ab Version 2004 und Windows 11 gebaut, getestet ist es aber nur unter Windows 11.

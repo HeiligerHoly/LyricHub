@@ -203,6 +203,46 @@ pub async fn discard_plugin_lyrics(app: AppHandle) {
 }
 
 #[tauri::command]
+pub async fn lyrics_candidates(app: AppHandle) -> Result<app_state::LyricsCandidates, String> {
+    tauri::async_runtime::spawn_blocking(move || app_state::lyrics_candidates(&app)).await.map_err(|e| e.to_string())?
+}
+
+/// `mode` "lrclib" with `lrclib_id`, "none" for no lyrics, "auto" back to the automatic search.
+#[tauri::command]
+pub async fn choose_lyrics(app: AppHandle, mode: String, lrclib_id: Option<i64>) -> Result<(), String> {
+    let choice = match (mode.as_str(), lrclib_id) {
+        ("lrclib", Some(id)) => Some(Some(id)),
+        ("none", _) => Some(None),
+        ("auto", _) => None,
+        _ => return Err(format!("unknown choice {mode}")),
+    };
+    app_state::choose_lyrics(&app, choice);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn own_lyrics(app: AppHandle) -> Option<String> {
+    app_state::own_lyrics(&app)
+}
+
+#[tauri::command]
+pub async fn save_own_lyrics(app: AppHandle, text: String) -> Result<(), String> {
+    app_state::save_own_lyrics(&app, &text)
+}
+
+#[tauri::command]
+pub async fn delete_own_lyrics(app: AppHandle) -> Result<(), String> {
+    app_state::delete_own_lyrics(&app)
+}
+
+#[tauri::command]
+pub fn open_lrc_folder(app: AppHandle) -> Result<(), String> {
+    let dir = crate::lyrics::local::dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    app.opener().open_path(dir.display().to_string(), None::<&str>).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_overlay_layout(app: AppHandle) -> Option<LayoutEvent> {
     overlay::current_layout(&app)
 }

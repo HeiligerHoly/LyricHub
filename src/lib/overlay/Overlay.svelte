@@ -167,8 +167,14 @@
   const upcomingLines = $derived(lines && layout?.layout === "stack" ? nextTextLines(lines, lineIndex, 2) : []);
   /** The lyrics service could not be reached (PLAN.md 9.6: a small mark, no text in the game). */
   const offline = $derived(!!lyrics && !!track && lyrics.key === track.key && lyrics.state === "error");
-  // Lyrics recognized from the singing by a plugin carry a small mark (PLAN-plugins-2.md 4.1).
-  const recognized = $derived(!!lyrics && !!track && lyrics.key === track.key && lyrics.source.endsWith(":recognized"));
+  // Lyrics recognized from the singing by a plugin (PLAN-plugins-2.md 4.1), or stretched from the
+  // original of a sped-up or slowed version (IDEEN.md, package B), carry a small mark.
+  const mark = $derived.by(() => {
+    if (!lyrics || !track || lyrics.key !== track.key) return null;
+    if (lyrics.source.endsWith(":recognized")) return t("overlay.recognized");
+    if (lyrics.source.endsWith("lrclib:stretched")) return t("overlay.stretched");
+    return null;
+  });
   /** Nothing to sing along to: the compact card instead of the layout. Podcast episodes and
    *  browser videos get no lyrics lookup at all (PLAN.md 5.5, 13.4). */
   const compact = $derived(
@@ -474,7 +480,7 @@
             status={rowStatus}
             toast={headerNote}
             {offline}
-            {recognized}
+            {mark}
             {clock}
             {clockVersion}
             staticFill={sample ? 0.45 : null}
@@ -509,7 +515,7 @@
             status={rowStatus}
             toast={headerNote}
             {offline}
-            {recognized}
+            {mark}
             countdown={sample ? null : countdown}
             {clock}
             {clockVersion}

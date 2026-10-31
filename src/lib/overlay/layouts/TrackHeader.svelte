@@ -12,10 +12,11 @@
     toast: string | null;
     /** Small mark for a lyrics lookup that failed on the network (PLAN.md 9.6). */
     offline?: boolean;
-    /** The lyrics were recognized from the singing (PLAN-plugins-2.md 4.1). */
-    recognized?: boolean;
+    /** Small pill after the artist: lyrics recognized from the singing (PLAN-plugins-2.md 4.1)
+     *  or stretched from the original of a sped-up or slowed version (IDEEN.md, package B). */
+    mark?: string | null;
   }
-  let { track, placeholder, toast, offline = false, recognized = false }: Props = $props();
+  let { track, placeholder, toast, offline = false, mark = null }: Props = $props();
 
   const title = $derived(track?.title ?? placeholder.title);
   const artist = $derived(track ? track.artist : placeholder.artist);
@@ -33,7 +34,7 @@
         <span class="title">{title}</span>
         {#if artist}<span class="sep" aria-hidden="true">–</span><span class="artist">{artist}</span>{/if}
         {#if offline}<span class="offline" title={t("overlay.offline")} aria-label={t("overlay.offline")}></span>{/if}
-        {#if recognized}<span class="recognized">{t("overlay.recognized")}</span>{/if}
+        {#if mark}<span class="mark">{mark}</span>{/if}
       </span>
     {/key}
   {/if}
@@ -117,8 +118,8 @@
     border-radius: 50%;
     border: max(1px, calc(1.5px * var(--s))) solid var(--text-dim);
   }
-  /* Recognized lyrics: machine text, marked as such. */
-  .recognized {
+  /* Recognized or stretched lyrics: not what LRCLIB has for this song, marked as such. */
+  .mark {
     flex: none;
     padding: 0 calc(6px * var(--s));
     border-radius: 999px;

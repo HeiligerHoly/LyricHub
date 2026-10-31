@@ -105,6 +105,40 @@ pub fn parse(input: &str) -> ParsedLrc {
     out
 }
 
+/// The same LRC with every time multiplied by `factor`: line stamps, Enhanced LRC word marks and
+/// `[offset:]`. For a sped-up or slowed version of a song (IDEEN.md, package B).
+pub fn stretch(input: &str, factor: f64) -> String {
+    let scale = |ms: i64| (ms as f64 * factor).round() as i64;
+    let mut out = String::with_capacity(input.len());
+    let mut rest = input;
+    while let Some(open) = rest.find(['[', '<']) {
+        out.push_str(&rest[..open]);
+        let close = if rest.as_bytes()[open] == b'[' { ']' } else { '>' };
+        let Some(len) = rest[open + 1..].find(close) else {
+            rest = &rest[open..];
+            break;
+        };
+        let tag = &rest[open + 1..open + 1 + len];
+        match parse_timestamp(tag) {
+            Some(ms) => {
+                let ms = scale(ms);
+                let (open_char, close_char) = (&rest[open..open + 1], &rest[open + 1 + len..open + 2 + len]);
+                out.push_str(&format!("{open_char}{:02}:{:02}.{:02}{close_char}", ms / 60_000, ms / 1000 % 60, ms % 1000 / 10));
+            }
+            None => match parse_meta(tag) {
+                Some((key, value)) if key == "offset" => {
+                    let ms: i64 = value.trim_start_matches('+').parse().unwrap_or(0);
+                    out.push_str(&format!("[offset:{}]", scale(ms)));
+                }
+                _ => out.push_str(&rest[open..open + 2 + len]),
+            },
+        }
+        rest = &rest[open + 2 + len..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// When the fill of a line should be complete (PLAN.md 5.6, point 2). Singers use about nine
 /// tenths of the interval to the next line, but rarely more than 400 ms per syllable: the fill
 /// ends at the earlier of the two, and anything after that is an instrumental pause. Without a
@@ -218,6 +252,16 @@ mod tests {
     }
     fn texts(p: &ParsedLrc) -> Vec<&str> {
         p.lines.iter().map(|l| l.text.as_str()).collect()
+    }
+
+    #[test]
+    fn stretching_scales_every_time() {
+        let lrc = "[ar:Nobody]\n[offset:+200]\n[00:10.00][01:00.00]<00:10.00>paper <00:10.50>boats\n[Chorus]\n[00:20.5]drifting < home\n";
+        let out = stretch(lrc, 0.8);
+        assert_eq!(out, "[ar:Nobody]\n[offset:160]\n[00:08.00][00:48.00]<00:08.00>paper <00:08.40>boats\n[Chorus]\n[00:16.40]drifting < home\n");
+        let p = parse(&out);
+        assert_eq!((starts(&p), p.offset_ms), (vec![7840, 16240, 47840], 160));
+        assert_eq!(stretch("[00:01.00] a [b", 2.0), "[00:02.00] a [b");
     }
 
     #[test]
