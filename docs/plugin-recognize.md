@@ -86,6 +86,6 @@ Getestet mit Spotify und der Playlist des Nutzers, 2026-10-30/31, Align und Reco
 - **Erst ab dem zweiten Hören,** und nur für Songs, die zu 85 % gehört wurden.
 - **Erkannter Text hat Fehler:** auch über der Schwelle etwa jedes fünfte Wort, beim englischen Testsong fast jedes zweite. Unter der Schwelle bleibt es bei der kompakten Karte.
 - **Nur 12 Testsongs** für die Schwelle. Dicht produzierter Pop und Rap von Spotify sind womöglich schwerer als die CC-Musik von Jamendo.
-- **Einmal gespeichert, bleibt es:** Lyrics eines Plugins liegen im Cache wie gefundene Lyrics. Bekommt LRCLIB später synchrone Lyrics zu dem Song, sieht LyricHub das erst nach „Lyrics neu laden“ oder „Lyrics vom Plugin verwerfen“.
+- **Bessere Lyrics erst nach 14 Tagen:** Lyrics eines Plugins liegen im Cache wie gefundene Lyrics. Sind sie 14 Tage alt, fragt LyricHub beim nächsten Hören LRCLIB erneut (IDEEN.md, Paket A). Bekommt LRCLIB früher synchrone Lyrics, sieht LyricHub das vorher nur nach „Lyrics neu laden“ oder „Lyrics vom Plugin verwerfen“.
 - **Japanisch und Koreanisch:** nicht gemessen.
 - **Ausgabelatenz und Song-Offset** wirken wie bei Align ([docs/plugin-align.md](plugin-align.md)).

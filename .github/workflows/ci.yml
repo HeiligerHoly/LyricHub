@@ -1,0 +1,83 @@
+# Checks every push to main and every pull request on Windows (IDEEN.md, package A): the tests
+# of the app and the plugins, the frontend check, clippy and the security advisories of the
+# dependencies. Releases are still built locally with tools/build-release.ps1.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri
+            plugins/align
+            plugins/recognize
+            plugins/example
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      # PowerShell steps fail only on the last command's exit code, hence the checks in between.
+      - name: Frontend
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          npm run check
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          npm audit --omit=dev
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # The app embeds the built frontend, so its tests need it.
+          npm run build
+
+      - name: Tests
+        run: |
+          cargo test --locked --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cargo test --locked --manifest-path plugins/align/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cargo test --locked --manifest-path plugins/recognize/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Clippy
+        run: |
+          foreach ($crate in 'src-tauri', 'plugins/align', 'plugins/recognize', 'plugins/example') {
+            cargo clippy --locked --all-targets --manifest-path "$crate/Cargo.toml" -- -D warnings
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+
+      - name: Security advisories
+        run: |
+          foreach ($crate in 'src-tauri', 'plugins/align', 'plugins/recognize') {
+            Push-Location $crate
+            cargo audit
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            Pop-Location
+          }

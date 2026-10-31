@@ -156,7 +156,7 @@ fn hide_song(value: &mut serde_json::Value) {
 
 /// Replaces song details in a log line. Values are written as `title=Some Song artist=...`:
 /// a plain value runs until the next ` name=`, a quoted one until its closing quote.
-fn hide_song_in_line(line: &str) -> String {
+pub fn hide_song_in_line(line: &str) -> String {
     let mut out = line.to_owned();
     for name in ["key", "title", "artist", "album"] {
         let needle = format!(" {name}=");
@@ -176,6 +176,26 @@ fn hide_song_in_line(line: &str) -> String {
     out
 }
 
+/// Replaces the account name in paths (`C:\Users\<name>\...`, also with doubled backslashes as in
+/// debug output), so a shared report does not carry it.
+pub fn hide_user_folder(line: &str) -> String {
+    const MARK: &str = "Users\\";
+    let mut out = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some(i) = rest.find(MARK) {
+        let after = i + MARK.len();
+        let name = after + (rest[after..].len() - rest[after..].trim_start_matches('\\').len());
+        let len = rest[name..].find(['\\', '"']).unwrap_or(rest.len() - name);
+        out.push_str(&rest[..name]);
+        if len > 0 {
+            out.push_str("<user>");
+        }
+        rest = &rest[name + len..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Byte offset of the next ` name=` in a log line, where name is a field identifier.
 fn next_field(rest: &str) -> Option<usize> {
     rest.match_indices(' ').map(|(i, _)| i).find(|&i| {
@@ -183,20 +203,6 @@ fn next_field(rest: &str) -> Option<usize> {
         let ident = tail.find('=').map(|e| &tail[..e]);
         ident.is_some_and(|id| !id.is_empty() && id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'))
     })
-}
-
-/// The last lines of the newest log file.
-fn log_tail(lines: usize) -> Vec<String> {
-    let newest = std::fs::read_dir(crate::logging::log_dir())
-        .ok()
-        .into_iter()
-        .flatten()
-        .filter_map(Result::ok)
-        .filter(|e| e.file_name().to_string_lossy().starts_with("lyrichub"))
-        .max_by_key(|e| e.metadata().and_then(|m| m.modified()).ok());
-    let Some(text) = newest.and_then(|e| std::fs::read_to_string(e.path()).ok()) else { return Vec::new() };
-    let all: Vec<&str> = text.lines().collect();
-    all[all.len().saturating_sub(lines)..].iter().map(|l| (*l).to_owned()).collect()
 }
 
 /// Writes everything a bug report needs into `logs/diagnostics-<unix>.json`: versions,
@@ -235,7 +241,8 @@ pub fn export(app: &AppHandle) -> Result<std::path::PathBuf, String> {
             .map(|p| serde_json::json!({ "id": p.id, "version": p.version, "enabled": p.enabled, "state": p.state }))
             .collect::<Vec<_>>(),
         // The logs never contain lyrics (PLAN.md 7.4), so the tail can go along without song details.
-        "log_tail": log_tail(LOG_TAIL_LINES).iter().map(|l| hide_song_in_line(l)).collect::<Vec<_>>(),
+        "log_tail": crate::logging::tail(LOG_TAIL_LINES).iter().map(|l| hide_user_folder(&hide_song_in_line(l))).collect::<Vec<_>>(),
+        "last_crash": crate::crash::last().map(|c| serde_json::json!({ "unix_time": c.unix, "report": c.report })),
     });
     let path = crate::logging::log_dir().join(format!("diagnostics-{unix}.json"));
     let text = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
@@ -257,6 +264,10 @@ mod tests {
         );
         assert_eq!(hide_song_in_line("tap title=Last Field line=3"), "tap title=(hidden) line=3");
         assert_eq!(hide_song_in_line("song offset set key=band|song|album song_offset_ms=100"), "song offset set key=(hidden) song_offset_ms=100");
+        assert_eq!(
+            hide_user_folder(r#"file logging enabled dir=C:\Users\Jo Ann\AppData\Roaming\LyricHub\logs report=Some("C:\\Users\\Jo\\x.txt")"#),
+            r#"file logging enabled dir=C:\Users\<user>\AppData\Roaming\LyricHub\logs report=Some("C:\\Users\\<user>\\x.txt")"#
+        );
         let mut v = serde_json::json!({ "track": { "title": "Invented", "artist": "Nobody", "album": null, "duration_ms": 1 }, "list": [{ "key": "k" }] });
         hide_song(&mut v);
         assert_eq!(v, serde_json::json!({ "track": { "title": "(hidden)", "artist": "(hidden)", "album": null, "duration_ms": 1 }, "list": [{ "key": "(hidden)" }] }));

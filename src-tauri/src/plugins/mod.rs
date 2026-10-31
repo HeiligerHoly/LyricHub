@@ -177,7 +177,8 @@ fn start(app: &AppHandle, id: &str) {
                 "error" | "warn" => tracing::warn!(plugin = %id, "{text}"),
                 _ => tracing::info!(plugin = %id, "{text}"),
             },
-            Event::Stderr(line) => tracing::debug!(plugin = %id, "stderr: {line}"),
+            // LyricHub's own plugins write only panics there; they belong in the release log.
+            Event::Stderr(line) => tracing::warn!(plugin = %id, "stderr: {line}"),
             Event::Notification { method, params } if method == "word_times" => on_word_times(&app, &id, &params),
             Event::Notification { method, params } if method == "lyrics_found" => on_lyrics_found(&app, &id, &params),
             Event::Notification { method, .. } => tracing::debug!(plugin = %id, method, "unknown plugin notification"),

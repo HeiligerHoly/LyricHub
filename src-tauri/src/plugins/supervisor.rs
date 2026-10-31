@@ -269,6 +269,22 @@ mod tests {
 
     #[test]
     #[ignore]
+    fn a_plugin_over_the_memory_limit_ends_and_is_restarted() {
+        let (states, on_state, events, on_event) = collect();
+        let sup = Supervisor::start(plugin_dir("memory", json!({ "alloc_mb": 3500 })), on_state, on_event);
+        assert!(wait_for(&states, |s| matches!(s, State::Restarting { attempt: 1, .. }), 15), "{:?}", states.lock().unwrap());
+        let stderr: Vec<String> = events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|e| if let Event::Stderr(line) = e { Some(line.clone()) } else { None })
+            .collect();
+        assert!(stderr.iter().any(|l| l.contains("memory allocation")), "{stderr:?}");
+        sup.stop();
+    }
+
+    #[test]
+    #[ignore]
     fn another_protocol_version_or_silence_keeps_it_off() {
         let (states, on_state, _, on_event) = collect();
         let sup = Supervisor::start(plugin_dir("api", json!({ "api": 2 })), on_state, on_event);

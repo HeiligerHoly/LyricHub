@@ -10,20 +10,36 @@ pub fn log_dir() -> PathBuf {
     crate::paths::data_dir().join("logs")
 }
 
-/// Self-test reports pile up during development: keep the newest few.
-const SELFTEST_REPORTS_KEPT: usize = 10;
+/// Self-test reports pile up during development, crash reports with a crash loop: keep the
+/// newest few of each.
+const REPORTS_KEPT: usize = 10;
 
-fn prune_reports(dir: &std::path::Path) {
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
-    let mut reports: Vec<(std::time::SystemTime, PathBuf)> = entries
+/// Files in the log folder whose name starts with `prefix`, newest first.
+pub fn newest_first(prefix: &str) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(log_dir()) else { return Vec::new() };
+    let mut files: Vec<(std::time::SystemTime, PathBuf)> = entries
         .filter_map(Result::ok)
-        .filter(|e| e.file_name().to_string_lossy().starts_with("selftest-"))
+        .filter(|e| e.file_name().to_string_lossy().starts_with(prefix))
         .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
         .collect();
-    reports.sort_by_key(|r| std::cmp::Reverse(r.0));
-    for (_, path) in reports.into_iter().skip(SELFTEST_REPORTS_KEPT) {
-        let _ = std::fs::remove_file(path);
+    files.sort_by_key(|f| std::cmp::Reverse(f.0));
+    files.into_iter().map(|f| f.1).collect()
+}
+
+fn prune_reports() {
+    for prefix in ["selftest-", "crash-"] {
+        for path in newest_first(prefix).into_iter().skip(REPORTS_KEPT) {
+            let _ = std::fs::remove_file(path);
+        }
     }
+}
+
+/// The last lines of the newest log file.
+pub fn tail(lines: usize) -> Vec<String> {
+    let newest = newest_first("lyrichub").into_iter().next();
+    let Some(text) = newest.and_then(|p| std::fs::read_to_string(p).ok()) else { return Vec::new() };
+    let all: Vec<&str> = text.lines().collect();
+    all[all.len().saturating_sub(lines)..].iter().map(|l| (*l).to_owned()).collect()
 }
 
 pub fn init() {
@@ -33,7 +49,7 @@ pub fn init() {
     // the clock decisions. LYRICHUB_LOG overrides both.
     let default = if cfg!(debug_assertions) { "info,lyrichub_lib=debug" } else { "info" };
     let filter = EnvFilter::try_from_env("LYRICHUB_LOG").unwrap_or_else(|_| EnvFilter::new(default));
-    prune_reports(&dir);
+    prune_reports();
     let stdout = fmt::layer().with_writer(std::io::stdout);
 
     let file = RollingFileAppender::builder()

@@ -50,7 +50,7 @@ Zu manchen Songs hat LRCLIB keine synchronen Lyrics. Dann springt Recognize ein:
    - **Erkennung:** Sonst wird der erkannte Text selbst zu Lyrics, aber nur, wenn die Erkennung sicher genug ist. Das Overlay zeigt dann neben dem Titel „erkannt“.
 3. **Ab dem zweiten Hören** sind die Lyrics da, mit Wortzeiten. Unter Einstellungen → Sync → Lyrics steht, woher sie kommen.
 
-Erkannte Texte haben Fehler (im Test auch bei sicherer Erkennung etwa jedes fünfte Wort). Stimmen Lyrics von Recognize nicht, wirf sie unter Einstellungen → Sync → „Lyrics vom Plugin verwerfen“ weg. Für diesen Song fragt LyricHub dann wieder LRCLIB und bittet kein Plugin mehr darum.
+Erkannte Texte haben Fehler (im Test auch bei sicherer Erkennung etwa jedes fünfte Wort). Stimmen Lyrics von Recognize nicht, wirf sie unter Einstellungen → Sync → „Lyrics vom Plugin verwerfen“ weg. Für diesen Song fragt LyricHub dann wieder LRCLIB und bittet kein Plugin mehr darum. Auch ohne dein Zutun fragt LyricHub nach 14 Tagen erneut bei LRCLIB nach: Gibt es dort inzwischen synchrone Lyrics, ersetzen sie die von Recognize.
 
 ## Spiele und Leistung
 
@@ -58,7 +58,7 @@ Für Align und Recognize gilt dasselbe. Es rechnet immer nur eines von beiden, d
 
 - **Vollbild:** Solange ein Spiel oder ein anderes Programm im Vollbild vorne läuft, rechnet das Plugin nicht. Die Statuszeile zeigt „Pausiert, solange ein Vollbildspiel läuft“. Gehörte Songs warten, bis das Spiel aus ist oder im Fenster läuft.
 - **Rechenlast:** Beim Rechnen nutzt das Plugin 2 Kerne mit Priorität „unter normal“, beim Mitschnitt fast nichts (unter 0,1 % der CPU).
-- **Arbeitsspeicher:** Im Leerlauf belegt ein Plugin etwa 30 MB, beim Rechnen bis 1,5 GB. Das Modell wird nur geladen, solange es Arbeit gibt.
+- **Arbeitsspeicher:** Im Leerlauf belegt ein Plugin etwa 30 MB, beim Rechnen bis 1,5 GB. Das Modell wird nur geladen, solange es Arbeit gibt. LyricHub erlaubt jedem Plugin höchstens 3 GB; ein Plugin, das mehr will, bekommt keinen Speicher, endet und startet neu.
 - **Warteschlange:** Wer viel hört und lange spielt, sammelt Songs. Die Warteschlange fasst gut 2 Stunden Musik, danach fällt der älteste Song weg.
 
 ## Datenschutz

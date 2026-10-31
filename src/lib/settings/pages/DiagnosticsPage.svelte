@@ -6,6 +6,7 @@
   import { lang, t, type Key } from "#lib/shared/i18n.svelte.js";
   import { formatMs, ipc } from "#lib/shared/ipc.js";
   import type {
+    LastCrash,
     LatencySample,
     LyricsEvent,
     NowPlaying,
@@ -22,6 +23,7 @@
   let running = $state(false);
   let lyrics = $state<LyricsEvent | null>(null);
   let plugins = $state<PluginInfo[]>([]);
+  let crash = $state<LastCrash | null>(null);
 
   async function refresh() {
     try {
@@ -46,6 +48,8 @@
 
   onMount(() => {
     refresh();
+    // A crash ends LyricHub, so the newest report cannot change while this page is open.
+    ipc.lastCrash().then((c) => (crash = c));
     // One IPC call every 2 s while this page is open; never per frame.
     const id = setInterval(() => document.visibilityState === "visible" && refresh(), 2000);
     return () => clearInterval(id);
@@ -86,6 +90,22 @@
   {:else}
     <p class="muted">{t("diag.plugins.none")}</p>
   {/if}
+</section>
+
+<section class="card">
+  <h2>{t("diag.crash")}</h2>
+  <dl class="kv">
+    <dt>{t("diag.crash.last")}</dt>
+    <dd>
+      {#if crash}
+        {new Date(crash.unix * 1000).toLocaleString(lang() === "de" ? "de-DE" : "en-US")}<br />
+        <span class="mono detail">{crash.summary}</span>
+      {:else}
+        {t("diag.crash.none")}
+      {/if}
+    </dd>
+  </dl>
+  {#if crash}<p class="hint crash-hint">{t("diag.crash.hint")}</p>{/if}
 </section>
 
 <SyncLab />
@@ -244,6 +264,9 @@
   }
   .actions {
     margin: 12px 0 8px;
+  }
+  .crash-hint {
+    margin: 10px 0 0;
   }
   .summary {
     margin: 10px 0 8px;

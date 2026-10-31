@@ -32,6 +32,10 @@ pub struct Request {
 
 /// Lyrics of songs not played for a year leave the cache (LRCLIB has them if they come back).
 const CACHE_MAX_AGE_S: i64 = 365 * 86_400;
+/// Lyrics a plugin found or recognized, and lyrics without timestamps, may have a synced version
+/// on LRCLIB by now. Once they are this old, they are still shown from the cache at once, and
+/// LRCLIB is asked again right after (IDEEN.md, package A).
+const RECHECK_AFTER_S: i64 = 14 * 86_400;
 
 pub struct LyricsService {
     tx: Sender<Request>,
@@ -132,6 +136,9 @@ fn handle(
                     let event = to_event(&req.key, &c, "cache");
                     tracing::info!(key = %req.key, state = ?event.state, lines = event.lines.len(), "lyrics from cache");
                     emit(event);
+                    if wants_recheck(&c, now) {
+                        recheck(req, &c, cache, transport, emit, now);
+                    }
                     return true;
                 }
                 Ok(Lookup::Negative) => {
@@ -149,13 +156,7 @@ fn handle(
     }
 
     let started = Instant::now();
-    let query = Query {
-        title: &req.title,
-        artist: &req.artist,
-        album: req.album.as_deref(),
-        duration_s: req.duration_ms.map(|d| d as f64 / 1000.0),
-    };
-    let outcome = lrclib::lookup(transport, &query);
+    let outcome = lrclib::lookup(transport, &query(req));
     let took_ms = started.elapsed().as_millis() as u64;
     match outcome {
         Outcome::Found { track, stage } => {
@@ -183,6 +184,40 @@ fn handle(
             emit(LyricsEvent::state(&req.key, LyricsState::Error));
             false
         }
+    }
+}
+
+fn query(req: &Request) -> Query<'_> {
+    Query {
+        title: &req.title,
+        artist: &req.artist,
+        album: req.album.as_deref(),
+        duration_s: req.duration_ms.map(|d| d as f64 / 1000.0),
+    }
+}
+
+fn wants_recheck(c: &Cached, now: i64) -> bool {
+    (c.source.starts_with("plugin:") || c.format == Format::Plain) && now - c.fetched_at >= RECHECK_AFTER_S
+}
+
+/// Asks LRCLIB once more about lyrics that may have a synced version by now. Synced lyrics replace
+/// them; any other answer counts as checked. A busy LRCLIB is asked again at the next play.
+fn recheck(req: &Request, old: &Cached, cache: &Cache, transport: &Arc<dyn Transport>, emit: &dyn Fn(LyricsEvent), now: i64) {
+    match lrclib::lookup(transport, &query(req)) {
+        Outcome::Found { track, stage } if track.has_synced() => {
+            let cached = to_cached(&track, now);
+            if let Err(e) = cache.put(&req.key, &cached) {
+                tracing::warn!(error = %e, "lyrics cache write failed");
+            }
+            let event = to_event(&req.key, &cached, "lrclib");
+            tracing::info!(key = %req.key, stage, lrclib_id = track.id, replaced = %old.source, lines = event.lines.len(), "synced lyrics replace older ones from the cache");
+            emit(event);
+        }
+        Outcome::Found { .. } | Outcome::NotFound => {
+            let _ = cache.mark_checked(&req.key, now);
+            tracing::info!(key = %req.key, kept = %old.source, "no synced lyrics on LRCLIB yet, the cached ones stay");
+        }
+        Outcome::Unavailable(e) => tracing::info!(key = %req.key, error = %e, "LRCLIB unavailable, the cached lyrics are checked at the next play"),
     }
 }
 
@@ -236,10 +271,96 @@ fn unix_now() -> i64 {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use super::*;
 
     fn cached(format: Format, raw: &str, instrumental: bool) -> Cached {
         Cached { source: "lrclib".into(), source_id: Some(1), format, raw: raw.into(), instrumental, fetched_at: 0 }
+    }
+
+    /// LRCLIB with recorded-style answers: `/api/get` finds the song (with synced lyrics or
+    /// without any), every search finds nothing. Counts the requests. The lyrics are invented.
+    struct Lrclib {
+        synced: bool,
+        calls: AtomicUsize,
+    }
+
+    impl Transport for Lrclib {
+        fn get(&self, path: &str, _: &[(&str, String)]) -> Result<(u16, String), String> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            if path != "/api/get" {
+                return Ok((200, "[]".into()));
+            }
+            if !self.synced {
+                return Ok((404, r#"{"code":404,"name":"TrackNotFound","message":"Failed to find specified track"}"#.into()));
+            }
+            Ok((200, serde_json::json!({
+                "id": 7, "trackName": "Paper Boats", "artistName": "The Inventions", "albumName": "Inventions",
+                "duration": 231.0, "instrumental": false, "plainLyrics": "paper boats\ndrifting home",
+                "syncedLyrics": "[00:01.00] paper boats\n[00:04.00] drifting home\n"
+            }).to_string()))
+        }
+    }
+
+    const DAY: i64 = 86_400;
+
+    fn request() -> Request {
+        Request {
+            key: "the inventions|paper boats|231".into(),
+            title: "Paper Boats".into(),
+            artist: "The Inventions".into(),
+            album: Some("Inventions".into()),
+            duration_ms: Some(231_000),
+            force: false,
+        }
+    }
+
+    /// Runs one request against a cache holding `stored`; returns the emitted events and the
+    /// number of LRCLIB requests.
+    fn play(cache: &Cache, synced_on_lrclib: bool) -> (Vec<LyricsEvent>, usize) {
+        let lrclib = Arc::new(Lrclib { synced: synced_on_lrclib, calls: AtomicUsize::new(0) });
+        let transport: Arc<dyn Transport> = lrclib.clone();
+        let events = Mutex::new(Vec::new());
+        assert!(handle(&request(), 0, Some(cache), &transport, &|e| events.lock().unwrap().push(e)));
+        (events.into_inner().unwrap(), lrclib.calls.load(Ordering::SeqCst))
+    }
+
+    fn store(source: &str, format: Format, raw: &str, age_s: i64) -> Cache {
+        let cache = Cache::in_memory().unwrap();
+        let c = Cached { source: source.into(), source_id: None, format, raw: raw.into(), instrumental: false, fetched_at: unix_now() - age_s };
+        cache.put(&request().key, &c).unwrap();
+        cache
+    }
+
+    #[test]
+    fn old_plugin_lyrics_are_shown_and_then_replaced_by_synced_ones() {
+        let cache = store("plugin:rec:recognized", Format::Lrc, "[00:01.00] papr bots\n", 15 * DAY);
+        let (events, calls) = play(&cache, true);
+        let sources: Vec<&str> = events.iter().map(|e| e.source.as_str()).collect();
+        assert_eq!(sources, ["cache:plugin:rec:recognized", "lrclib"]);
+        assert!(calls >= 1);
+        let Ok(Lookup::Hit(now)) = cache.get(&request().key, unix_now()) else { panic!("cache entry expected") };
+        assert_eq!(now.source, "lrclib");
+    }
+
+    #[test]
+    fn young_plugin_lyrics_and_synced_lyrics_are_not_checked() {
+        let (events, calls) = play(&store("plugin:rec:recognized", Format::Lrc, "[00:01.00] a\n", 13 * DAY), true);
+        assert_eq!((events.len(), calls), (1, 0));
+        let (events, calls) = play(&store("lrclib", Format::Lrc, "[00:01.00] a\n", 400 * DAY), true);
+        assert_eq!((events.len(), calls), (1, 0));
+    }
+
+    #[test]
+    fn old_plain_lyrics_without_a_better_version_are_checked_once() {
+        let cache = store("lrclib", Format::Plain, "paper boats", 30 * DAY);
+        let (events, calls) = play(&cache, false);
+        assert_eq!(events.len(), 1);
+        assert!(calls >= 1);
+        let (events, calls) = play(&cache, false);
+        assert_eq!((events.len(), calls), (1, 0), "checked just now");
     }
 
     #[test]

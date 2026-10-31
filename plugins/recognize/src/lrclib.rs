@@ -125,7 +125,7 @@ fn timestamp(s: &str) -> Option<u32> {
     let (m, rest) = s.split_once(':')?;
     let m: u32 = m.trim().parse().ok()?;
     let secs: f64 = rest.trim().parse().ok()?;
-    (secs >= 0.0 && secs < 60.0).then(|| m * 60_000 + (secs * 1000.0).round() as u32)
+    (0.0..60.0).contains(&secs).then(|| m * 60_000 + (secs * 1000.0).round() as u32)
 }
 
 #[cfg(test)]

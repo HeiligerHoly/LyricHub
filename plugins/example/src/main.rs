@@ -5,7 +5,8 @@
 //!
 //! The host's tests steer it with a `behavior.json` next to the program:
 //! `{ "api": 2 }` answers with another protocol version, `{ "crash_ms": 100 }` ends with exit
-//! code 3 after that time, `{ "silent": true }` never answers `initialize`.
+//! code 3 after that time, `{ "silent": true }` never answers `initialize`, `{ "alloc_mb": 3500 }`
+//! asks for that much memory after `initialize`.
 
 use std::io::{BufRead, Write};
 use std::time::Duration;
@@ -66,6 +67,12 @@ fn main() {
                 send(json!({ "jsonrpc": "2.0", "id": msg["id"], "result": { "api": api, "capabilities": ["word_timing"] } }));
                 send(json!({ "jsonrpc": "2.0", "method": "status", "params": { "text": "ready" } }));
                 send(json!({ "jsonrpc": "2.0", "method": "log", "params": { "level": "info", "text": "initialized" } }));
+                if let Some(mb) = behavior.get("alloc_mb").and_then(Value::as_u64) {
+                    // Over LyricHub's limit this aborts with "memory allocation of ... failed".
+                    let block = vec![1u8; mb as usize * 1024 * 1024];
+                    eprintln!("holding {} MB", block.len() >> 20);
+                    std::mem::forget(block);
+                }
             }
             Some("lyrics") => send(word_times(&msg["params"])),
             Some("shutdown") => break,

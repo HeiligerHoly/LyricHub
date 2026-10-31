@@ -2,7 +2,7 @@
 
 > Stand: 2026-10-31 · Basis: 1.2.0 plus Auto-Sync und Recognize (für 1.3.0 gebaut, noch nicht veröffentlicht)
 > Herkunft: vier Fable-Agenten mit je einem Blickwinkel (Kern-App, Plugins, Gaming/VR/Streaming, Technik und Verteilung), zusammengeführt; die Aussagen über den heutigen Code sind nachgeprüft.
-> Status: **Vorschlag. Nichts davon ist entschieden oder gebaut.** Die Entscheidungen stehen in Abschnitt 6.
+> Status: **Paket A ist gebaut** (2026-10-31, für 1.3.0, siehe Abschnitt 2). Der Rest ist ein Vorschlag; die Entscheidungen stehen in Abschnitt 6.
 
 ## 1. Kurzfassung
 
@@ -26,6 +26,12 @@ Empfohlene Reihenfolge: **A, dann B oder C**. A braucht wenig und senkt das Risi
 | **Speichergrenze für Plugins** | `JOB_OBJECT_LIMIT_PROCESS_MEMORY` (etwa 2 GB) im Job-Objekt der Plugins. | `plugins/process.rs` setzt nur „beenden mit LyricHub“. Die Doku verspricht unter 1,5 GB, nichts erzwingt es. | S | Testplugin belegt 3 GB, wird beendet und neu gestartet |
 | **CI auf GitHub Actions** | Windows-Lauf: Tests von App und Plugins, `npm run check`, clippy, `cargo audit`, `npm audit`. Releases bleiben lokal. | Es gibt kein `.github/workflows`. Über 160 Tests laufen nur, wenn jemand daran denkt. | M | grüner Lauf unter 25 min mit Cache |
 | **Release-Skript härten** | `tools/build-release.ps1` lässt vorher die Tests und `cargo audit` laufen, baut mit `--locked`, schreibt `SHA256SUMS.txt` und bricht ab, wenn der Arbeitsbaum nicht sauber ist. | Heute baut es nur; die Prüfsummen stehen von Hand in den Release-Notizen. | S | Skript verweigert bei rotem Test |
+
+**Stand 2026-10-31: alle fünf gebaut.** Abweichungen vom Vorschlag:
+
+- **Speichergrenze 3 GB statt 2 GB:** Gemessen belegte Recognize beim Rechnen bis 1,75 GB zugesagten Speicher (1,2 GB im Arbeitsspeicher). 2 GB hätten kaum Luft gelassen. Der Test mit dem Beispiel-Plugin (3,5 GB) zeigt: Es bekommt keinen Speicher, endet und startet neu.
+- **Kein Minidump:** Ein Absturz außerhalb von Rusts Prüfungen (Zugriffsfehler in `unsafe`-Code) hinterlässt weiter keine Datei. Code, der in einem schon kaputten Prozess eine Datei schreibt, kann hängen bleiben, statt zu beenden; das wäre schlimmer. Windows führt solche Abstürze im Zuverlässigkeitsverlauf.
+- **CI:** `npm audit` prüft nur die ausgelieferten Pakete (`--omit=dev`); die vier schwachen Meldungen betreffen nur Werkzeuge zum Bauen. `cargo audit` meldet fünf Warnungen zu Linux-Paketen von Tauri, keine Sicherheitslücke. Ob ein Lauf unter 25 min bleibt, zeigt erst der erste Lauf auf GitHub.
 
 ## 3. Paket B – Mehr Songs mit Lyrics
 

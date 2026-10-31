@@ -1,7 +1,8 @@
 //! One plugin process (PLAN-plugins.md 4.1, 4.4). It starts without a console window at
 //! below-normal priority and joins a job object that ends it together with LyricHub, even if
-//! LyricHub crashes. Messages are JSON-RPC 2.0, one per line, over stdin/stdout; stderr lines
-//! go to the log. Nothing here knows Tauri, so the host logic can be tested on its own.
+//! LyricHub crashes, and caps its memory (IDEEN.md, package A). Messages are JSON-RPC 2.0, one
+//! per line, over stdin/stdout; stderr lines go to the log. Nothing here knows Tauri, so the
+//! host logic can be tested on its own.
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -17,12 +18,15 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::JobObjects::{
-    AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-    JobObjectExtendedLimitInformation, SetInformationJobObject,
+    AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation, SetInformationJobObject,
 };
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x0000_4000;
+/// Committed memory one plugin may hold. Recognize peaked at 1.75 GB committed (1.2 GB working
+/// set) on 2026-10-31; a plugin that asks for more gets no memory, ends, and is restarted.
+const PROCESS_MEMORY_LIMIT: usize = 3 << 30;
 /// Longer lines are dropped; word times for a whole song stay far below this.
 const MAX_LINE_BYTES: usize = 4 * 1024 * 1024;
 const TEXT_MAX_CHARS: usize = 300;
@@ -197,13 +201,15 @@ impl Process {
     }
 }
 
-/// A job object that ends its processes when its last handle closes: when LyricHub ends.
-fn kill_on_close_job() -> Option<HANDLE> {
+/// A job object that ends its processes when its last handle closes, that is when LyricHub
+/// ends, and gives each of them at most `memory_limit` bytes of committed memory.
+fn plugin_job(memory_limit: usize) -> Option<HANDLE> {
     // SAFETY: plain object creation; the structure is fully initialised.
     unsafe {
         let job = CreateJobObjectW(None, None).ok()?;
         let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_PROCESS_MEMORY;
+        info.ProcessMemoryLimit = memory_limit;
         SetInformationJobObject(
             job,
             JobObjectExtendedLimitInformation,
@@ -218,7 +224,7 @@ fn kill_on_close_job() -> Option<HANDLE> {
 fn assign_to_job(child: &Child) {
     // The handle stays open for the life of LyricHub; Windows closes it at exit.
     static JOB: OnceLock<Option<isize>> = OnceLock::new();
-    let job = JOB.get_or_init(|| kill_on_close_job().map(|h| h.0 as isize));
+    let job = JOB.get_or_init(|| plugin_job(PROCESS_MEMORY_LIMIT).map(|h| h.0 as isize));
     let Some(job) = job else {
         tracing::warn!("no job object: plugins may outlive LyricHub");
         return;
@@ -272,7 +278,7 @@ mod tests {
     /// Closing the job's last handle ends its processes, as when LyricHub ends or crashes.
     #[test]
     fn a_process_in_the_job_ends_when_the_job_closes() {
-        let job = kill_on_close_job().expect("job object");
+        let job = plugin_job(PROCESS_MEMORY_LIMIT).expect("job object");
         let mut child = Command::new("powershell")
             .args(["-NoProfile", "-Command", "Start-Sleep -Seconds 30"])
             .creation_flags(CREATE_NO_WINDOW)
@@ -288,5 +294,31 @@ mod tests {
             assert!(since.elapsed() < Duration::from_secs(5), "process outlived its job");
             std::thread::sleep(Duration::from_millis(50));
         }
+    }
+
+    /// A process that asks for more than the job allows gets no memory; without the job the same
+    /// request succeeds.
+    #[test]
+    fn a_process_in_the_job_gets_no_more_than_the_limit() {
+        let exit_code = |limit: Option<usize>| {
+            let mut child = Command::new("powershell")
+                .args(["-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $a = [byte[]]::new(1GB); exit 0"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn()
+                .expect("powershell");
+            let job = limit.map(|l| plugin_job(l).expect("job object"));
+            if let Some(job) = job {
+                // SAFETY: valid handles owned by this test; PowerShell starts long before it allocates.
+                unsafe { AssignProcessToJobObject(job, HANDLE(child.as_raw_handle())).expect("assign") };
+            }
+            let code = child.wait().unwrap().code();
+            if let Some(job) = job {
+                // SAFETY: the job handle is owned by this test.
+                unsafe { CloseHandle(job).unwrap() };
+            }
+            code
+        };
+        assert_eq!(exit_code(None), Some(0), "1 GB without a limit");
+        assert_ne!(exit_code(Some(512 << 20)), Some(0), "1 GB under a 512 MB limit");
     }
 }

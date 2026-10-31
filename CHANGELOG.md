@@ -11,11 +11,16 @@ The notable changes of each version. The release notes in [docs/release-notes/](
 - Plugin settings: a plugin's manifest can declare switches (`settings`, on/off with German and English labels). Settings → Plugins shows them, and LyricHub sends their values with a `settings` notification.
 - Lyrics from plugins: the capability `lyrics_source` hears `lyrics_wanted` for songs without synced lyrics and answers with `lyrics_found`. LyricHub checks the lines and keeps them in its cache with the plugin as their source; synced lyrics from LRCLIB always win. Settings → Sync shows where the lyrics come from and can discard a plugin's lyrics for a song for good. Removing a plugin also removes its lyrics.
 - LRCLIB lookup: a last stage searches by the title alone, for songs whose artist LRCLIB spells differently ("A & B", "A feat. C"). A result still has to match the artist and the length.
+- Crash traces (IDEEN.md, package A): a crash of LyricHub's own code leaves `logs\crash-<time>.txt` with the version, the place and the last log lines, song details and the Windows account name hidden. Settings → Diagnostics shows the last crash, and the diagnostics export carries the report. The export's log lines now hide the account name in paths too. A plugin's crash message now lands in the log too, as a warning; before, it was logged only in development builds. `LYRICHUB_CRASH_TEST=1` crashes LyricHub 3 s after the start, to check this.
+- The cache checks lyrics again: lyrics from a plugin and lyrics without timestamps that are 14 days old still show at once, and LyricHub then asks LRCLIB again. Synced lyrics found there replace them, in the song that plays too; otherwise the entry counts as checked for another 14 days.
+- Memory limit for plugins: each plugin may commit at most 3 GB. One that asks for more gets no memory, ends, and is restarted like after any crash. Recognize peaked at 1.75 GB committed.
+- CI on GitHub Actions: every push to main and every pull request runs the tests of the app and the plugins, the frontend check, clippy and the security advisories (`cargo audit`, `npm audit`) on Windows.
 
 ### Changed
 
 - When LRCLIB stays unavailable through all retries, a song counts as missing for two hours instead of a day; in a test, a third of the misses were only overload.
 - lyrichub-align 0.2.0 frees its model as soon as no song waits, instead of after 60 s, so Align and Recognize never hold two models at once. It logs a song it left out because too little of it was heard, and takes over Recognize's model as hard links instead of downloading it again.
+- `tools\build-release.ps1` refuses a working tree with changes, runs the tests, the frontend check and the security audits first, builds with the locked dependency versions and writes `SHA256SUMS.txt` next to the installer.
 
 ### Fixed
 

@@ -45,6 +45,7 @@ pub struct Cached {
     pub format: Format,
     pub raw: String,
     pub instrumental: bool,
+    /// When LRCLIB was last asked about the song, or when a plugin stored these lyrics.
     pub fetched_at: i64,
 }
 
@@ -183,6 +184,12 @@ impl Cache {
             ],
         )?;
         self.conn.execute("DELETE FROM negative_cache WHERE key = ?1", [key])?;
+        Ok(())
+    }
+
+    /// LRCLIB was asked again and had nothing better: the stored lyrics count as checked now.
+    pub fn mark_checked(&self, key: &str, now: i64) -> rusqlite::Result<()> {
+        self.conn.execute("UPDATE lyrics SET fetched_at = ?2 WHERE key = ?1", params![key, now])?;
         Ok(())
     }
 

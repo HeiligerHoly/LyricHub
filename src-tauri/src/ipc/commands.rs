@@ -311,6 +311,11 @@ pub fn app_info(app: AppHandle, settings: State<'_, SettingsState>) -> AppInfo {
 }
 
 #[tauri::command]
+pub fn last_crash() -> Option<crate::crash::LastCrash> {
+    crate::crash::last()
+}
+
+#[tauri::command]
 pub fn open_logs_folder(app: AppHandle) -> Result<(), String> {
     let dir = crate::logging::log_dir();
     app.opener().open_path(dir.display().to_string(), None::<&str>).map_err(|e| e.to_string())

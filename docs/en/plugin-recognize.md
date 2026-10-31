@@ -86,6 +86,6 @@ Tested with Spotify and the user's playlist, 2026-10-30/31, with Align and Recog
 - **Only from the second listen on,** and only for songs heard to 85 %.
 - **Recognized text has errors:** about every fifth word even above the threshold, almost every second in the English test song. Below the threshold the compact card stays.
 - **Only 12 test songs** for the threshold. Densely produced pop and rap on Spotify may be harder than Jamendo's CC music.
-- **Once stored, it stays:** a plugin's lyrics sit in the cache like found lyrics. If LRCLIB gets synced lyrics for the song later, LyricHub only sees them after "Reload lyrics" or "Discard the plugin's lyrics".
+- **Better lyrics only after 14 days:** a plugin's lyrics sit in the cache like found lyrics. Once they are 14 days old, LyricHub asks LRCLIB again at the next listen (IDEEN.md, package A). If LRCLIB gets synced lyrics sooner, LyricHub only sees them before that after "Reload lyrics" or "Discard the plugin's lyrics".
 - **Japanese and Korean:** not measured.
 - **Output latency and song offset** work as with Align ([docs/en/plugin-align.md](plugin-align.md)).

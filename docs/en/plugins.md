@@ -50,7 +50,7 @@ LRCLIB has no synced lyrics for some songs. Then Recognize steps in:
    - **Recognition:** otherwise the recognized text itself becomes the lyrics, but only when the recognition is sure enough. The overlay then shows "recognized" next to the title.
 3. **From the second listen on** the lyrics are there, with word times. Settings → Sync → Lyrics shows where they come from.
 
-Recognized text has errors (in the test about every fifth word, even when the recognition was sure). If lyrics from Recognize are wrong, throw them away with Settings → Sync → "Discard the plugin's lyrics". For that song LyricHub then asks LRCLIB again and no longer asks a plugin.
+Recognized text has errors (in the test about every fifth word, even when the recognition was sure). If lyrics from Recognize are wrong, throw them away with Settings → Sync → "Discard the plugin's lyrics". For that song LyricHub then asks LRCLIB again and no longer asks a plugin. Without you doing anything, LyricHub also asks LRCLIB again after 14 days: if it has synced lyrics by then, they replace Recognize's.
 
 ## Games and performance
 
@@ -58,7 +58,7 @@ The same holds for Align and Recognize. Only one of them computes at a time; the
 
 - **Fullscreen:** while a game or another program runs fullscreen in front, the plugin does not compute. The status line shows "Paused while a fullscreen game runs". Heard songs wait until the game is closed or runs in a window.
 - **CPU:** computing, the plugin uses 2 cores at "below normal" priority; capturing, almost nothing (under 0.1 % of the CPU).
-- **Memory:** idle a plugin takes about 30 MB, computing up to 1.5 GB. The model is loaded only while there is work.
+- **Memory:** idle a plugin takes about 30 MB, computing up to 1.5 GB. The model is loaded only while there is work. LyricHub allows each plugin at most 3 GB; a plugin that asks for more gets no memory, ends and starts again.
 - **Queue:** listening a lot while gaming for long collects songs. The queue holds a good two hours of music; then the oldest song goes.
 
 ## Privacy

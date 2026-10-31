@@ -419,6 +419,13 @@ export interface AppInfo {
   autostart_registered: boolean | null;
 }
 
+/** The newest `logs/crash-<unix>.txt` (src-tauri/src/crash.rs). */
+export interface LastCrash {
+  unix: number;
+  summary: string;
+  report: string;
+}
+
 export interface OverlayDiagnostics {
   visible: boolean;
   click_through: boolean;

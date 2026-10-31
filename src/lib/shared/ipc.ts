@@ -12,6 +12,7 @@ import type {
   EditDraft,
   FontList,
   HotkeyStatus,
+  LastCrash,
   LatencySample,
   LyricsEvent,
   Monitor,
@@ -80,6 +81,7 @@ export const ipc = {
   overlayDiagnostics: () => invoke<OverlayDiagnostics>("overlay_diagnostics"),
   runOverlaySelfTest: () => invoke<SelfTestReport>("run_overlay_selftest"),
   appInfo: () => invoke<AppInfo>("app_info"),
+  lastCrash: () => invoke<LastCrash | null>("last_crash"),
   openLogsFolder: () => invoke<void>("open_logs_folder"),
 };
 

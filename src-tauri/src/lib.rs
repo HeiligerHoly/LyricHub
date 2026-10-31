@@ -5,6 +5,7 @@
 mod app_state;
 mod audio_devices;
 mod calibration;
+mod crash;
 mod fonts;
 mod hotkeys;
 mod i18n;
@@ -27,6 +28,7 @@ use sources::PlaybackSource;
 
 pub fn run() {
     logging::init();
+    crash::install();
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "LyricHub starting");
 
     paths::drop_webview_components();
@@ -102,6 +104,7 @@ pub fn run() {
             ipc::commands::overlay_diagnostics,
             ipc::commands::run_overlay_selftest,
             ipc::commands::app_info,
+            ipc::commands::last_crash,
             ipc::commands::open_logs_folder,
         ])
         .setup(move |app| {
