@@ -104,12 +104,27 @@ pub fn list_sessions() -> Vec<PlayerSession> {
                 has_timeline,
             });
         }
-        Ok(out)
+        Ok(one_per_app(out))
     };
     read().unwrap_or_else(|e| {
         tracing::warn!(error = %e, "could not list media sessions");
         Vec::new()
     })
+}
+
+/// One entry per app: some apps (Elgato Studio, a browser with several tabs) hold more than one
+/// session, but the player choice names only the app. The session with a timeline, then the
+/// playing one, stands for the app, at the place of its first session.
+fn one_per_app(sessions: Vec<PlayerSession>) -> Vec<PlayerSession> {
+    let mut out: Vec<PlayerSession> = Vec::new();
+    for s in sessions {
+        match out.iter_mut().find(|o| o.app_id == s.app_id) {
+            Some(o) if (s.has_timeline, s.playing) > (o.has_timeline, o.playing) => *o = s,
+            Some(_) => {}
+            None => out.push(s),
+        }
+    }
+    out
 }
 
 /// Process ID of the player's root process, for a plugin that captures its sound (process
@@ -654,6 +669,30 @@ mod tests {
 
     fn sample(pos_ms: f64, playing: bool, valid_at: Instant) -> TimelineSample {
         TimelineSample { pos_ms, updated: 0, end_ms: 200_000, valid_at, playing }
+    }
+
+    #[test]
+    fn an_app_with_several_sessions_is_listed_once() {
+        // Elgato Studio held two sessions with the same id; the settings page broke on that.
+        let s = |app_id: &str, playing: bool, has_timeline: bool, title: &str| PlayerSession {
+            app_id: app_id.into(),
+            kind: player_kind(app_id),
+            title: title.into(),
+            playing,
+            has_timeline,
+        };
+        let list = one_per_app(vec![
+            s("Elgato.Studio!App", true, false, "first"),
+            s("F0DC299D809B9700", false, true, "tab"),
+            s("Elgato.Studio!App", false, true, "second"),
+            s("F0DC299D809B9700", true, true, "playing tab"),
+            s("SpotifyAB.SpotifyMusic!Spotify", true, true, "song"),
+        ]);
+        let got: Vec<(&str, &str)> = list.iter().map(|p| (p.app_id.as_str(), p.title.as_str())).collect();
+        assert_eq!(
+            got,
+            [("Elgato.Studio!App", "second"), ("F0DC299D809B9700", "playing tab"), ("SpotifyAB.SpotifyMusic!Spotify", "song")]
+        );
     }
 
     #[test]

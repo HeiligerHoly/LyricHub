@@ -2,6 +2,12 @@
 
 The notable changes of each version. The release notes in [docs/release-notes/](docs/release-notes/) have the details.
 
+## Unreleased
+
+### Fixed
+
+- Settings → Behavior showed only "500" while an app held several media sessions with the same id (seen with Elgato Studio): the player list now names each app once, with its session that has a timeline or plays.
+
 ## 1.3.0 – 2026-10-31
 
 See [docs/release-notes/v1.3.0.md](docs/release-notes/v1.3.0.md).
